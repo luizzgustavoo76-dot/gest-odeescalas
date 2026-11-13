@@ -143,3 +143,6 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - Corrigido: aviso antigo "o turno termina depois do fechamento de domingo" não aparece mais; o domingo usa apenas o horário do cartão Domingo.
 
 - **Rodízio de turnos corrigido:** todas as colaboradoras do posto entram no rodízio (antes quem estava nas primeiras posições ficava sempre cedo nas 4 semanas). A cada semana o grupo avança o número de vagas "cedo", então quem estava cedo vai para a tarde e vice-versa. Se o número de vagas não bate com o de colaboradoras, o app mantém a proporção cedo/tarde e avisa. Posto com 1 colaboradora só alterna se você configurar 1 cedo e 1 tarde.
+
+## Impressão resumida
+"Imprimir escala" gera exatamente 2 folhas A4 paisagem: 1 folha com a escala da semana (colaboradora, posto, entrada, almoço, saída e folgas) e 1 folha com a escala de domingo. A densidade da letra se ajusta ao número de colaboradoras.

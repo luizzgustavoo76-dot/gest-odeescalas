@@ -80,3 +80,34 @@
 
 .mov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}.mov-grid label{font-size:12px;font-weight:700}.mov-grid select{width:100%;margin-top:3px}
 .oa-mov{font-size:10px!important;font-weight:700;color:#334}.oa-mov-baixo{background:#e8f1fb}.oa-mov-medio{background:#f3f0dc}.oa-mov-alto{background:#ffe9cf}.oa-mov-muito{background:#ffd3d3}
+
+/* ===== impressão resumida ===== */
+.print-brand{display:none}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body{font-size:11px}
+  .metrics,.hero .status,.hero p,.schedule-title .tag,.schedule-title .eyebrow,#scheduleWarning,.off-analysis,.compliance-panel,.section-heading p,.sunday-dashboard .table-note,.sunday-dashboard .tag,#backupStatus{display:none!important}
+  .topbar{padding:0 0 3mm;min-height:0;border-bottom:2px solid var(--yellow)}
+  .topbar .brand{min-width:0}.brand-logo{height:11mm!important}.brand small{font-size:8px}.brand strong{font-size:15px}
+  .hero{margin:2mm 0 2mm}.hero h1{font-size:15px}.hero .eyebrow{font-size:9px;margin:0}
+  .layout{display:block}.dashboard{padding:0;border:0;overflow:visible}
+  .schedule-title{margin:0 0 2mm}.schedule-title h2{font-size:14px}
+  /* folha da semana: nome, posto, entrada, almoço, saída e folgas */
+  #scheduleTable{min-width:0;width:100%;font-size:11px}
+  #scheduleTable thead{display:table-header-group}
+  #scheduleTable td:nth-child(2),#scheduleTable th:nth-child(2),#scheduleTable td:last-child,#scheduleTable th:last-child{display:none!important}
+  #scheduleTable td{padding:3.2px 6px;white-space:normal;border-bottom:1px solid #d9dde3}
+  #scheduleTable th,#scheduleTable .sort-button{padding:4px 6px;font-size:9px}
+  #scheduleTable tr{break-inside:avoid;page-break-inside:avoid}
+  #scheduleTable .employee-link{text-decoration:none;color:#000}
+  .holiday-tag{font-size:8px}
+  /* folha do domingo */
+  .sunday-dashboard{margin:0;padding:0;border:0;break-before:page;page-break-before:always}
+  .sunday-dashboard .print-brand{display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--yellow);padding:0 0 3mm;margin:0 0 3mm}
+  .sunday-dashboard .print-brand img{height:11mm}.sunday-dashboard .print-brand b{font-size:15px;color:var(--navy)}.sunday-dashboard .print-brand span{margin-left:auto;font-size:13px;font-weight:bold}
+  .sunday-dashboard h2{font-size:14px}.sunday-dashboard table{min-width:0;width:100%;font-size:12px}.sunday-dashboard td{padding:5px 8px}
+  body[data-dense="m"] #scheduleTable td{padding:2.4px 6px;font-size:10.5px}
+  body[data-dense="s"] #scheduleTable td{padding:1.6px 5px;font-size:9.5px}
+  body[data-dense="xs"] #scheduleTable td{padding:1px 4px;font-size:8.5px}
+}
+@media print{.top-actions,.sector-picker,.week-picker{display:none!important}}
