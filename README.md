@@ -64,7 +64,7 @@ Login, banco de dados na nuvem, acesso simultâneo por gerentes, sincronização
 - "Sugerir domingos" e "Sugerir folgas" exigem que a Semana 1 tenha as colaboradoras de domingo escolhidas; as demais semanas são preenchidas por revezamento a partir dela, sem substituir semanas que você já preencheu.
 - Coluna "Carga semanal" trocada por "Limite c/ extras (máx. 1h30)" (saída + 1h30), na tela e na impressão, nos dois modelos.
 - Botão discreto "Restaurar todas as semanas…" (restaura as 4 semanas do setor aberto).
-- Rodízio de Pacote e Fiscal: campo "Rodízio" na ficha da colaboradora com posto Pacote ou Fiscal e botão "Aplicar rodízio de postos nas outras semanas" na aba Rodízio.
+- Rodízio de turnos por posto (Pacote, Fiscal e Recepção): veja a seção abaixo.
 
 ## Backup e cadastro (v9)
 
@@ -74,3 +74,47 @@ Login, banco de dados na nuvem, acesso simultâneo por gerentes, sincronização
 ## Geração automática (opcional)
 
 Aba **Gerar**: o botão "Gerar escala do setor" só age quando clicado. Exige os domingos da Semana 1 escolhidos. Preenche domingos das semanas vazias (revezamento), gira e equilibra os turnos (opcional) trocando quem trabalha no domingo para um turno que termina antes do fechamento, respeita a restrição de estudante/mãe (turno que termina até 18h), refaz as folgas (sem mais de 6 dias seguidos), rodízio de Pacote/Fiscal e distribui os PDVs sem repetir no mesmo dia e horário. Mostra um resumo da conformidade e permite **Desfazer última geração** por setor. O backup não inclui a cópia de desfazer.
+
+- Novo posto **Recepção** na Frente de Caixa, ao lado de PDV, Pacote e Fiscal, com rodízio entre as semanas como os demais.
+
+## Rodízio de turnos por posto (cedo/tarde)
+
+Na aba **Rodízio** (Frente de Caixa), defina para cada posto (**Pacote**, **Fiscal**, **Recepção**) quantas colaboradoras ficam no turno **cedo** e quantas no **tarde** (cedo = entrada antes de 09:00, ajustável). O **posto de cada colaboradora é o da ficha e não muda**: o rodízio é de turnos. A cada semana cada uma avança uma vaga e alterna entre cedo e tarde; cada posto é contado separadamente. Estudante/mãe com restrição ficam nas vagas cedo. Se o número de colaboradoras do posto for diferente do de vagas, o app avisa. A geração automática usa essa configuração.
+
+## Turno de domingo (novo)
+
+A aba **Turnos** tem um cartão **Domingo** por semana, com dois tipos: **Até o meio-dia** (padrão: entrada 07:40, saída 12:00, direto e sem intervalo; acima de 6h seguidas o app dá erro) e **Dia todo** (entrada, saída para almoço de 2h, retorno e saída calculada pela carga do modelo, como nos dias normais). Na Frente de Caixa, o domingo exige pelo menos 1 colaboradora no posto **Fiscal** e 1 na **Recepção**: a Semana 1 só libera o revezamento quando isso é atendido, e a conformidade acusa erro nas demais semanas.
+
+
+## Postos por setor (novo)
+
+O mesmo modelo da Frente de Caixa vale para os outros setores. O posto é fixo da colaboradora (escolhido na ficha, vale nas 4 semanas) e o rodízio é de turnos cedo/tarde por posto, na aba **Rodízio**:
+
+| Setor | Postos | Obrigatórios no domingo |
+|---|---|---|
+| Frente de Caixa | PDV, Pacote, Fiscal, Recepção | Fiscal e Recepção |
+| Açougue e Frios | Açougue, Frios, Repositor de Frios, Limpeza | Açougue e Frios |
+| Loja e Depósito | Depósito, Reposição, Troca de Etiqueta, Cartaz, Limpeza | Depósito e Reposição |
+| Padaria | Produção, Atendimento, Limpeza | Produção e Atendimento |
+
+Horti Fruit segue sem postos. A Semana 1 só libera o revezamento de domingos quando cada posto obrigatório tem alguém marcada; nas demais semanas a conformidade acusa erro se faltar. As exigências de domingo ficam na constante `SUNDAY_POSTS` do `app.js`, se quiser ajustar (por exemplo, incluir Limpeza).
+
+
+## Excluir colaboradora, folgas sem sábado e importação de planilha
+
+- **Excluir:** botão vermelho "Excluir" ao lado do número de cada colaboradora na ficha. Ela sai das 4 semanas, a numeração é refeita, o rodízio é reajustado e folgas e PDVs são recalculados (domingos e turnos das demais ficam como estão). Dá para desfazer na aba Gerar.
+- **Folgas sem sábado:** a sugestão de folgas, no 5x2 e no 6x1, não usa mais o sábado (só segunda a sexta). Escolhas manuais continuam livres.
+- **Importar planilha:** no topo, "Importar planilha…" aceita .xlsx ou .csv com as colunas Nome, Setor e Posto (opcional: Estudante/Mãe). O app reconhece o setor e o posto de cada colaboradora, ajusta a quantidade nas 4 semanas e aplica nomes, postos e restrições. Se o arquivo tiver uma aba por setor, o nome da aba vale como setor; sem coluna Setor, vale o setor aberto. "Baixar modelo" gera um exemplo. Antes de aplicar, o app mostra um resumo e avisos de nomes de setor/posto não reconhecidos; dá para desfazer na aba Gerar.
+
+
+## Logo
+
+A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arquivo na mesma pasta do `index.html`). Para trocar, substitua esse arquivo.
+
+
+## Rodízio único + Operadora Caixa (novo)
+
+- A aba **Rodízio** agora tem somente o **rodízio de turnos dos postos** (cedo/tarde), em todos os setores. O rodízio antigo por quantidade de turnos foi removido. Sem ajuste manual, as vagas são metade cedo e metade tarde das colaboradoras do posto; edite os números quando quiser.
+- **Frente de Caixa:** postos Operadora Caixa, Pacote, Fiscal e Recepção. O PDV deixou de ser posto: quando a colaboradora é "Operadora Caixa", aparece na ficha a caixa **PDV da semana** para escolher o número (cada semana pode ter um PDV diferente). A geração automática distribui PDVs sem repetir no mesmo dia e horário.
+- **Horti Fruit** usa o posto único "Equipe" para poder ter rodízio de turnos cedo/tarde. Os demais setores seguem com seus postos (Açougue/Frios/Limpeza, Depósito/Reposição/Limpeza, Produção/Atendimento/Limpeza).
+- Posto exigido no domingo com só 1 colaboradora: como ninguém pode trabalhar dois domingos seguidos, o app acusa erro nas semanas alternadas; para evitar, tenha pelo menos 2 colaboradoras nesse posto.

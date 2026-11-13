@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#b91c1c" /><title>Bom Dia | Gestão de Escalas</title><link rel="stylesheet" href="styles.css" /></head>
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#b91c1c" /><link rel="icon" type="image/png" href="logo.png" /><title>Bom Dia | Gestão de Escalas</title><link rel="stylesheet" href="styles.css" /></head>
   <body>
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">BD</span><span><strong>Bom Dia</strong><small>GESTÃO DE ESCALAS · GRUPO SÃO LUIZ</small></span></div>
+      <div class="brand"><img class="brand-logo" src="logo.png" alt="Supermercados Bom Dia · São Luiz" /><span><strong>Gestão de Escalas</strong><small>GRUPO SÃO LUIZ</small></span></div>
       <div class="sector-picker"><label for="sectorSelect">Setor</label><select id="sectorSelect"><option value="frente-caixa">Frente de Caixa</option><option value="acougue-frios">Açougue e Frios</option><option value="loja-deposito">Loja e Depósito</option><option value="padaria">Padaria</option><option value="horti-fruit">Horti Fruit</option></select></div>
       <div class="week-picker"><label for="weekStart">Segunda-feira de referência</label><input id="weekStart" type="date" /><small>A data é sempre ajustada para a segunda-feira.</small></div>
-      <button class="button outline print-action" id="printButton" type="button">Imprimir escala</button>
+      <div class="top-actions"><label class="button outline import-label">Importar planilha…<input id="xlsxFile" type="file" accept=".xlsx,.csv" hidden /></label><button class="link-btn" id="modelButton" type="button">Baixar modelo</button><button class="button outline print-action" id="printButton" type="button">Imprimir escala</button></div>
     </header>
     <main>
       <section class="hero"><div><p class="eyebrow" id="sectorLabel">PAINEL GERENCIAL</p><h1 id="mainTitle">Escala semanal</h1><p>Configure cada semana separadamente; os turnos ficam ordenados do mais cedo para o mais tarde.</p></div><div class="status"><span></span> <em id="statusText">Dados salvos neste dispositivo</em></div></section>
