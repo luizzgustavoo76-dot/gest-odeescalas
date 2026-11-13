@@ -371,21 +371,40 @@ async function readXlsx(buf){
     return{name:s.name,rows};
   });
 }
+/* departamento (ex.: da folha de pagamento) -> setor + posto */
+const DEPT_MAP=[
+  [/frente|caixa/,'frente-caixa','caixa'],[/pacote/,'frente-caixa','pacote'],[/fiscal/,'frente-caixa','fiscal'],[/recepc/,'frente-caixa','recepcao'],
+  [/repositor.*frios/,'acougue-frios','repositorfrios'],[/acougue/,'acougue-frios','acougue'],[/frios/,'acougue-frios','frios'],
+  [/producao/,'padaria','producao'],[/atendimento/,'padaria','atendimento'],[/padaria/,'padaria',null],
+  [/etiqueta/,'loja-deposito','trocaetiqueta'],[/cartaz/,'loja-deposito','cartaz'],[/reposic/,'loja-deposito','reposicao'],[/deposito/,'loja-deposito','deposito'],[/limpeza/,'loja-deposito','limpeza'],
+  [/flv|horti|fruit|hortifruti/,'horti-fruit','equipe'],
+  [/administrativ|geral|escritorio|loja/,'loja-deposito',null]
+];
+function mapDept(t){const n=normTxt(t);if(!n)return null;const m=DEPT_MAP.find(d=>d[0].test(n));return m?{sec:m[1],post:m[2]}:null}
+function nomeBonito(n){n=String(n).trim().replace(/\s+/g,' ');if(n!==n.toUpperCase())return n;return n.toLowerCase().split(' ').map((w,i)=>i>0&&/^(de|da|do|das|dos|e)$/.test(w)?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ')}
 function planilhaParaLista(sheets){
   const bySector={},warn=[],cur=state.selectedSector;
   sheets.forEach(sh=>{
-    const rows=sh.rows.filter(r=>r.some(c=>String(c).trim()));if(!rows.length)return;
-    const head=rows[0].map(normTxt),find=re=>head.findIndex(h=>re.test(h)),hasHead=find(/nome|colaborador|funcionari/)>=0||find(/setor/)>=0||find(/posto|funcao|cargo/)>=0;
-    const ci={name:hasHead?find(/nome|colaborador|funcionari/):0,sector:hasHead?find(/setor|secao|departamento/):1,post:hasHead?find(/posto|funcao|cargo/):2,restr:hasHead?find(/restri|estudante|mae/):-1};
+    let rows=sh.rows.filter(r=>r.some(c=>String(c).trim()));if(!rows.length)return;
+    /* o cabeçalho pode não estar na 1ª linha (ex.: "Empresa: ..." no topo) */
+    const hi=rows.slice(0,10).findIndex(r=>r.some(c=>/^(nome|colaborador|colaboradora|funcionario|funcionaria)s?$/.test(normTxt(c))));
+    const hasHead=hi>=0||rows[0].some(c=>/setor|posto|departamento/.test(normTxt(c)));
+    const hr=Math.max(0,hi),head=(rows[hr]||[]).map(normTxt),find=re=>head.findIndex(h=>re.test(h));
+    const ci={name:hasHead?find(/^(nome|colaborador|funcionario)/):0,sector:hasHead?find(/setor|secao|departamento/):1,post:hasHead?find(/posto|funcao|cargo/):2,restr:hasHead?find(/restri|estudante|mae/):-1};
     if(hasHead&&ci.name<0)ci.name=0;
     const fallback=mapSector(sh.name)||cur;
-    rows.slice(hasHead?1:0).forEach(r=>{
-      const name=String(r[ci.name]||'').trim();if(!name)return;
-      const secTxt=ci.sector>=0?String(r[ci.sector]||'').trim():'',sec=secTxt?mapSector(secTxt):fallback;
-      if(!sec){warn.push(name+': setor "'+secTxt+'" não reconhecido (ignorada)');return}
-      const post=mapPost(sec,ci.post>=0?r[ci.post]:'');
-      if(!post&&SECTOR_POSTS[sec]&&ci.post>=0&&String(r[ci.post]||'').trim())warn.push(name+': posto "'+r[ci.post]+'" não existe em '+SECTORS[sec]+' (usei o padrão)');
-      const rs=ci.restr>=0?/^(s|sim|x|1|estudante|mae|mãe|true)/.test(normTxt(r[ci.restr])):false;
+    rows.slice(hasHead?hr+1:0).forEach(r=>{
+      const name=nomeBonito(r[ci.name]||'');if(!name||/^\d/.test(name)||/^(total|empresa)\b/i.test(name))return;
+      const secTxt=ci.sector>=0?String(r[ci.sector]||'').trim():'',postTxt=ci.post>=0?String(r[ci.post]||'').trim():'';
+      let sec=null,post=null;
+      const dep=secTxt?mapDept(secTxt):null;
+      if(dep){sec=dep.sec;if(dep.post&&(SECTOR_POSTS[sec]||[]).includes(dep.post))post={station:dep.post}}
+      else if(secTxt){sec=mapSector(secTxt);if(!sec){warn.push(name+': setor "'+secTxt+'" não reconhecido (ignorada)');return}}
+      else sec=fallback;
+      if(postTxt){const m=mapPost(sec,postTxt);if(m)post=m;else warn.push(name+': posto "'+postTxt+'" não existe em '+SECTORS[sec]+' (usei o padrão)')}
+      else if(!post&&sec==='frente-caixa')post={station:'caixa',pdv:0};
+      const rs=ci.restr>=0?/^(s|sim|x|1|estudante|mae|true)/.test(normTxt(r[ci.restr])):false;
+      if(!secTxt&&ci.sector>=0)warn.push(name+': sem departamento (colocada em '+SECTORS[sec]+')');
       (bySector[sec]=bySector[sec]||[]).push({name,post,restricted:rs});
     });
   });
