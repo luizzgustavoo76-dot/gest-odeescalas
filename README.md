@@ -122,3 +122,10 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - **Planilha de funcionários da folha:** o importador acha o cabeçalho mesmo com linhas acima (ex.: "Empresa: ..."), usa só Nome e Departamento (ignora PIS, CPF etc.) e converte o departamento em setor + posto: FRENTE DE CAIXA → Frente de Caixa/Operadora Caixa; PACOTE, RECEPÇÃO → Frente de Caixa; AÇOUGUE, FRIOS → Açougue e Frios; REPOSIÇÃO, DEPÓSITO, LIMPEZA, ADMINISTRATIVO, GERAL → Loja e Depósito; PADARIA → Padaria; FLV → Horti Fruit. Nomes em MAIÚSCULAS viram "Nome Sobrenome".
 
 - **PDV só na Frente de Caixa:** nos demais setores some o cartão "PDVs em uso", a aba PDVs, a escolha de PDV na ficha e o painel de alertas de atendimento.
+
+
+## Tela responsiva e análise de folgas (novo)
+
+- A tabela da escala se adapta à largura da tela e, no celular, vira um cartão por colaboradora (nada mais fica cortado).
+- No fim da página, a seção **Análise de folgas** mostra, para a semana aberta: pontos de atenção (dias mais vazios, folgas desiguais, sábado, domingo abaixo do mínimo, posto com 1 só pessoa); quadro por turno e por posto com quantas trabalham em cada dia e o que sobra se mais 1 folgar (vermelho/amarelo); e quem está de folga em cada dia.
+- A sugestão de folgas do 5x2 agora espalha melhor as folgas de segunda a sexta.

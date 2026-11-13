@@ -44,3 +44,36 @@
 .pdv-pick{background:#fff7e0;border-radius:8px;padding:6px 8px}
 .brand-logo{height:44px!important}@media(max-width:700px){.brand-logo{height:38px!important}}
 [hidden]{display:none!important}
+
+/* tabelas responsivas */
+#scheduleTable{min-width:0}#scheduleTable td{white-space:normal;padding:9px 7px}#scheduleTable th .sort-button{padding:9px 7px;white-space:normal}
+#scheduleTable .c-off{min-width:130px}
+@media(max-width:760px){
+  #scheduleTable,#scheduleTable tbody,#scheduleTable tr,#scheduleTable td{display:block;width:100%}
+  #scheduleTable thead{display:none}
+  #scheduleTable tr{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:6px 10px;background:#fff}
+  #scheduleTable td{display:flex;justify-content:space-between;gap:12px;text-align:right;border:0;border-bottom:1px solid #f0f2f5;padding:7px 0}
+  #scheduleTable td:last-child{border-bottom:0}
+  #scheduleTable td::before{content:attr(data-label);font-weight:700;color:var(--navy);text-align:left;flex:none}
+  #scheduleTable td.c-name{font-size:15px;font-weight:800;text-align:left;display:block}
+  #scheduleTable td.c-name::before{content:none}
+  #scheduleTable .c-off{min-width:0}
+  #scheduleTable td[data-label="Folgas"]{flex-direction:column;gap:2px;text-align:left}
+}
+/* análise de folgas */
+.off-analysis{margin-top:22px}
+.oa-obs{background:#fff8e6;border:1px solid #f1d98a;border-radius:10px;padding:12px 16px;margin:0 0 16px}
+.oa-obs h3,.oa-title{margin:0 0 8px;font-size:14px;color:var(--navy)}.oa-title{margin-top:18px}
+.oa-obs ul{margin:0;padding-left:18px;line-height:1.55;font-size:13px}
+.oa-table{min-width:0;table-layout:fixed}
+.oa-table th,.oa-table td{padding:7px 4px;text-align:center;font-size:12px;white-space:normal;vertical-align:middle}
+.oa-table thead th{padding:8px 2px;font-size:11px}
+.oa-table thead th small,.oa-row small,.oa-table td small{display:block;font-size:10px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
+.oa-table .oa-row{text-align:left;width:22%;padding-left:8px;font-weight:700;text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink)}
+.oa-table td b{font-size:15px}
+.oa-ok{background:#e9f7ef}.oa-warn{background:#fff4d6}.oa-crit{background:#fde4e4;color:#8f1414}.oa-closed{background:#f1f3f6;color:var(--muted);font-size:10px!important}
+.oa-total td,.oa-total th{border-top:2px solid var(--line)}
+.oa-who th{width:28%}.oa-who td{text-align:left;font-size:12px;line-height:1.5}
+@media(max-width:620px){.oa-table .oa-row{width:26%;font-size:11px}.oa-table td b{font-size:13px}.oa-table td small{display:none}.oa-table thead th small{display:none}}
+
+.oa-who td small{display:inline!important;font-size:11px!important}.oa-who td{font-weight:400}
