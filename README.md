@@ -120,3 +120,5 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - Posto exigido no domingo com só 1 colaboradora: como ninguém pode trabalhar dois domingos seguidos, o app acusa erro nas semanas alternadas; para evitar, tenha pelo menos 2 colaboradoras nesse posto.
 
 - **Planilha de funcionários da folha:** o importador acha o cabeçalho mesmo com linhas acima (ex.: "Empresa: ..."), usa só Nome e Departamento (ignora PIS, CPF etc.) e converte o departamento em setor + posto: FRENTE DE CAIXA → Frente de Caixa/Operadora Caixa; PACOTE, RECEPÇÃO → Frente de Caixa; AÇOUGUE, FRIOS → Açougue e Frios; REPOSIÇÃO, DEPÓSITO, LIMPEZA, ADMINISTRATIVO, GERAL → Loja e Depósito; PADARIA → Padaria; FLV → Horti Fruit. Nomes em MAIÚSCULAS viram "Nome Sobrenome".
+
+- **PDV só na Frente de Caixa:** nos demais setores some o cartão "PDVs em uso", a aba PDVs, a escolha de PDV na ficha e o painel de alertas de atendimento.
