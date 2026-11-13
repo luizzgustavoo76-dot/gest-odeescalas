@@ -65,14 +65,16 @@ function swapSundayShifts(w){
   return sun.length-done;
 }
 /* PDV: ninguém divide o mesmo PDV com quem trabalha no mesmo dia e horário; mantém o número atual quando está livre */
-function assignPdvs(w,wi){
+function assignPdvs(w,wi,fresh){
   const emps=w.employees.filter(e=>e.station==='caixa'),days=e=>DAYS.filter(d=>worksOn(e,d[0],wi)).map(d=>d[0]);
   const iv=e=>[mins(w.shifts[e.shift].start),mins(w.shifts[e.shift].end)];
   const clash=(a,b)=>{const x=iv(a),y=iv(b);if(!(x[0]<y[1]&&y[0]<x[1]))return false;const da=days(a);return days(b).some(d=>da.includes(d))};
   const done=[];let short=0;
+  /* fresh: quem entra mais cedo (1º turno) pega os PDVs mais baixos, 1 a 4 primeiro */
+  if(fresh)emps.sort((a,b)=>mins(w.shifts[a.shift].start)-mins(w.shifts[b.shift].start)||a.id-b.id);
   emps.forEach(e=>{
     const used=new Set(done.filter(o=>clash(e,o)).map(o=>o.pdv));
-    let pick=(e.pdv>=1&&e.pdv<=w.pdvCount&&!used.has(e.pdv))?e.pdv:0;
+    let pick=(!fresh&&e.pdv>=1&&e.pdv<=w.pdvCount&&!used.has(e.pdv))?e.pdv:0;
     if(!pick)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)){pick=n;break}
     if(!pick){pick=((e.id-1)%w.pdvCount)+1;short++}
     e.pdv=pick;done.push(e);
@@ -90,7 +92,7 @@ async function generateAll(){
   weeks.forEach(w=>{restr+=swapRestricted(w)});
   weeks.forEach(w=>balanceOffs(w,true));
   if(hasPdv()){
-    if(g.pdv)weeks.forEach((w,wi)=>{shortPdv+=assignPdvs(w,wi)});
+    if(g.pdv)weeks.forEach((w,wi)=>{shortPdv+=assignPdvs(w,wi,true)});
   }
   state.selectedWeek=0;
   const list=compliance(),er=list.filter(x=>x.level==='erro').length,at=list.filter(x=>x.level==='atenção').length;

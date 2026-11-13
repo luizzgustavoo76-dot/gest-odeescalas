@@ -146,3 +146,6 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 
 ## Impressão resumida
 "Imprimir escala" gera exatamente 2 folhas A4 paisagem: 1 folha com a escala da semana (colaboradora, posto, entrada, almoço, saída e folgas) e 1 folha com a escala de domingo. A densidade da letra se ajusta ao número de colaboradoras.
+
+## PDV ao gerar as semanas
+Ao gerar as escalas, quem trabalha no 1º turno (entrada mais cedo) recebe os PDVs mais baixos (1 a 4 primeiro); os turnos seguintes pegam os números livres seguintes. Ninguém divide o mesmo PDV no mesmo dia e horário.
