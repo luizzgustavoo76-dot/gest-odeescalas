@@ -137,3 +137,5 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - **Domingo "Dia todo":** a saída agora é um campo editável (a sugestão inicial vem da carga do modelo, mas nada é recalculado depois). Se mudar a entrada, a saída acompanha o mesmo deslocamento. A conformidade avisa se a jornada ficar abaixo da carga do modelo e dá erro acima de 10h por dia.
 
 - **Conferência de folgas:** a Análise de folgas mostra "N colaboradoras × 2 folgas = X" contra a soma real da semana (5x2) e aponta quem está fora do padrão. O domingo não trabalhado conta como uma das 2 folgas; no 6x1 quem trabalha no domingo tem 1 folga e quem não trabalha tem o domingo mais 1 extra.
+
+- **Folgas pensadas pelo atendimento:** na aba Gerar, "Movimento esperado por dia" (Baixo/Médio/Alto/Muito alto, com padrão de supermercado: segunda e terça fracas, sexta alta, sábado muito alto). A sugestão e a geração de folgas concentram as folgas nos dias fracos e poupam os de pico, por turno; mantêm ao menos metade de cada turno presente e nunca deixam um posto (Fiscal, Recepção, Pacote…) sem ninguém. A Análise de folgas mostra o movimento de cada dia.

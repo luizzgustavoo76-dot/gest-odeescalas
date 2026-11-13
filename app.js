@@ -94,7 +94,7 @@ async function generateAll(){
   }
   state.selectedWeek=0;
   const list=compliance(),er=list.filter(x=>x.level==='erro').length,at=list.filter(x=>x.level==='atenção').length;
-  state.notice='Escala gerada para '+SECTORS[sel]+'. '+sundayNote(r)+(shortPdv?' '+shortPdv+' colaboradora(s) ficaram sem PDV exclusivo: há mais pessoas simultâneas do que PDVs.':'')+(postNotes.length?' Rodízio de turnos dos postos: '+postNotes.join('; ')+'.':'')+(restr?' '+restr+' colaboradora(s) com restrição após 18h não couberam em turno que termina até 18h.':'')+(late?' '+late+' colaboradora(s) de domingo ficaram com turno que termina depois do fechamento.':'')+' Conformidade: '+(er?er+' erro(s)':'sem erros')+(at?', '+at+' atenção(ões)':'')+'. Use "Desfazer última geração" para voltar.';
+  state.notice='Escala gerada para '+SECTORS[sel]+'. '+sundayNote(r)+MOVE_NOTE+(shortPdv?' '+shortPdv+' colaboradora(s) ficaram sem PDV exclusivo: há mais pessoas simultâneas do que PDVs.':'')+(postNotes.length?' Rodízio de turnos dos postos: '+postNotes.join('; ')+'.':'')+(restr?' '+restr+' colaboradora(s) com restrição após 18h não couberam em turno que termina até 18h.':'')+(late?' '+late+' colaboradora(s) de domingo ficaram com turno que termina depois do fechamento.':'')+' Conformidade: '+(er?er+' erro(s)':'sem erros')+(at?', '+at+' atenção(ões)':'')+'. Use "Desfazer última geração" para voltar.';
   render();toast('Escala gerada. '+(er?er+' erro(s) de conformidade — veja o painel.':'Sem erros de conformidade.'),!er);
 }
 async function undoGenerate(){
@@ -107,6 +107,8 @@ function renderGen(){
   const g=state.gen,u=state.undo&&state.undo[state.selectedSector];
   document.getElementById('genPanel').innerHTML=`<div class="setting-block"><label>Geração automática (opcional)</label><p class="helper">Nada é gerado sozinho: a escala só muda quando você clicar em "Gerar". Antes, escolha na Semana 1 quem trabalha no domingo. O app monta as 4 semanas deste setor respeitando CLT, EC 141/2026 e CCT.</p></div>
   ${hasPosts()?`<div class="setting-block">${hasPdv()?`<label class="check-row"><input type="checkbox" id="genPdv" ${g.pdv?'checked':''} /> Distribuir PDVs sem repetir no mesmo dia e horário</label>`:''}<label class="check-row"><input type="checkbox" id="genPosts" ${g.posts?'checked':''} /> Aplicar o rodízio de turnos dos postos (vagas cedo/tarde da aba Rodízio)</label></div>`:''}
+  <div class="setting-block"><label>Movimento esperado por dia</label><p class="helper">Como o gerente: dias de mais movimento ficam com menos folgas e a equipe maior. O app distribui as folgas por turno pelo movimento, mantém ao menos metade de cada turno presente e nunca deixa um posto (Fiscal, Recepção, Pacote…) sem ninguém. Vale também para "Sugerir folgas".</p>
+  <div class="mov-grid">${DAYS.map(d=>`<label>${d[1]}<select data-mov="${d[0]}">${MOV_LEVELS.map(l=>`<option value="${l[0]}" ${movement()[d[0]]===l[0]?'selected':''}>${l[1]}</option>`).join('')}</select></label>`).join('')}</div></div>
   <button class="button full" id="genRun" type="button">Gerar escala do setor</button>
   <button class="button outline full" id="genUndo" type="button" ${u?'':'disabled'}>Desfazer última geração${u?' ('+short(new Date(u.at))+' '+pad(new Date(u.at).getHours())+':'+pad(new Date(u.at).getMinutes())+')':''}</button>
   <p class="helper">Substitui as folgas${g.posts?', os turnos dos postos':''}${hasPdv()?' e os números de PDV':''}. Mantém nomes e os domingos de semanas que você já preencheu.</p>`;
@@ -178,6 +180,12 @@ function replicate(kind){const source=clone(week());sector().weeks.forEach((targ
 /* Folgas equilibradas: escolhe os dias de folga de cada colaboradora para que cada turno (cedo, meio, tarde) fique com
    a quantidade de pessoas o mais parecida possível em todos os dias, sem sábado sempre que der, sem repetir o dia de folga
    de Recepção/Fiscal e sem passar de 6 dias seguidos de trabalho entre uma semana e outra (art. 67 da CLT). */
+/* movimento esperado de atendimento por dia da semana (editável na aba Gerar): quanto maior o movimento, menos folgas naquele dia */
+const MOVE_NOTE=' As folgas seguem o movimento esperado de cada dia (aba Gerar): mais folgas nos dias fracos e menos nos de pico, sempre com ao menos metade de cada turno e alguém em cada posto.';
+const MOV_LEVELS=[['baixo','Baixo',4],['medio','Médio',3],['alto','Alto',2],['muito','Muito alto',1]];
+const MOV_DEFAULT={segunda:'baixo',terça:'baixo',quarta:'medio',quinta:'medio',sexta:'alto',sábado:'muito',domingo:'alto'};
+function movement(){const s=sector(),m=s.movement||{},out={};Object.keys(MOV_DEFAULT).forEach(k=>{out[k]=MOV_LEVELS.some(l=>l[0]===m[k])?m[k]:MOV_DEFAULT[k]});return out}
+const movLabel=k=>MOV_LEVELS.find(l=>l[0]===movement()[k])[1],movWeight=k=>MOV_LEVELS.find(l=>l[0]===movement()[k])[2];
 function balanceOffs(w,chain){
   const weeks=sector().weeks,wi=weeks.indexOf(w),prev=wi>0?weeks[wi-1]:null,next=!chain&&wi>=0&&wi<weeks.length-1?weeks[wi+1]:null;
   const dayKeys=DAYS.filter(d=>d[0]!=='domingo').map(d=>d[0]),idx=k=>dayKeys.indexOf(k);
@@ -185,6 +193,10 @@ function balanceOffs(w,chain){
   const cnt={},tot=dayKeys.map(()=>0),used={};
   const get=(s,d)=>cnt[s+'-'+d]||0,put=(s,d)=>{cnt[s+'-'+d]=get(s,d)+1;tot[d]++};
   const need=e=>six?1:(e.sundayWork?2:1);
+  const wts=dayKeys.map((k,d)=>closedDay(k,wi)?0:movWeight(k)),wsum=wts.reduce((a,b)=>a+b,0)||1;
+  const totNeed=emps.reduce((t,e)=>t+need(e),0),shiftNeed={},shiftMem={},postMem={};
+  emps.forEach(e=>{shiftNeed[e.shift]=(shiftNeed[e.shift]||0)+need(e);shiftMem[e.shift]=(shiftMem[e.shift]||0)+1;if(hasPosts())postMem[e.station]=(postMem[e.station]||0)+1});
+  const tgt=(s,d)=>(shiftNeed[s]||0)*wts[d]/wsum,tgtTot=d=>totNeed*wts[d]/wsum,postCnt={};
   const lastOff=(x)=>Math.max(-1,...x.offDays.map(idx));
   const lims=emps.map((e,i)=>{
     let ub=5,lb=0;
@@ -203,9 +215,12 @@ function balanceOffs(w,chain){
     return ta-tb||emps[a].shift-emps[b].shift||a-b;
   });
   const dayCost=(e,d,picked)=>{
-    let c=get(e.shift,d)*100+tot[d]*8;
+    const cs=get(e.shift,d)+picked.filter(x=>x===d).length;
+    let c=(2*(cs-tgt(e.shift,d))+1)*100+(2*(tot[d]-tgtTot(d))+1)*30;   // segue o movimento esperado do dia
     if(d===5)c+=400;                                   // evita sábado
+    const M=shiftMem[e.shift]||0;if(M>=2&&M-(cs+1)<Math.ceil(M/2))c+=8000;  // pelo menos metade do turno presente
     if(NO_SAME_OFF.includes(e.station)&&(used[e.station+'-'+d]))c+=5000;  // Recepção/Fiscal: mesmo dia só se não houver saída
+    if(hasPosts()&&(postMem[e.station]||0)>=2&&(postCnt[e.station+'-'+d]||0)+1>=postMem[e.station])c+=8000;  // nunca deixar o posto sem ninguém
     return c+picked.filter(x=>x===d).length*9999;
   };
   order.forEach(i=>{
@@ -220,7 +235,7 @@ function balanceOffs(w,chain){
       // custo acumulado considerando as escolhas já feitas nesta combinação
       const t={};let c=0;picks.forEach((d,k)=>{c+=dayCost(e,d,picks.slice(0,k))+(t[d]||0)*0;t[d]=1});
       // custo de desequilíbrio: soma dos quadrados das contagens depois de aplicar
-      picks.forEach(d=>{c+=get(e.shift,d)*get(e.shift,d)*20});
+
       if(best===null||c<best.c)best={c,picks};
     };
     if(n===1)cand.forEach(d=>tryPick([d]));
@@ -228,7 +243,7 @@ function balanceOffs(w,chain){
     if(!best){const f=(e.sundayWork&&lb>0?cand.filter(d=>d>=lb):cand)[0]??cand[0];best={picks:n===1?[f]:[cand[0],cand[1]??cand[0]]}}
     best.picks.sort((a,b)=>a-b);
     e.offDays=best.picks.map(d=>dayKeys[d]);
-    best.picks.forEach(d=>{put(e.shift,d);if(NO_SAME_OFF.includes(e.station))used[e.station+'-'+d]=1});
+    best.picks.forEach(d=>{put(e.shift,d);postCnt[e.station+'-'+d]=(postCnt[e.station+'-'+d]||0)+1;if(NO_SAME_OFF.includes(e.station))used[e.station+'-'+d]=1});
   });
 }
 function suggestOffFor(w){balanceOffs(w,false)}
@@ -293,13 +308,13 @@ function sundayNote(r){return (r.filled.length?'Domingos preenchidos nas semanas
 function suggestOffDays(){
   if(!baseOk()){needBase();return}
   const r=fillSundays();r.filled.forEach(wi=>suggestOffFor(sector().weeks[wi]));suggestOffFor(week());
-  state.notice='Folgas sugeridas nesta semana. '+sundayNote(r);render();
+  state.notice='Folgas sugeridas nesta semana. '+sundayNote(r)+MOVE_NOTE;render();
 }
 const SIX_NOTE=' No 6x1, a semana sem domingo recebe uma folga extra no meio da semana: com só 1 folga por semana e domingos alternados a pessoa passaria de 6 dias seguidos de trabalho (art. 67 da CLT).';
 function suggestOffAll(){
   if(!baseOk()){needBase();return}
   const r=fillSundays();sector().weeks.forEach(w=>balanceOffs(w,true));
-  state.notice='Folgas sugeridas nas 4 semanas. '+sundayNote(r);render();
+  state.notice='Folgas sugeridas nas 4 semanas. '+sundayNote(r)+MOVE_NOTE;render();
 }
 function suggestSundays(){
   if(!baseOk()){needBase();return}
@@ -514,6 +529,7 @@ function renderOffAnalysis(){
   const offN=DAYS.map((d,i)=>total[i]===null?null:N-total[i]);
   // por turno
   const shiftRows=w.shifts.map((s,i)=>{const mem=emps.filter(e=>e.shift===i);return `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}<small>${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map(d=>d[0]==='domingo'?'<td class="oa-closed" title="Veja o quadro de domingo">—</td>':cell(mem.filter(e=>works(e,d)).length,closed(d))).join('')}</tr>`}).join('');
+  const movRow=`<tr><th class="oa-row">Movimento esperado<small>editável em Gerar</small></th>${DAYS.map(d=>`<td class="oa-mov oa-mov-${movement()[d[0]]}">${movLabel(d[0])}</td>`).join('')}</tr>`;
   const totalRow=`<tr class="oa-total"><th class="oa-row">Total<small>${N} colab.</small></th>${DAYS.map((d,i)=>closed(d)?'<td class="oa-closed">Fechado</td>':`<td class="oa-${total[i]<Math.ceil(N*0.5)?'warn':'ok'}"><b>${total[i]}</b><small>${offN[i]} de folga</small></td>`).join('')}</tr>`;
   // por posto
   const posts=hasPosts()?postKeys().map(k=>({k,mem:emps.filter(e=>e.station===k)})).filter(p=>p.mem.length):[];
@@ -543,7 +559,7 @@ function renderOffAnalysis(){
   if(!obs.length)obs.push('Sem pontos de atenção nesta semana.');
   el.innerHTML=`<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi+1}</p><h2>Quem folga e quanto sobra em cada turno</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div></div>
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map(o=>'<li>'+o+'</li>').join('')}</ul></div>
-  <h3 class="oa-title">Por turno</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${shiftRows}${totalRow}</tbody></table></div>
+  <h3 class="oa-title">Por turno</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${shiftRows}${totalRow}</tbody></table></div>
   ${posts.length?`<h3 class="oa-title">Por posto</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${postRows}</tbody></table></div>`:''}
   <h3 class="oa-title">Quem está de folga em cada dia</h3><div class="table-wrap"><table class="oa-table oa-who"><tbody>${whoRows}</tbody></table></div>`;
 }
@@ -666,7 +682,7 @@ function renderCompliance(){
   <li>Fontes: <a href="https://crn1.com.br/2026/10/sindiempresarial-fecha-convencoes-coletivas-com-reajuste-de-55-e-define-horarios-do-comercio-ate-2027" target="_blank" rel="noopener">CRN1</a>, <a href="https://www.tribunadointerior.com.br/campo-mourao/convencoes-do-comercio-definem-novos-salarios-e-horarios-de-fim-de-ano/" target="_blank" rel="noopener">Tribuna do Interior</a>, <a href="https://www12.senado.leg.br/noticias/materias/2026/10/16/congresso-promulga-o-fim-da-escala-6x1-e-aposentadoria-de-agentes-de-saude" target="_blank" rel="noopener">Agência Senado</a>.</li></ul></details>`;
 }
 
-document.addEventListener('change',event=>{const t=event.target,w=week();if(t.id==='sectorSelect'){state.selectedSector=t.value;render();return}if(t.id==='weekClose'||t.id==='sundayClose'){if(t.value)state.settings[t.id]=t.value;render();return}if(t.id==='extraHolidays'){state.settings.extraText=t.value;render();return}if(t.dataset.post!==undefined){setPostCfg(t.dataset.post,t.dataset.per,t.value);render();return}if(t.id==='postEarly'){if(t.value)state.settings.earlyBefore=t.value;render();return}if(t.id==='genShifts'){state.gen.shifts=t.value;render();return}if(t.id==='genPdv'){state.gen.pdv=t.checked;return}if(t.id==='genPosts'){state.gen.posts=t.checked;return}if(t.id==='weekStart'){state.baseMonday=monday(t.value);render();return}if(t.id==='activeEmployees'){setActive(t.value);return}if(t.id==='pdvCount'){setPdv(t.value);return}if(t.id==='shiftCount'){setShiftCount(t.value);return}if(t.id==='rotationEnabled'){w.rotation.enabled=t.checked;w.rotation.message=t.checked?'Rodízio ativado. Configure as quantidades e aplique quando desejar.':'Rodízio desativado; a escala permanece manual.';render();return}if(t.dataset.rotationCount!==undefined){w.rotation.counts[+t.dataset.rotationCount]=Math.max(0,+t.value||0);w.rotation.message='';render();return}if(t.dataset.sunday!==undefined){const sd=w.sunday,f=t.dataset.sunday;if(f==='mode'){sd.mode=t.value;if(t.value==='meio'){sd.start='07:40';sd.end='12:00'}else{sd.start='07:00';sd.lunchStart='11:00';sd.end=plus('07:00',workDuration(w.model,state.selectedWeek)+120)}}else if(t.value){if(f==='start'&&sd.mode==='dia'){const delta=mins(t.value)-mins(sd.start);sd.end=time((mins(sd.end)+delta+1440)%1440)}sd[f]=t.value}if(sd.mode==='dia'){const st=mins(sd.start),ls=mins(sd.lunchStart),c=Math.min(st+360,Math.max(st+60,ls));if(c!==ls){toast('Almoço do domingo ajustado para '+time(c)+': não pode haver mais de 6h seguidas sem intervalo.');sd.lunchStart=time(c)}}render();return}if(t.dataset.shift!==undefined){const s=w.shifts[+t.dataset.shift],f=t.dataset.field,dur=workDuration(w.model),oldStart=s.start;if(!t.value){render();return}s[f]=t.value;let ls=mins(s.lunchStart);if(f==='start')ls+=mins(s.start)-mins(oldStart);const lo=mins(s.start)+Math.max(60,dur-360),hi=mins(s.start)+360,c=Math.min(hi,Math.max(lo,ls));if(c!==ls&&f==='lunchStart')toast('Almoço ajustado para '+time(c)+': não pode haver mais de 6h seguidas sem intervalo e a jornada deve cumprir a carga de '+hm(dur)+'.');s.lunchStart=time(c);sync(s);render();return}if(t.dataset.off!==undefined){const e=w.employees[+t.dataset.employee],day=t.dataset.off,need=offLimit(e);if(t.checked&&!e.offDays.includes(day)){if(e.offDays.length>=need){t.checked=false;return}if(NO_SAME_OFF.includes(e.station)){const grp=w.employees.filter(x=>x.station===e.station),other=grp.find(x=>x!==e&&x.offDays.includes(day));if(other&&grp.length<=3){t.checked=false;toast('Não é permitido: '+other.name+' ('+POST_NAMES[e.station]+') já folga '+day+'. Colaboradoras do posto '+POST_NAMES[e.station]+' não podem folgar no mesmo dia.');return}}e.offDays=[...e.offDays,day]}if(!t.checked)e.offDays=e.offDays.filter(x=>x!==day);render();return}if(t.dataset.employee!==undefined){const e=w.employees[+t.dataset.employee],f=t.dataset.field;if(f==='name'){roster()[+t.dataset.employee].name=t.value.trim()||('Colaboradora '+e.id);render();return}if(f==='restricted'){roster()[+t.dataset.employee].restricted=t.checked;render();return}if(f==='shift')e.shift=+t.value;else if(f==='station'){if(POST_NAMES[t.value]){e.station=t.value;roster()[+t.dataset.employee].station=t.value}}else if(f==='pdv')e.pdv=+t.value;else if(f==='sundayWork'&&t.value==='true'&&sundayConflict(e)>=0){const k=sundayConflict(e);toast('Não é permitido: '+e.name+' já trabalha no domingo da semana '+(k+1)+' ('+short(date('domingo',k))+'). Ninguém pode trabalhar dois domingos seguidos.');render();return}else e[f]=f==='sundayWork'?t.value==='true':t.value;if(f==='sundayWork')e.offDays=e.offDays.slice(0,offLimit(e));render()}});
+document.addEventListener('change',event=>{const t=event.target,w=week();if(t.id==='sectorSelect'){state.selectedSector=t.value;render();return}if(t.id==='weekClose'||t.id==='sundayClose'){if(t.value)state.settings[t.id]=t.value;render();return}if(t.id==='extraHolidays'){state.settings.extraText=t.value;render();return}if(t.dataset.post!==undefined){setPostCfg(t.dataset.post,t.dataset.per,t.value);render();return}if(t.id==='postEarly'){if(t.value)state.settings.earlyBefore=t.value;render();return}if(t.id==='genShifts'){state.gen.shifts=t.value;render();return}if(t.id==='genPdv'){state.gen.pdv=t.checked;return}if(t.id==='genPosts'){state.gen.posts=t.checked;return}if(t.id==='weekStart'){state.baseMonday=monday(t.value);render();return}if(t.id==='activeEmployees'){setActive(t.value);return}if(t.id==='pdvCount'){setPdv(t.value);return}if(t.id==='shiftCount'){setShiftCount(t.value);return}if(t.id==='rotationEnabled'){w.rotation.enabled=t.checked;w.rotation.message=t.checked?'Rodízio ativado. Configure as quantidades e aplique quando desejar.':'Rodízio desativado; a escala permanece manual.';render();return}if(t.dataset.rotationCount!==undefined){w.rotation.counts[+t.dataset.rotationCount]=Math.max(0,+t.value||0);w.rotation.message='';render();return}if(t.dataset.mov!==undefined){const s=sector();s.movement={...movement(),[t.dataset.mov]:t.value};render();return}if(t.dataset.sunday!==undefined){const sd=w.sunday,f=t.dataset.sunday;if(f==='mode'){sd.mode=t.value;if(t.value==='meio'){sd.start='07:40';sd.end='12:00'}else{sd.start='07:00';sd.lunchStart='11:00';sd.end=plus('07:00',workDuration(w.model,state.selectedWeek)+120)}}else if(t.value){if(f==='start'&&sd.mode==='dia'){const delta=mins(t.value)-mins(sd.start);sd.end=time((mins(sd.end)+delta+1440)%1440)}sd[f]=t.value}if(sd.mode==='dia'){const st=mins(sd.start),ls=mins(sd.lunchStart),c=Math.min(st+360,Math.max(st+60,ls));if(c!==ls){toast('Almoço do domingo ajustado para '+time(c)+': não pode haver mais de 6h seguidas sem intervalo.');sd.lunchStart=time(c)}}render();return}if(t.dataset.shift!==undefined){const s=w.shifts[+t.dataset.shift],f=t.dataset.field,dur=workDuration(w.model),oldStart=s.start;if(!t.value){render();return}s[f]=t.value;let ls=mins(s.lunchStart);if(f==='start')ls+=mins(s.start)-mins(oldStart);const lo=mins(s.start)+Math.max(60,dur-360),hi=mins(s.start)+360,c=Math.min(hi,Math.max(lo,ls));if(c!==ls&&f==='lunchStart')toast('Almoço ajustado para '+time(c)+': não pode haver mais de 6h seguidas sem intervalo e a jornada deve cumprir a carga de '+hm(dur)+'.');s.lunchStart=time(c);sync(s);render();return}if(t.dataset.off!==undefined){const e=w.employees[+t.dataset.employee],day=t.dataset.off,need=offLimit(e);if(t.checked&&!e.offDays.includes(day)){if(e.offDays.length>=need){t.checked=false;return}if(NO_SAME_OFF.includes(e.station)){const grp=w.employees.filter(x=>x.station===e.station),other=grp.find(x=>x!==e&&x.offDays.includes(day));if(other&&grp.length<=3){t.checked=false;toast('Não é permitido: '+other.name+' ('+POST_NAMES[e.station]+') já folga '+day+'. Colaboradoras do posto '+POST_NAMES[e.station]+' não podem folgar no mesmo dia.');return}}e.offDays=[...e.offDays,day]}if(!t.checked)e.offDays=e.offDays.filter(x=>x!==day);render();return}if(t.dataset.employee!==undefined){const e=w.employees[+t.dataset.employee],f=t.dataset.field;if(f==='name'){roster()[+t.dataset.employee].name=t.value.trim()||('Colaboradora '+e.id);render();return}if(f==='restricted'){roster()[+t.dataset.employee].restricted=t.checked;render();return}if(f==='shift')e.shift=+t.value;else if(f==='station'){if(POST_NAMES[t.value]){e.station=t.value;roster()[+t.dataset.employee].station=t.value}}else if(f==='pdv')e.pdv=+t.value;else if(f==='sundayWork'&&t.value==='true'&&sundayConflict(e)>=0){const k=sundayConflict(e);toast('Não é permitido: '+e.name+' já trabalha no domingo da semana '+(k+1)+' ('+short(date('domingo',k))+'). Ninguém pode trabalhar dois domingos seguidos.');render();return}else e[f]=f==='sundayWork'?t.value==='true':t.value;if(f==='sundayWork')e.offDays=e.offDays.slice(0,offLimit(e));render()}});
 document.addEventListener('click',event=>{const wb=event.target.closest('[data-week]'),sb=event.target.closest('[data-sort]'),jump=event.target.closest('[data-jump]'),tab=event.target.closest('.tab'),model=event.target.closest('[data-model]'),apply=event.target.closest('#applyRotation'),copy=event.target.closest('[data-replicate]'),suggest=event.target.closest('[data-suggest-off]'),sun=event.target.closest('[data-suggest-sundays]'),allOff=event.target.closest('[data-suggest-off-all]'),posts=event.target.closest('#applyPosts'),gen=event.target.closest('#genRun'),und=event.target.closest('#genUndo');if(wb){state.selectedWeek=+wb.dataset.week;render();return}if(sb){setSort(sb.dataset.sort);return}if(jump){document.getElementById('operator-'+jump.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'center'});return}if(tab){activateTab(tab.dataset.tab);return}if(model){setModel(model.dataset.model);return}if(apply){applyRotation();return}if(copy){replicate(copy.dataset.replicate);return}if(suggest)suggestOffDays();if(sun)suggestSundays();if(allOff)suggestOffAll();if(posts)applyPostPlan(false);if(gen)generateAll();if(und)undoGenerate()});
 document.getElementById('decreaseActive').addEventListener('click',()=>setActive(week().activeCount-1));document.getElementById('increaseActive').addEventListener('click',()=>setActive(week().activeCount+1));document.getElementById('decreasePdv').addEventListener('click',()=>setPdv(week().pdvCount-1));document.getElementById('increasePdv').addEventListener('click',()=>setPdv(week().pdvCount+1));
 document.getElementById('printButton').addEventListener('click',()=>{if(issues().length){renderWarning();document.getElementById('scheduleWarning').scrollIntoView({behavior:'smooth',block:'center'});return}document.body.dataset.printMode='complete';window.print()});window.addEventListener('afterprint',()=>delete document.body.dataset.printMode);
