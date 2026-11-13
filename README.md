@@ -129,3 +129,5 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - A tabela da escala se adapta à largura da tela e, no celular, vira um cartão por colaboradora (nada mais fica cortado).
 - No fim da página, a seção **Análise de folgas** mostra, para a semana aberta: pontos de atenção (dias mais vazios, folgas desiguais, sábado, domingo abaixo do mínimo, posto com 1 só pessoa); quadro por turno e por posto com quantas trabalham em cada dia e o que sobra se mais 1 folgar (vermelho/amarelo); e quem está de folga em cada dia.
 - A sugestão de folgas do 5x2 agora espalha melhor as folgas de segunda a sexta.
+
+- **Recepção e Fiscal sem folga no mesmo dia:** a sugestão e a geração de folgas distribuem as folgas das colaboradoras de cada um desses postos em dias diferentes (segunda a sábado; o domingo segue a regra de domingo alternado). Na ficha, o app bloqueia marcar uma folga que outra do mesmo posto já tem, e a conformidade acusa erro se houver coincidência. Com mais de 3 colaboradoras no posto a coincidência pode ser inevitável e vira só um aviso.
