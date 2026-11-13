@@ -364,6 +364,7 @@ function applyPostPlan(silent){
       assign.forEach(a=>{const list=ix[a.per];if(list.length)a.e.shift=list[cnt[a.per]++%list.length]});
     });
   });
+  if(!silent&&hasPdv())weeks.forEach((w,wi)=>assignPdvs(w,wi,true));
   if(!silent){
     state.notice='Rodízio de turnos aplicado nas 4 semanas: '+postKeys().filter(k=>cfg[k].cedo+cfg[k].tarde>0).map(k=>POST_NAMES[k]+' '+cfg[k].cedo+' cedo / '+cfg[k].tarde+' tarde').join('; ')+'. O posto de cada colaboradora não muda: ela alterna entre cedo e tarde a cada semana.'+(notes.length?' Atenção: '+notes.join('; ')+'.':'');
     render();toast('Rodízio de turnos dos postos aplicado.',true);
