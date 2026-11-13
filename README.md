@@ -141,3 +141,5 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - **Folgas pensadas pelo atendimento:** na aba Gerar, "Movimento esperado por dia" (Baixo/Médio/Alto/Muito alto, com padrão de supermercado: segunda e terça fracas, sexta alta, sábado muito alto). A sugestão e a geração de folgas concentram as folgas nos dias fracos e poupam os de pico, por turno; mantêm ao menos metade de cada turno presente e nunca deixam um posto (Fiscal, Recepção, Pacote…) sem ninguém. A Análise de folgas mostra o movimento de cada dia.
 
 - Corrigido: aviso antigo "o turno termina depois do fechamento de domingo" não aparece mais; o domingo usa apenas o horário do cartão Domingo.
+
+- **Rodízio de turnos corrigido:** todas as colaboradoras do posto entram no rodízio (antes quem estava nas primeiras posições ficava sempre cedo nas 4 semanas). A cada semana o grupo avança o número de vagas "cedo", então quem estava cedo vai para a tarde e vice-versa. Se o número de vagas não bate com o de colaboradoras, o app mantém a proporção cedo/tarde e avisa. Posto com 1 colaboradora só alterna se você configurar 1 cedo e 1 tarde.

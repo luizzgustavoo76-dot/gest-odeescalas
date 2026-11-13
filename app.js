@@ -351,14 +351,19 @@ function applyPostPlan(silent){
     postKeys().forEach(k=>{
       const slots=postSlots(k);if(!slots.length)return;
       const all=w.employees.filter(e=>e.station===k).sort((a,b)=>a.id-b.id);
-      if(wi===0&&all.length!==slots.length)notes.push(POST_NAMES[k]+': '+all.length+' colaboradora(s) para '+slots.length+' vaga(s)');
-      const assign=all.slice(0,slots.length).map((e,j)=>({e,per:slots[(j+wi)%slots.length]}));
+      if(wi===0&&all.length!==slots.length)notes.push(POST_NAMES[k]+': '+all.length+' colaboradora(s) para '+slots.length+' vaga(s) (mantive a proporção cedo/tarde para todas entrarem)');
+      /* todas as colaboradoras do posto entram no rodízio: se o número de vagas não bate com o de colaboradoras, mantém a proporção cedo/tarde.
+         A cada semana o grupo avança o número de vagas "cedo", então quem estava cedo vai para a tarde e vice-versa. */
+      const M=all.length,C=cfg[k].cedo,T=cfg[k].tarde;if(!M)return;
+      const c=M===1?((C>0&&T>0)?(wi%2===0?1:0):(C>0?1:0)):T===0?M:C===0?0:Math.min(M-1,Math.max(1,Math.round(M*C/(C+T)))),step=M===1?0:c>0&&c<M?c:0;
+      const mine=[...Array(c).fill('cedo'),...Array(M-c).fill('tarde')];
+      const assign=all.map((e,j)=>({e,per:mine[(j+wi*step)%M]}));
       assign.forEach(a=>{if(a.e.restricted&&a.per==='tarde'){const o=assign.find(b=>!b.e.restricted&&b.per==='cedo');if(o){o.per='tarde';a.per='cedo'}}});
       assign.forEach(a=>{const list=ix[a.per];if(list.length)a.e.shift=list[cnt[a.per]++%list.length]});
     });
   });
   if(!silent){
-    state.notice='Rodízio de turnos aplicado nas 4 semanas: '+postKeys().map(k=>POST_NAMES[k]+' '+cfg[k].cedo+' cedo / '+cfg[k].tarde+' tarde').join('; ')+'. O posto de cada colaboradora não muda: ela alterna entre cedo e tarde a cada semana.'+(notes.length?' Atenção: '+notes.join('; ')+'.':'');
+    state.notice='Rodízio de turnos aplicado nas 4 semanas: '+postKeys().filter(k=>cfg[k].cedo+cfg[k].tarde>0).map(k=>POST_NAMES[k]+' '+cfg[k].cedo+' cedo / '+cfg[k].tarde+' tarde').join('; ')+'. O posto de cada colaboradora não muda: ela alterna entre cedo e tarde a cada semana.'+(notes.length?' Atenção: '+notes.join('; ')+'.':'');
     render();toast('Rodízio de turnos dos postos aplicado.',true);
   }
   return{ok:true,notes};
