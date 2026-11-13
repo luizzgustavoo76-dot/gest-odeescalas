@@ -86,9 +86,9 @@ async function generateAll(){
   state.undo={...(state.undo||{}),[sel]:{at:new Date().toISOString(),weeks:clone(sector().weeks)}};
   state.selectedWeek=0;const weeks=sector().weeks;weeks.forEach(w=>{normalizeWeek(w);sortShifts(w)});
   const r=fillSundays();let late=0,shortPdv=0,restr=0,postNotes=[];
-  weeks.forEach(suggestOffFor);
   if(hasPosts()&&g.posts){const rp=applyPostPlan(true);if(rp&&rp.notes.length)postNotes=rp.notes}
   weeks.forEach(w=>{restr+=swapRestricted(w)});
+  weeks.forEach(w=>balanceOffs(w,true));
   if(hasPdv()){
     if(g.pdv)weeks.forEach((w,wi)=>{shortPdv+=assignPdvs(w,wi)});
   }
@@ -175,13 +175,63 @@ function fittedCounts(counts,total,slots){const sourceTotal=counts.reduce((a,b)=
 function shiftForSlot(counts,slot){let sum=0;for(let i=0;i<counts.length;i++){sum+=counts[i];if(slot<sum)return i}return counts.length-1}
 function applyRotation(){const source=week(),sum=source.rotation.counts.reduce((a,b)=>a+b,0);if(sum!==source.activeCount){source.rotation.message=`A soma dos turnos deve ser ${source.activeCount}; ajuste antes de aplicar.`;render();return}source.rotation.message='Rodízio aplicado nas quatro semanas deste setor.';sector().weeks.forEach((target,targetIndex)=>{normalizeWeek(target);const counts=fittedCounts(source.rotation.counts,target.activeCount,target.shifts.length),offset=(((targetIndex-state.selectedWeek)*counts[0])%target.activeCount+target.activeCount)%target.activeCount;target.rotation={enabled:true,counts,message:targetIndex===state.selectedWeek?source.rotation.message:''};target.employees.forEach((e,index)=>e.shift=shiftForSlot(counts,(index-offset+target.activeCount)%target.activeCount));sortShifts(target)});render()}
 function replicate(kind){const source=clone(week());sector().weeks.forEach((target,index)=>{if(index===state.selectedWeek)return;normalizeWeek(target);if(kind==='all'){sector().weeks[index]=clone(source);normalizeWeek(sector().weeks[index]);sortShifts(sector().weeks[index]);fixSundays(sector().weeks[index],source,index);return}if(kind==='team'){target.activeCount=source.activeCount;target.model=source.model;target.employees=clone(source.employees);target.shifts.forEach(s=>sync(s,target.model));fixSundays(target,source,index)}if(kind==='shifts'){target.shifts=clone(source.shifts);target.sunday=clone(source.sunday)}if(kind==='rotation'){target.rotation=clone(source.rotation)}if(kind==='pdvs'&&hasPdv())target.pdvCount=source.pdvCount;normalizeWeek(target);sortShifts(target)});render()}
-function suggestOffFor(w){
-  /* Folgas fixas por colaboradora (grupos Seg/Qui, Ter/Sex, Qua/Sáb): quem trabalha no domingo recebe 2 folgas na semana;
-     quem não trabalha no domingo já tem o domingo de folga e recebe só a primeira. Assim a primeira folga da semana seguinte
-     nunca vem depois da última da anterior e não surgem mais de 6 dias seguidos de trabalho. */
-  const need=w.model==='6x1'?1:2;
-  w.employees.forEach((e,i)=>{e.offDays=offForEmp(w,e,i)});
+/* Folgas equilibradas: escolhe os dias de folga de cada colaboradora para que cada turno (cedo, meio, tarde) fique com
+   a quantidade de pessoas o mais parecida possível em todos os dias, sem sábado sempre que der, sem repetir o dia de folga
+   de Recepção/Fiscal e sem passar de 6 dias seguidos de trabalho entre uma semana e outra (art. 67 da CLT). */
+function balanceOffs(w,chain){
+  const weeks=sector().weeks,wi=weeks.indexOf(w),prev=wi>0?weeks[wi-1]:null,next=!chain&&wi>=0&&wi<weeks.length-1?weeks[wi+1]:null;
+  const dayKeys=DAYS.filter(d=>d[0]!=='domingo').map(d=>d[0]),idx=k=>dayKeys.indexOf(k);
+  const emps=w.employees,six=w.model==='6x1';
+  const cnt={},tot=dayKeys.map(()=>0),used={};
+  const get=(s,d)=>cnt[s+'-'+d]||0,put=(s,d)=>{cnt[s+'-'+d]=get(s,d)+1;tot[d]++};
+  const need=e=>six?1:(e.sundayWork?2:1);
+  const lastOff=(x)=>Math.max(-1,...x.offDays.map(idx));
+  const lims=emps.map((e,i)=>{
+    let ub=5,lb=0;
+    const pe=prev&&prev.employees[i];
+    if(!e.sundayWork&&pe&&pe.sundayWork){const m=lastOff(pe);if(m>=0)ub=m}   // semana seguinte à de domingo: folga até a última folga da anterior
+    const ne=next&&next.employees[i];
+    if(e.sundayWork&&ne&&!ne.sundayWork){const c=lastOff(ne);if(c>=0)lb=c}   // semana anterior à sem domingo: última folga não pode ser antes da folga seguinte
+    return{ub,lb};
+  });
+  const closedIdx=dayKeys.map(k=>closedDay(k,wi));
+  const allowed=i=>dayKeys.map((k,d)=>d).filter(d=>!closedIdx[d]);
+  const order=emps.map((e,i)=>i).sort((a,b)=>{
+    const ga=NO_SAME_OFF.includes(emps[a].station)?0:1,gb=NO_SAME_OFF.includes(emps[b].station)?0:1;
+    if(ga!==gb)return ga-gb;
+    const ta=(lims[a].ub<5?0:1)+(lims[a].lb>0?0:1),tb=(lims[b].ub<5?0:1)+(lims[b].lb>0?0:1);
+    return ta-tb||emps[a].shift-emps[b].shift||a-b;
+  });
+  const dayCost=(e,d,picked)=>{
+    let c=get(e.shift,d)*100+tot[d]*8;
+    if(d===5)c+=400;                                   // evita sábado
+    if(NO_SAME_OFF.includes(e.station)&&(used[e.station+'-'+d]))c+=5000;  // Recepção/Fiscal: mesmo dia só se não houver saída
+    return c+picked.filter(x=>x===d).length*9999;
+  };
+  order.forEach(i=>{
+    const e=emps[i],n=need(e),{ub,lb}=lims[i];
+    let cand=allowed(i);
+    if(!e.sundayWork)cand=cand.filter(d=>d<=ub);
+    if(!cand.length)cand=allowed(i).filter(d=>d<=Math.max(ub,0));
+    if(!cand.length)cand=[0];
+    let best=null;
+    const tryPick=picks=>{
+      if(e.sundayWork&&Math.max(...picks)<lb)return;
+      // custo acumulado considerando as escolhas já feitas nesta combinação
+      const t={};let c=0;picks.forEach((d,k)=>{c+=dayCost(e,d,picks.slice(0,k))+(t[d]||0)*0;t[d]=1});
+      // custo de desequilíbrio: soma dos quadrados das contagens depois de aplicar
+      picks.forEach(d=>{c+=get(e.shift,d)*get(e.shift,d)*20});
+      if(best===null||c<best.c)best={c,picks};
+    };
+    if(n===1)cand.forEach(d=>tryPick([d]));
+    else for(let a=0;a<cand.length;a++)for(let b=a+1;b<cand.length;b++)tryPick([cand[a],cand[b]]);
+    if(!best){const f=(e.sundayWork&&lb>0?cand.filter(d=>d>=lb):cand)[0]??cand[0];best={picks:n===1?[f]:[cand[0],cand[1]??cand[0]]}}
+    best.picks.sort((a,b)=>a-b);
+    e.offDays=best.picks.map(d=>dayKeys[d]);
+    best.picks.forEach(d=>{put(e.shift,d);if(NO_SAME_OFF.includes(e.station))used[e.station+'-'+d]=1});
+  });
 }
+function suggestOffFor(w){balanceOffs(w,false)}
 function offForEmp(w,e,i){const g=NO_SAME_OFF.includes(e.station)?w.employees.filter(x=>x.station===e.station):null;return g?offFor(e,g.indexOf(e),w.model,true):offFor(e,i,w.model)}
 function offFor(e,i,model,grp){
   const g=i%3;
@@ -248,7 +298,7 @@ function suggestOffDays(){
 const SIX_NOTE=' No 6x1, a semana sem domingo recebe uma folga extra no meio da semana: com só 1 folga por semana e domingos alternados a pessoa passaria de 6 dias seguidos de trabalho (art. 67 da CLT).';
 function suggestOffAll(){
   if(!baseOk()){needBase();return}
-  const r=fillSundays();sector().weeks.forEach(suggestOffFor);
+  const r=fillSundays();sector().weeks.forEach(w=>balanceOffs(w,true));
   state.notice='Folgas sugeridas nas 4 semanas. '+sundayNote(r);render();
 }
 function suggestSundays(){
@@ -320,7 +370,7 @@ async function removeEmployee(i){
   const r=roster();r.splice(i,1);
   weeks.forEach(w=>{if(w.employees.length>i){w.employees.splice(i,1);w.activeCount=w.employees.length;w.rotation=rotation(w.activeCount,w.shifts.length)}});
   normalize();
-  weeks.forEach(suggestOffFor);
+  weeks.forEach(w=>balanceOffs(w,true));
   if(hasPdv())weeks.forEach((w,wi)=>assignPdvs(w,wi));
   state.notice=name+' foi excluída. Numeração refeita, folgas'+(hasPdv()?' e PDVs':'')+' recalculados nas 4 semanas. Se algum posto obrigatório do domingo ficou sem ninguém, o painel de conformidade avisa.';
   render();toast(name+' excluída. Dá para desfazer na aba Gerar.',true);

@@ -131,3 +131,5 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - A sugestão de folgas do 5x2 agora espalha melhor as folgas de segunda a sexta.
 
 - **Recepção e Fiscal sem folga no mesmo dia:** a sugestão e a geração de folgas distribuem as folgas das colaboradoras de cada um desses postos em dias diferentes (segunda a sábado; o domingo segue a regra de domingo alternado). Na ficha, o app bloqueia marcar uma folga que outra do mesmo posto já tem, e a conformidade acusa erro se houver coincidência. Com mais de 3 colaboradoras no posto a coincidência pode ser inevitável e vira só um aviso.
+
+- **Folgas equilibradas por turno:** "Sugerir folgas" e "Gerar" escolhem os dias de folga olhando o turno de cada colaboradora, para que cedo, meio e tarde fiquem com quantidades parecidas em todos os dias (nos testes a diferença entre dois dias do mesmo turno ficou em no máximo 1 pessoa). Mantém: sem sábado, Recepção/Fiscal em dias diferentes, domingo alternado e no máximo 6 dias seguidos. Na geração automática, os turnos do rodízio dos postos são definidos antes das folgas.
