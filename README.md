@@ -135,3 +135,5 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 - **Folgas equilibradas por turno:** "Sugerir folgas" e "Gerar" escolhem os dias de folga olhando o turno de cada colaboradora, para que cedo, meio e tarde fiquem com quantidades parecidas em todos os dias (nos testes a diferença entre dois dias do mesmo turno ficou em no máximo 1 pessoa). Mantém: sem sábado, Recepção/Fiscal em dias diferentes, domingo alternado e no máximo 6 dias seguidos. Na geração automática, os turnos do rodízio dos postos são definidos antes das folgas.
 
 - **Domingo "Dia todo":** a saída agora é um campo editável (a sugestão inicial vem da carga do modelo, mas nada é recalculado depois). Se mudar a entrada, a saída acompanha o mesmo deslocamento. A conformidade avisa se a jornada ficar abaixo da carga do modelo e dá erro acima de 10h por dia.
+
+- **Conferência de folgas:** a Análise de folgas mostra "N colaboradoras × 2 folgas = X" contra a soma real da semana (5x2) e aponta quem está fora do padrão. O domingo não trabalhado conta como uma das 2 folgas; no 6x1 quem trabalha no domingo tem 1 folga e quem não trabalha tem o domingo mais 1 extra.

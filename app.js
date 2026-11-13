@@ -534,6 +534,12 @@ function renderOffAnalysis(){
   w.shifts.forEach((s,i)=>{const mem=emps.filter(e=>e.shift===i),low=DAYS.filter(d=>!closed(d)&&d[0]!=='domingo'&&mem.length&&mem.filter(e=>works(e,d)).length<=1).map(d=>d[0]);if(low.length)obs.push(`${escape(s.name)} fica com 1 ou nenhuma pessoa em: ${low.join(', ')}.`)});
   const perPerson=emps.filter(e=>w.model==='5x2'?effOff(e).length!==2:effOff(e).length<1).length;
   if(perPerson)obs.push(`${perPerson} colaboradora(s) sem a quantidade de folgas do modelo ${w.model}.`);
+  // conferência: cada colaboradora tem 2 folgas por semana no 5x2 (o domingo não trabalhado conta como folga)
+  const per=emps.map(e=>({e,n:DAYS.filter(d=>!closed(d)&&!works(e,d)).length,hol:DAYS.filter(d=>closed(d)).length}));
+  const sumOff=per.reduce((t,x)=>t+x.n,0),expected=w.model==='5x2'?2:null;
+  const holN=DAYS.filter(d=>closed(d)).length;
+  if(expected){const bad=per.filter(x=>x.n!==expected);obs.push(`Conferência: ${N} colaboradoras × 2 folgas = <b>${2*N}</b>; a soma das folgas da semana é <b>${sumOff}</b>.`+(sumOff===2*N&&!bad.length?' Está certo (o domingo não trabalhado conta como uma das 2 folgas).':'')+(bad.length?' Fora do padrão: '+bad.map(x=>escape(x.e.name)+' ('+x.n+')').join(', ')+'.':'')+(holN?' Feriado com loja fechada não entra nessa conta.':''))}
+  else{const bad=per.filter(x=>x.n<1||x.n>2);obs.push(`Conferência (6x1): a soma das folgas da semana é <b>${sumOff}</b> (quem trabalha no domingo tem 1 folga na semana; quem não trabalha tem o domingo mais 1 folga extra).`+(bad.length?' Fora do padrão: '+bad.map(x=>escape(x.e.name)+' ('+x.n+')').join(', ')+'.':''))}
   if(!obs.length)obs.push('Sem pontos de atenção nesta semana.');
   el.innerHTML=`<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi+1}</p><h2>Quem folga e quanto sobra em cada turno</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div></div>
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map(o=>'<li>'+o+'</li>').join('')}</ul></div>
