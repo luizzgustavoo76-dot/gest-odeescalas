@@ -706,3 +706,6 @@ function askConfirm(msg){
 /* impressão resumida: 1 folha para a semana e 1 folha para o domingo */
 window.addEventListener('beforeprint',()=>{try{const n=week().employees.length;document.body.dataset.dense=n>30?'xs':n>22?'s':n>16?'m':'l'}catch(e){}});
 window.addEventListener('afterprint',()=>{delete document.body.dataset.dense});
+/* impressão: tudo em 1 linha por colaboradora (folgas sem o ano) */
+window.addEventListener('beforeprint',()=>{document.querySelectorAll('#scheduleTable .c-off').forEach(td=>{td.dataset.full=td.innerHTML;td.innerHTML=td.innerHTML.replace(/\/\d{2}(?!\d)/g,'')})});
+window.addEventListener('afterprint',()=>{document.querySelectorAll('#scheduleTable .c-off[data-full]').forEach(td=>{td.innerHTML=td.dataset.full;delete td.dataset.full})});
