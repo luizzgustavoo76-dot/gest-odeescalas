@@ -179,3 +179,6 @@ Título e datas da semana centralizados; colunas mais juntas (sem o espaço gran
 
 ### Data no cabeçalho do domingo
 O cabeçalho da folha de domingo (impressão e arquivo "Baixar para imprimir") traz "Escala de domingo · data".
+
+### Impressão adaptável
+A letra e a altura das linhas se ajustam ao número de colaboradoras (poucas = letra grande; muitas = letra menor) para ocupar a folha inteira, com as colunas distribuídas na largura toda. Continua sendo 1 folha da semana + 1 folha de domingo.

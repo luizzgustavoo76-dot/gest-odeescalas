@@ -128,3 +128,11 @@
 @media print{.hero,.hero>*,#mainTitle,#sectorLabel{text-align:center!important;justify-content:center!important}.hero{display:block!important}}
 @media print{.sunday-dashboard .print-brand span{font-size:15px!important;color:#111}.sunday-dashboard .section-heading{text-align:center}.sunday-dashboard .section-heading>div{text-align:center}.sunday-dashboard h2{font-size:15px;text-align:center}}
 @media print{.sunday-dashboard .section-heading{display:none!important}}
+@media print{
+ #scheduleTable td{height:var(--pr,6mm)!important;font-size:var(--pf,10pt)!important;padding:0 8px!important;vertical-align:middle}
+ #scheduleTable th{font-size:calc(var(--pf,10pt)*.75)!important;height:8mm;padding:0 8px!important}
+ #scheduleTable th:nth-child(1){width:20%!important}#scheduleTable th:nth-child(3){width:28%!important}#scheduleTable th:nth-child(4){width:10%!important}#scheduleTable th:nth-child(5){width:15%!important}#scheduleTable th:nth-child(6){width:10%!important}#scheduleTable th:nth-last-child(2){width:17%!important}
+ .sunday-dashboard td{height:var(--sr,8mm)!important;font-size:var(--sf,12pt)!important;padding:0 12px!important;vertical-align:middle}
+ .sunday-dashboard th{font-size:calc(var(--sf,12pt)*.75)!important;padding:0 12px!important}
+}
+@media print{#scheduleTable th,#scheduleTable th *{font-size:calc(var(--pf,10pt)*.75)!important}}
