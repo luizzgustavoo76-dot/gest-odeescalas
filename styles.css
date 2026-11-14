@@ -175,3 +175,6 @@
 .off-chip span i{font-size:7px!important}
 .off-chip.dom span{gap:1px!important}.off-chip.dom span b{font-size:6.5px!important}
 .off-count{font-size:8px!important;margin-top:1px!important}
+
+/* coluna "Limite c/ extras" com metade da largura */
+.table-wrap #scheduleTable th:last-child,.table-wrap #scheduleTable td:last-child{width:89px!important;max-width:89px!important;padding-left:6px!important;padding-right:6px!important;font-size:11px}

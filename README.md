@@ -213,3 +213,5 @@ Na aba **Equipe** os botões ficam em dois grupos alinhados ("Copiar para as out
 
 ### Botões de folga com data
 Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/11"). O botão **Dom** fica ao lado, ocupando a altura das duas linhas (entre Qua e Sáb), indicando "folga" ou "trabalha" no domingo. A altura da linha não aumenta.
+
+- Coluna "Limite c/ extras" da prévia com metade da largura (89px).
