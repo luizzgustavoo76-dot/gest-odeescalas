@@ -21,6 +21,7 @@
     return data;
   }
   const aviso=(m,ok)=>{const e=ov.querySelector('#admMsg');e.textContent=m||'';e.dataset.ok=ok?'1':'';e.hidden=!m;if(m)e.scrollIntoView({block:'nearest'})};
+  const setorHtml=s=>`<option value="" ${!s?'selected':''}>Todos os setores</option>`+SETORES.map(([k,n])=>`<option value="${k}" ${k===s?'selected':''}>${n}</option>`).join('');
   const niveisHtml=s=>NIVEIS.map(([id,n])=>`<option value="${id}" ${id===s?'selected':''}>${n}</option>`).join('');
   const fmt=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
   const rel=t=>{if(!t)return 'nunca entrou';const d=(Date.now()-new Date(t))/6e4;if(d<2)return 'agora há pouco';if(d<60)return Math.round(d)+' min atrás';if(d<1440)return Math.round(d/60)+' h atrás';return Math.round(d/1440)+' dia(s) atrás'};
@@ -54,10 +55,11 @@
   function cartao(u){
     const eu=u.id===ctx.eu.id;
     return `<article class="adm-user ${u.bloqueado?'bloq':''}" data-id="${esc(u.id)}">
-      <div class="adm-topo"><label class="adm-chk"><input type="checkbox" data-mark ${marcados.has(u.id)?'checked':''}> <b>${esc(u.nome||'(sem nome)')}</b></label><span>${esc(u.email)}${eu?' <span class="adm-tag">você</span>':''}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}${!u.ultimo_login?' <span class="adm-tag">nunca entrou</span>':''}</span><span class="adm-tag">${nomeNivel(u.papel)}</span><button type="button" class="adm-mais" data-a="abrir">${abertos.has(u.id)?'Fechar ▴':'Editar ▾'}</button></div>
+      <div class="adm-topo"><label class="adm-chk"><input type="checkbox" data-mark ${marcados.has(u.id)?'checked':''}> <b>${esc(u.nome||'(sem nome)')}</b></label><span>${esc(u.email)}${eu?' <span class="adm-tag">você</span>':''}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}${!u.ultimo_login?' <span class="adm-tag">nunca entrou</span>':''}</span><span class="adm-tag">${nomeNivel(u.papel)}${u.papel!=='admin'&&u.setor?' · '+esc(nomeSetor(u.setor)):''}</span><button type="button" class="adm-mais" data-a="abrir">${abertos.has(u.id)?'Fechar ▴':'Editar ▾'}</button></div>
       <div class="adm-det" ${abertos.has(u.id)?'':'hidden'}>
         <div class="adm-linha"><div class="adm-campo"><label>Nome</label><input data-f="nome" value="${esc(u.nome)}" placeholder="Nome"></div>
-        <div class="adm-campo"><label>Nível</label><select data-f="papel">${niveisHtml(u.papel)}</select></div></div>
+        <div class="adm-campo"><label>Nível</label><select data-f="papel">${niveisHtml(u.papel)}</select></div>
+        <div class="adm-campo" data-setorbox ${u.papel==='admin'?'hidden':''}><label>Setor que ele vai usar</label><select data-f="setor">${setorHtml(u.setor)}</select></div></div>
           <div class="adm-rodape"><small>Criada em ${fmt(u.criado_em)} · Último acesso: ${fmt(u.ultimo_login)} (${rel(u.ultimo_login)}) · ${u.setores_salvos} de ${SETORES.length} setores com dados</small>
         <div class="adm-btns"><button type="button" class="button" data-a="salvar">Salvar</button><button type="button" class="button outline" data-a="dados">Abrir dados</button>
         <button type="button" class="button outline" data-a="senha">Nova senha</button>
@@ -69,7 +71,8 @@
         <div class="adm-linha"><div class="adm-campo"><label>Nome</label><input id="nvNome" placeholder="Nome completo"></div>
         <div class="adm-campo"><label>E-mail</label><input id="nvEmail" type="email" placeholder="nome@exemplo.com" autocomplete="off"></div>
         <div class="adm-campo"><label>Senha (mín. 6)</label><div class="adm-inl"><input id="nvSenha" type="text" placeholder="Senha" autocomplete="off"><button type="button" class="button outline" id="nvGerar" title="Gerar senha forte">Gerar</button></div></div>
-        <div class="adm-campo"><label>Nível</label><select id="nvPapel">${niveisHtml('usuario')}</select></div></div>
+        <div class="adm-campo"><label>Nível</label><select id="nvPapel">${niveisHtml('usuario')}</select></div>
+        <div class="adm-campo" id="nvSetorBox"><label>Setor que ele vai usar</label><select id="nvSetor">${setorHtml('')}</select></div></div>
         <div class="adm-btns"><button type="button" class="button" id="nvCriar">Criar usuário</button><button type="button" class="button outline" id="nvCopiar" hidden>Copiar e-mail e senha</button></div></section>
       <div class="adm-filtros"><input id="fQ" type="search" placeholder="Buscar por nome ou e-mail…" value="${esc(filtro.q)}">
         <select id="fPapel"><option value="">Todos os níveis</option>${NIVEIS.map(([i,n])=>`<option value="${i}" ${filtro.papel===i?'selected':''}>${n}</option>`).join('')}</select>
@@ -196,11 +199,12 @@
 
   function ligaUsuarios(){
     const box=ov.querySelector('#admConteudo');
+    box.querySelector('#nvPapel').onchange=e=>{box.querySelector('#nvSetorBox').hidden=e.target.value==='admin'};
     box.querySelector('#nvGerar').onclick=()=>{box.querySelector('#nvSenha').value=gerarSenha()};
     let ultimo=null;
     box.querySelector('#nvCriar').onclick=async ev=>{
       const b=ev.currentTarget;aviso('');
-      const corpo={acao:'criar',nome:box.querySelector('#nvNome').value,email:box.querySelector('#nvEmail').value,senha:box.querySelector('#nvSenha').value,papel:box.querySelector('#nvPapel').value};
+      const corpo={acao:'criar',nome:box.querySelector('#nvNome').value,email:box.querySelector('#nvEmail').value,senha:box.querySelector('#nvSenha').value,papel:box.querySelector('#nvPapel').value,setor:box.querySelector('#nvPapel').value==='admin'?'':box.querySelector('#nvSetor').value};
       b.disabled=true;b.textContent='Criando…';
       try{await chama(corpo);ultimo={e:corpo.email,s:corpo.senha};
         ['#nvNome','#nvEmail','#nvSenha'].forEach(s=>box.querySelector(s).value='');
@@ -216,6 +220,7 @@
     const L=box.querySelector('#admLista');
     L.addEventListener('change',e=>{
       const c=e.target.closest('.adm-user');if(!c)return;
+      if(e.target.matches('[data-f=papel]')){const sb=c.querySelector('[data-setorbox]');if(sb)sb.hidden=e.target.value==='admin'}
       if(e.target.matches('[data-mark]')){e.target.checked?marcados.add(c.dataset.id):marcados.delete(c.dataset.id);desenhaLote();return}
     });
     L.addEventListener('click',async e=>{
@@ -224,7 +229,7 @@
       const rodar=async(corpo,ok)=>{btn.disabled=true;try{await chama(corpo);await carrega();aviso(ok,true)}catch(er){aviso(er.message);btn.disabled=false}};
       if(acao==='dados'){const nome=(c.querySelector('[data-f=nome]').value||'').trim()||c.querySelector('.adm-topo span').textContent.trim();fechaPainel();ctx.abrirComo(id,nome);return}
       if(acao==='abrir'){const d=c.querySelector('.adm-det');d.hidden=!d.hidden;d.hidden?abertos.delete(id):abertos.add(id);btn.textContent=d.hidden?'Editar ▾':'Fechar ▴';return}
-      if(acao==='salvar')return rodar({acao:'atualizar',id,nome:c.querySelector('[data-f=nome]').value,papel:c.querySelector('[data-f=papel]').value},'Alterações salvas.');
+      if(acao==='salvar')return rodar({acao:'atualizar',id,nome:c.querySelector('[data-f=nome]').value,papel:c.querySelector('[data-f=papel]').value,setor:c.querySelector('[data-f=papel]').value==='admin'?'':c.querySelector('[data-f=setor]').value},'Alterações salvas.');
       if(acao==='senha'){extra.hidden=false;extra.innerHTML='<div class="adm-campo"><label>Nova senha (mín. 6)</label><div class="adm-inl"><input class="adm-ns" type="text" autocomplete="off"><button type="button" class="button outline" data-a="gerar">Gerar</button></div></div><div class="adm-btns"><button type="button" class="button" data-a="senha-ok">Definir senha</button><button type="button" class="button outline" data-a="cancela">Cancelar</button></div>';extra.querySelector('input').focus();return}
       if(acao==='gerar'){extra.querySelector('.adm-ns').value=gerarSenha();return}
       if(acao==='senha-ok')return rodar({acao:'senha',id,senha:extra.querySelector('.adm-ns').value},'Senha alterada. Passe a nova senha para a pessoa.');

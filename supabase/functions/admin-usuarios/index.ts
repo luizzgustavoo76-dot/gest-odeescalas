@@ -7,8 +7,8 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const SETORES = ["frente-caixa", "acougue-frios", "loja-deposito", "padaria", "horti-fruit"];
 const NIVEIS = ["admin", "usuario"];
+const SETORES = ["frente-caixa", "acougue-frios", "loja-deposito", "padaria", "horti-fruit"];
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const falha = (msg: string, status = 400) => json({ erro: msg }, status);
@@ -31,6 +31,9 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   const acao = String(b.acao || "");
 
   const nivelOk = (n: unknown) => NIVEIS.includes(String(n));
+  /* setor de trabalho: só vale para "usuario"; vazio = todos os setores */
+  const setorDe = (papel: unknown, s: unknown) => (String(papel) === "admin" || !s ? null : String(s));
+  const setorOk = (s: unknown) => !s || SETORES.includes(String(s));
   const totalAdmins = async () => {
     const { count } = await admin.from("perfis").select("id", { count: "exact", head: true }).eq("papel", "admin");
     return count || 0;
@@ -86,7 +89,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
         if (alvoId === eu && b.papel !== "admin") { pulados.push(em + " (você mesmo)"); continue; }
         const { data: atual } = await admin.from("perfis").select("papel").eq("id", alvoId).maybeSingle();
         if (atual?.papel === "admin" && b.papel !== "admin" && (await totalAdmins()) <= 1) { pulados.push(em + " (único admin)"); continue; }
-        await admin.from("perfis").update({ papel: String(b.papel) }).eq("id", alvoId);
+        await admin.from("perfis").update({ papel: String(b.papel), ...(String(b.papel) === "admin" ? { setor: null } : {}) }).eq("id", alvoId);
         await log("usuario_nivel", em, { papel: b.papel });
       } else if (op === "bloquear" || op === "desbloquear") {
         if (op === "bloquear" && alvoId === eu) { pulados.push(em + " (você mesmo)"); continue; }
@@ -102,7 +105,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   if (acao === "backup") {
     const { data: esc, error } = await admin.from("escalas").select("dono,setor,dados,atualizado_em").order("dono").order("setor");
     if (error) return falha(error.message, 500);
-    const { data: perfis } = await admin.from("perfis").select("id,email,nome,papel,criado_em");
+    const { data: perfis } = await admin.from("perfis").select("id,email,nome,papel,setor,criado_em");
     const mail = new Map((perfis || []).map((p: any) => [p.id, p.email]));
     await log("backup_baixado", null, { linhas: (esc || []).length, contas: (perfis || []).length });
     return json({
@@ -143,7 +146,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     const usuarios = lista.users.map((u: any) => {
       const p: any = mapa.get(u.id) || {};
       return {
-        id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "usuario", setores_salvos: dados.get(u.id)?.n || 0, ultima_edicao: dados.get(u.id)?.ult || null,
+        id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "usuario", setor: p.setor || null, setores_salvos: dados.get(u.id)?.n || 0, ultima_edicao: dados.get(u.id)?.ult || null,
         ultimo_login: u.last_sign_in_at || null, criado_em: u.created_at, confirmado: !!u.email_confirmed_at,
         bloqueado: !!(u.banned_until && new Date(u.banned_until) > new Date()),
       };
@@ -161,12 +164,13 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return falha("E-mail inválido.");
     if (senha.length < 6) return falha("A senha precisa ter pelo menos 6 caracteres.");
     if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
+    if (!setorOk(b.setor)) return falha("Setor inválido.");
     const { data, error } = await admin.auth.admin.createUser({
       email, password: senha, email_confirm: true, user_metadata: { nome },
     });
     if (error) return falha(/already|registered|exists/i.test(error.message) ? "Já existe um usuário com esse e-mail." : error.message);
     const { error: eP } = await admin.from("perfis").upsert({
-      id: data.user.id, email, nome, papel: String(b.papel),
+      id: data.user.id, email, nome, papel: String(b.papel), setor: setorDe(b.papel, b.setor),
     });
     if (eP) return falha(eP.message, 500);
     await log("usuario_criado", email, { papel: b.papel });
@@ -178,9 +182,10 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
 
   if (acao === "atualizar") {
     if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
+    if (!setorOk(b.setor)) return falha("Setor inválido.");
     if (id === eu && b.papel !== "admin" && (await totalAdmins()) <= 1) return falha("Você é o único administrador. Torne outra pessoa administradora antes.");
     const { error } = await admin.from("perfis").update({
-      nome: String(b.nome || "").trim(), papel: String(b.papel),
+      nome: String(b.nome || "").trim(), papel: String(b.papel), setor: setorDe(b.papel, b.setor),
     }).eq("id", id);
     if (error) return falha(error.message, 500);
     await log("usuario_editado", await emailDe(id), { papel: b.papel });

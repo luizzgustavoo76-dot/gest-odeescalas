@@ -408,3 +408,5 @@ body.adm-aberto{overflow:hidden}
 .oa-grp th{background:#eef1f6;color:var(--navy);text-align:left!important;font-size:12px;padding:7px 10px;letter-spacing:.3px;text-transform:uppercase}
 .oa-subtotal th,.oa-subtotal td{border-top:1px dashed #b9c2d0;background:#fafbfd}
 .oa-unif .shift-pill{display:inline-block;margin-right:6px}
+
+.sector-picker[hidden]{display:none!important}.adm-campo[hidden]{display:none!important}

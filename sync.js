@@ -8,7 +8,10 @@
   const cfg=window.SUPABASE_CONFIG||{};
   try{document.getElementById('buildTag').textContent=BUILD}catch(e){}
   const $=id=>document.getElementById(id);
-  const SETORES=()=>Object.keys(state.sectors);
+  /* usuário com setor definido só enxerga e salva esse setor (o banco também bloqueia os outros) */
+  const setorFixo=()=>perfil&&perfil.papel!=='admin'&&perfil.setor&&me&&alvo===me.id&&state.sectors[perfil.setor]?perfil.setor:null;
+  const SETORES=()=>{const f=setorFixo();return f?[f]:Object.keys(state.sectors)};
+  const travaSetor=()=>{if(typeof window.travaSetor==='function')window.travaSetor(setorFixo())};
   const nomeSetor=s=>(typeof SECTORS!=='undefined'&&SECTORS[s])||(s==='_config'?'configurações gerais':s);
   const hora=()=>new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const status=(t,cls)=>{const e=$('statusText');if(e){e.textContent=t;e.dataset.sync=cls||''}};
@@ -172,7 +175,7 @@
         else warn('Você não tem permissão para editar: '+negado.map(nomeSetor).join(', ')+'. Recarreguei a versão da nuvem.');
         const {data,error}=await sb.from('escalas').select('*').eq('dono',alvo).in('setor',conflito.concat(negado));
         if(error)throw error;
-        aplicar(data);
+        aplicar(data);travaSetor();
       }
       status('Sincronizado com a nuvem · '+hora(),'ok');mostraNova();
     }catch(e){
@@ -233,7 +236,7 @@
     if(blank){ // conta nova: escala em branco (1 colaboradora por semana), nada é salvo até a pessoa mexer
       for(const k of SETORES())state.sectors[k].weeks.forEach(w=>{w.activeCount=1;w.employees=w.employees.slice(0,1);w.rotation=rotation(1,w.shifts.length)});
     }
-    aplicar(data);
+    aplicar(data);travaSetor();
     // semana de domingo a sábado: conta nova já nasce assim; conta antiga recomeça a escala (nomes e postos ficam)
     try{if(blank){state.settings=state.settings||{};state.settings.semanaDom=true}else if(migraSemanaDomingo())setTimeout(()=>warn('A semana agora vai de domingo a sábado. Domingos e folgas foram limpos: escolha os domingos da Semana 1 e use "Sugerir folgas" ou "Gerar". A versão anterior está em Histórico.'),1200)}catch(e){console.warn(e)}
     if(primeira!==false||!uiOk)restauraUi();
@@ -364,9 +367,9 @@
     if(error){me=null;erro('Sem conexão','Não foi possível verificar seu acesso. Verifique a internet e tente de novo.',()=>entrou(user));return}
     if(!p){me=null;await sb.auth.signOut();painel('login');loginErr('Esta sessão não é mais válida. Entre novamente com seu e-mail e senha.');return}
     perfil=p;if(!alvo||alvo!==user.id){alvo=user.id;alvoNome=''}
-    $('userWho').textContent=(perfil.nome||user.email)+(perfil.papel==='admin'?' · administrador':'');
+    $('userWho').textContent=(perfil.nome||user.email)+(perfil.papel==='admin'?' · administrador':(perfil.setor&&typeof SECTORS!=='undefined'&&SECTORS[perfil.setor]?' · '+SECTORS[perfil.setor]:''));
     $('adminBtn').hidden=!ehAdmin();bar.hidden=false;
-    if(await carregar(true)){tempoReal();if(ehAdmin())lembraBackup()}
+    if(await carregar(true)){travaSetor();tempoReal();if(ehAdmin())lembraBackup()}
   }
   let lembrou=false;
   async function lembraBackup(){
@@ -376,7 +379,7 @@
       if(data&&data.usuarios&&(dias===null||dias>7))warn(dias===null?'Você ainda não baixou nenhum backup. Abra Painel ADM → Backup.':'Faz '+Math.floor(dias)+' dias que você não baixa o backup. Abra Painel ADM → Backup.')}catch(e){}
   }
   function saiu(){
-    me=null;alvo=null;perfil=null;pronto=false;bar.hidden=true;clearTimeout(timer);timer=null;
+    me=null;alvo=null;perfil=null;pronto=false;bar.hidden=true;if(typeof window.travaSetor==='function')window.travaSetor(null);clearTimeout(timer);timer=null;
     if(channel){sb.removeChannel(channel);channel=null}
     painel('login');status('Entre para ver as escalas','');
   }

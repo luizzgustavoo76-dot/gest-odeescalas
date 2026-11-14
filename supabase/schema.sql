@@ -176,3 +176,22 @@ grant execute on function public.sou_admin() to authenticated;
 --   update public.perfis set papel = 'admin' where email = 'SEU_EMAIL_AQUI';
 --
 --    (Depois, contas são criadas e gerenciadas pelo botão "Administração" do app.)
+
+
+-- 7) Setor de trabalho do usuário (vazio = todos os setores; admin sempre vê tudo)
+alter table public.perfis add column if not exists setor text
+  check (setor is null or setor in ('frente-caixa','acougue-frios','loja-deposito','padaria','horti-fruit'));
+
+create or replace function public.setor_permitido(s text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select s = '_config' or coalesce((select p.setor is null or p.setor = s or p.papel = 'admin' from public.perfis p where p.id = auth.uid()), true);
+$$;
+
+drop policy if exists escalas_ler on public.escalas;
+drop policy if exists escalas_inserir on public.escalas;
+drop policy if exists escalas_alterar on public.escalas;
+drop policy if exists escalas_apagar on public.escalas;
+create policy escalas_ler on public.escalas for select to authenticated using ((dono = (select auth.uid()) and (select public.setor_permitido(setor))) or (select public.sou_admin()));
+create policy escalas_inserir on public.escalas for insert to authenticated with check ((dono = (select auth.uid()) and (select public.setor_permitido(setor))) or (select public.sou_admin()));
+create policy escalas_alterar on public.escalas for update to authenticated using ((dono = (select auth.uid()) and (select public.setor_permitido(setor))) or (select public.sou_admin())) with check ((dono = (select auth.uid()) and (select public.setor_permitido(setor))) or (select public.sou_admin()));
+create policy escalas_apagar on public.escalas for delete to authenticated using ((dono = (select auth.uid()) and (select public.setor_permitido(setor))) or (select public.sou_admin()));
