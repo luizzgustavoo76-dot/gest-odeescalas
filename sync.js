@@ -134,7 +134,10 @@
   async function entrou(user){
     me=user;
     const {data:p}=await sb.from('perfis').select('*').eq('id',user.id).maybeSingle();
-    perfil=p||{papel:'gerente',setores:[]};
+    if(!p){ // sessão de um usuário que não existe mais (ex.: conta apagada)
+      me=null;await sb.auth.signOut();showLogin(true);loginErr('Esta sessão não é mais válida. Entre novamente com seu e-mail e senha.');return;
+    }
+    perfil=p;
     $('userWho').textContent=(perfil.nome||user.email)+' · '+(perfil.papel==='admin'?'administrador':(perfil.setores&&perfil.setores.length?perfil.setores.map(s=>(window.SECTORS&&SECTORS[s])||s).join(', '):'somente leitura'));
     bar.hidden=false;showLogin(false);
     await puxar(true);tempoReal();
