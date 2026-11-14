@@ -20,7 +20,7 @@ await A.waitForTimeout(1500);
 const idB=await A.evaluate(()=>__db.perfis.find(p=>p.email==='joao@x.com').id);
 await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
 await A.evaluate(id=>{window.__user=id},idB);await login(A,'joao@x.com');
-T('B não vê o botão Administração',await A.evaluate(()=>document.getElementById('adminBtn').hidden));
+T('B não vê o botão Painel ADM',await A.evaluate(()=>document.getElementById('adminBtn').hidden));
 const nB=await A.evaluate(()=>state.sectors['frente-caixa'].weeks[0].activeCount);
 T('B NÃO recebe os dados do admin (7 colaboradoras)',nB!==7,'tem '+nB);
 await A.evaluate(()=>{state.sectors['frente-caixa'].weeks.forEach(w=>{w.activeCount=3});normalize();save()});await A.waitForTimeout(1800);

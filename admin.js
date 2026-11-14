@@ -249,7 +249,7 @@
   function fechaPainel(){if(ov){ov.remove();ov=null}document.body.classList.remove('adm-aberto')}
   function monta(){
     ov=document.createElement('div');ov.id='adminOverlay';
-    ov.innerHTML=`<div class="adm-box"><header class="adm-head"><div><h2>Administração</h2><small id="admTotal"></small></div><button type="button" class="button outline" id="admFechar">Fechar</button></header>
+    ov.innerHTML=`<div class="adm-box"><header class="adm-head"><div><h2>Painel ADM</h2><small id="admTotal"></small></div><button type="button" class="button outline" id="admFechar">Fechar</button></header>
       <nav class="adm-abas"><button type="button" data-aba="resumo">Resumo</button><button type="button" data-aba="usuarios">Usuários</button><button type="button" data-aba="atividade">Atividade</button><button type="button" data-aba="historico">Histórico de escalas</button><button type="button" data-aba="backup">Backup</button></nav>
       <p id="admMsg" class="adm-msg" hidden></p>
       <div id="admConteudo"><p class="adm-vazio">Carregando…</p></div>

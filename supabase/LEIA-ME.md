@@ -41,7 +41,7 @@ Cada conta tem os **próprios dados** (escalas, colaboradoras, folgas), separado
 - **Usuário**: vê e edita apenas os seus dados.
 - **Administrador**: gerencia contas e pode abrir e editar os dados de qualquer conta ("Abrir dados"; uma faixa amarela avisa de quem são os dados, com o botão "Voltar aos meus dados").
 
-O botão **Administração** (só para administradores) tem 4 abas:
+O botão **Painel ADM** (só para administradores) tem 4 abas:
 
 - **Resumo**: totais, alertas (ex.: só 1 administrador, conta sem dados) e os dados de cada conta, com "Abrir dados".
 - **Usuários**: criar conta, busca, filtros, ordenação, gerador de senha, copiar e-mail/senha, ações em lote (mudar nível, bloquear) e exportar CSV.

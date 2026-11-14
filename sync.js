@@ -80,7 +80,7 @@
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Administração</button><button type="button" class="button outline icone" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>↶</button><button type="button" class="button outline icone" id="redoBtn" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>↷</button><button type="button" class="button outline" id="histBtn">Histórico</button><button type="button" class="button outline" id="pwBtn">Trocar senha</button><button type="button" class="button" id="logoutBtn">Sair</button>';
+  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Painel ADM</button><button type="button" class="button outline icone" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>↶</button><button type="button" class="button outline icone" id="redoBtn" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>↷</button><button type="button" class="button outline" id="histBtn">Histórico</button><button type="button" class="button outline" id="pwBtn">Trocar senha</button><button type="button" class="button" id="logoutBtn">Sair</button>';
   const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
   // Sair: encerra a sessão, apaga o login guardado no aparelho e recarrega a página (funciona mesmo com sessão antiga/inválida)
   const sair=async()=>{
@@ -357,7 +357,7 @@
     if(lembrou)return;lembrou=true;
     try{const {data}=await sb.functions.invoke('admin-usuarios',{body:{acao:'listar'}});
       const u=data&&data.ultimo_backup,dias=u?(Date.now()-new Date(u))/864e5:null;
-      if(data&&data.usuarios&&(dias===null||dias>7))warn(dias===null?'Você ainda não baixou nenhum backup. Abra Administração → Backup.':'Faz '+Math.floor(dias)+' dias que você não baixa o backup. Abra Administração → Backup.')}catch(e){}
+      if(data&&data.usuarios&&(dias===null||dias>7))warn(dias===null?'Você ainda não baixou nenhum backup. Abra Painel ADM → Backup.':'Faz '+Math.floor(dias)+' dias que você não baixa o backup. Abra Painel ADM → Backup.')}catch(e){}
   }
   function saiu(){
     me=null;alvo=null;perfil=null;pronto=false;bar.hidden=true;clearTimeout(timer);timer=null;
