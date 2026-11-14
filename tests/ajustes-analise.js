@@ -46,5 +46,27 @@ T('cobertura por hora mostra + e −',await A.evaluate(()=>document.querySelecto
 const celula=await A.evaluate(()=>{const b=[...document.querySelectorAll('#coverageBoardBody .oa-b[data-dl="1"]')][8];return {d:b.dataset.day,i:b.dataset.ini,f:b.dataset.fim}});
 await A.evaluate(c=>{document.querySelector('#coverageBoardBody .oa-b[data-dl="1"][data-day="'+c.d+'"][data-ini="'+c.i+'"]').click()},celula);await A.waitForTimeout(300);
 T('+ na cobertura por hora dá retorno',await A.evaluate(()=>{const t=document.getElementById('toast');return !t.hidden&&t.textContent.length>10}),await A.evaluate(()=>document.getElementById('toast').textContent));
+// varredura: todas as células/dias, + e −, nas 4 áreas; sucesso tem que mudar de fato e o total de folgas não pode mudar
+await A.evaluate(()=>{replicate('team');state.selectedWeek=0;week().employees.forEach((e,i)=>e.sundayWork=i<5);suggestOffFor(week());render()});
+const varre=await A.evaluate(()=>{
+  const dias=['segunda','terça','quarta','quinta','sexta','sábado'],out={ok:0,bloq:0,bug:[],semRetorno:[],btn:0};
+  const tot=()=>week().employees.reduce((t,e)=>t+e.offDays.length,0);
+  const sels=[];
+  ['p:caixa','t:0','t:1','t:2'].forEach(g=>dias.forEach(d=>[1,-1].forEach(dl=>sels.push(['#offAnalysis [data-oa="dia"][data-g="'+g+'"][data-day="'+d+'"][data-dl="'+dl+'"]',g+' '+d+' '+dl]))));
+  dias.forEach(d=>[1,-1].forEach(dl=>sels.push(['#coverageBoardBody .oa-b[data-day="'+d+'"][data-dl="'+dl+'"]','faixa '+d+' '+dl])));
+  for(const [sel,nome] of sels){
+    const el=document.querySelector(sel);if(!el){out.bug.push(nome+' sem botão');continue}out.btn++;
+    document.getElementById('toast').hidden=true;
+    const snap=JSON.stringify(week().employees.map(e=>e.offDays)),t0=tot();el.click();
+    const t=document.getElementById('toast'),dep=JSON.stringify(week().employees.map(e=>e.offDays));
+    if(t.hidden){out.semRetorno.push(nome);continue}
+    if(/^Erro/.test(t.textContent)){out.bloq++;if(dep!==snap)out.bug.push(nome+' erro mas mudou')}
+    else{out.ok++;if(dep===snap||tot()!==t0)out.bug.push(nome+' sucesso sem mudança ou total alterado')}
+    const o=JSON.parse(snap);week().employees.forEach((e,i)=>e.offDays=o[i]);render();
+  }
+  return out});
+T('varredura: todas as células responderam (botões: '+varre.btn+', aplicadas: '+varre.ok+', bloqueadas com erro: '+varre.bloq+')',varre.btn===60&&varre.semRetorno.length===0,JSON.stringify(varre.semRetorno));
+T('varredura: nenhuma "falsa confirmação" nem total de folgas alterado',varre.bug.length===0,varre.bug.join('; '));
+T('varredura: a maioria das ações é aplicada em todos os dias',varre.ok>=50,String(varre.ok));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

@@ -3926,7 +3926,7 @@ function moveFolga(G, rotulo, dKey, delta) {
   const pares = [];
   if (delta > 0) {
     G.filter((e) => !trab(e, D) && e.offDays.includes(D[0])).forEach((e) =>
-      dias.filter((y) => y !== D && trab(e, y) && cov(y) > 1 && livre(e, y)).forEach((y) => pares.push({ e, y, score: cov(y) })),
+      dias.filter((y) => y !== D && trab(e, y) && cov(y) > 1 && livre(e, y)).forEach((y) => pares.push({ e, y, score: cov(y) - (y[0] === 'sábado' && evitaSabado() ? 100 : 0) })),
     );
     pares.sort((a, b) => b.score - a.score);
   } else {
@@ -3937,17 +3937,22 @@ function moveFolga(G, rotulo, dKey, delta) {
     const so = G.filter((e) => trab(e, D)).length;
     if (so <= 1 && G.length > 1 && cov(D) <= 1) return toast('Erro: ' + rotulo + ' ficaria sem ninguém em ' + D[0] + '.');
   }
+  if (!pares.length && delta > 0 && !G.some((e) => !trab(e, D)))
+    return toast('Erro: todas (' + rotulo + ') já trabalham em ' + D[0] + ': não há folga nesse dia para trazer para cá.');
   if (!pares.length)
     return toast(
       delta > 0
         ? 'Erro: ninguém de folga em ' + D[0] + ' (' + rotulo + ') pode trocar de dia sem deixar o outro dia vazio ou repetir folga no mesmo posto.'
         : 'Erro: ninguém trabalhando em ' + D[0] + ' (' + rotulo + ') tem uma folga para trocar de dia.',
     );
+  /* depois de desfazer uma tentativa, os objetos da semana são recriados: por isso cada tentativa busca a colaboradora de novo pelo número */
   const ops = pares.map((par) => () => {
-    const e = par.e;
+    const idx = w.employees.indexOf(par.e),
+      w2 = week(),
+      e = w2.employees[idx];
     e.offDays = delta > 0 ? e.offDays.filter((x) => x !== D[0]).concat(par.y[0]) : e.offDays.filter((x) => x !== par.y[0]).concat(D[0]);
     e.offDays.sort((a, b) => DAYS.findIndex((d) => d[0] === a) - DAYS.findIndex((d) => d[0] === b));
-    if (hasPdv()) assignPdvs(w, wi, true);
+    if (hasPdv()) assignPdvs(w2, wi, true);
     return { e, y: par.y };
   });
   tentaVarias(
