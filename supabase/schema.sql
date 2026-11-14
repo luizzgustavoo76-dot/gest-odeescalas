@@ -99,7 +99,10 @@ create index if not exists escalas_historico_dono_idx on public.escalas_historic
 create index if not exists escalas_historico_versao_por_idx on public.escalas_historico (versao_por);
 alter table public.escalas_historico enable row level security;
 drop policy if exists historico_admin_ler on public.escalas_historico;
-create policy historico_admin_ler on public.escalas_historico for select to authenticated using (public.sou_admin());
+drop policy if exists historico_ler on public.escalas_historico;
+-- cada conta consulta o histórico das próprias escalas; o admin vê todos
+create policy historico_ler on public.escalas_historico for select to authenticated
+  using (dono = (select auth.uid()) or (select public.sou_admin()));
 
 create or replace function public.resumo_setor(d jsonb) returns jsonb
 language sql immutable set search_path = public as $$
@@ -143,6 +146,22 @@ begin
   return new;
 end $$;
 create or replace trigger auditar_escala after insert or update on public.escalas for each row execute function public.audita_escala();
+
+-- 6b) Registro de erros do app (aba Atividade do administrador). Limite: 20 por conta por hora.
+create or replace function public.registrar_erro(mensagem text, onde text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare mail text; n int;
+begin
+  if auth.uid() is null then return; end if;
+  select count(*) into n from public.auditoria
+   where acao = 'erro_app' and ator = auth.uid() and quando > now() - interval '1 hour';
+  if n >= 20 then return; end if;
+  select email into mail from auth.users where id = auth.uid();
+  insert into public.auditoria (ator, ator_email, acao, alvo, detalhes)
+  values (auth.uid(), mail, 'erro_app', left(coalesce(onde, ''), 80), jsonb_build_object('mensagem', left(coalesce(mensagem, ''), 500)));
+end $$;
+revoke execute on function public.registrar_erro(text, text) from public, anon;
+grant execute on function public.registrar_erro(text, text) to authenticated;
 
 -- 7) Endurecimento: só o necessário fica executável
 revoke execute on function public.novo_perfil() from public, anon, authenticated;

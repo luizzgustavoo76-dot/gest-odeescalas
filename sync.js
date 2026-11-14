@@ -6,6 +6,7 @@
 (function(){
   const BUILD='build '+((document.querySelector('meta[name=build]')||{}).content||'?');
   const cfg=window.SUPABASE_CONFIG||{};
+  try{document.getElementById('buildTag').textContent=BUILD}catch(e){}
   const $=id=>document.getElementById(id);
   const SETORES=()=>Object.keys(state.sectors);
   const nomeSetor=s=>(typeof SECTORS!=='undefined'&&SECTORS[s])||(s==='_config'?'configurações gerais':s);
@@ -43,9 +44,6 @@
   let blank=false,me=null,alvo=null,alvoNome='',perfil=null,timer=null,pushing=false,again=false,applying=false,channel=null,pronto=false,uiOk=false;
   const ehAdmin=()=>!!perfil&&perfil.papel==='admin';
   // cada conta tem os próprios dados; o administrador pode abrir e editar os de qualquer conta
-  const visivel=()=>!!perfil;
-  const podeEditar=()=>!!perfil&&!!alvo;
-  const NIVEL={admin:'administrador',usuario:'usuário'};
 
   const traduz=m=>/invalid login/i.test(m)?'E-mail ou senha incorretos.':/email not confirmed/i.test(m)?'E-mail ainda não confirmado.':/rate limit|too many/i.test(m)?'Muitas tentativas. Aguarde um pouco.':'Não foi possível entrar: '+m;
   $('loginForm').addEventListener('submit',async ev=>{
@@ -82,7 +80,7 @@
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Administração</button><button type="button" class="button outline" id="pwBtn">Trocar senha</button><button type="button" class="button" id="logoutBtn">Sair</button>';
+  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Administração</button><button type="button" class="button outline icone" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>↶</button><button type="button" class="button outline icone" id="redoBtn" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>↷</button><button type="button" class="button outline" id="histBtn">Histórico</button><button type="button" class="button outline" id="pwBtn">Trocar senha</button><button type="button" class="button" id="logoutBtn">Sair</button>';
   const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
   // Sair: encerra a sessão, apaga o login guardado no aparelho e recarrega a página (funciona mesmo com sessão antiga/inválida)
   const sair=async()=>{
@@ -94,16 +92,19 @@
   };
   $('logoutBtn').addEventListener('click',sair);$('errOut').addEventListener('click',sair);
   $('pwBtn').addEventListener('click',()=>mostraSenha(false));
+  $('undoBtn').addEventListener('click',()=>desfazer());$('redoBtn').addEventListener('click',()=>refazer());
+  $('histBtn').addEventListener('click',()=>abreHistorico());
   $('adminBtn').addEventListener('click',()=>{if(window.abrirAdmin)window.abrirAdmin({sb,eu:me,abrirComo:trocarAlvo,alvo:()=>alvo})});
 
-  /* ---------- faixa de diagnóstico ---------- */
-  const diag=document.createElement('div');diag.id='syncDiag';diag.hidden=true;document.body.appendChild(diag);
-  const mostraDiag=extra=>{try{
-    const k=state.selectedSector,w=state.sectors[k].weeks[state.selectedWeek];
-    diag.textContent='['+BUILD+'] '+(extra?extra+' · ':'')+'Nuvem → '+nomeSetor(k)+', semana '+(state.selectedWeek+1)+': '+w.employees.length+' colaboradoras ('+w.employees.slice(0,2).map(e=>e.name).join(', ')+'…)';
-    diag.hidden=false}catch(e){diag.textContent='diag: '+e.message;diag.hidden=false}};
-  window.addEventListener('error',e=>{status('Erro no app: '+e.message,'err')});
-  window.addEventListener('unhandledrejection',e=>{status('Erro: '+((e.reason&&e.reason.message)||e.reason),'err')});
+  /* ---------- erros do app ---------- */
+  // os erros também vão para a aba Atividade do administrador (função registrar_erro, no máx. 20 por hora por conta)
+  let errosEnviados=0;
+  function registraErro(msg,onde){
+    try{if(!me||errosEnviados>=10||!msg)return;errosEnviados++;
+      sb.rpc('registrar_erro',{mensagem:String(msg).slice(0,500),onde:String(onde||'').slice(0,80)+' · '+BUILD}).then(()=>{},()=>{})}catch(e){}
+  }
+  window.addEventListener('error',e=>{status('Erro no app: '+e.message,'err');registraErro(e.message+(e.filename?' ('+String(e.filename).split('/').pop()+':'+e.lineno+')':''),'erro na tela')});
+  window.addEventListener('unhandledrejection',e=>{const m=(e.reason&&e.reason.message)||e.reason;status('Erro: '+m,'err');registraErro(m,'erro na tela')});
 
   /* ---------- dados <-> nuvem ---------- */
   const carga=k=>({...state.sectors[k],_roster:(state.roster&&state.roster[k])||[]});
@@ -131,11 +132,12 @@
       }
       try{render()}catch(e){console.warn(e);status('Erro ao mostrar os dados da nuvem: '+e.message,'err')}
     }finally{applying=false}
+    zeraDesfazer();
   }
   function pendentes(){
     const out=[];
-    for(const k of SETORES()){if(!podeEditar(k))continue;const c=carga(k),j=JSON.stringify(c);if(j!==synced[k])out.push({setor:k,dados:c,j})}
-    if(podeEditar('_config')){const c=cfgDados(),cj=JSON.stringify(c);if(cj!==synced._config)out.push({setor:'_config',dados:c,j:cj})}
+    for(const k of SETORES()){const c=carga(k),j=JSON.stringify(c);if(j!==synced[k])out.push({setor:k,dados:c,j})}
+    {const c=cfgDados(),cj=JSON.stringify(c);if(cj!==synced._config)out.push({setor:'_config',dados:c,j:cj})}
     return out;
   }
   const rls=e=>e&&/row-level security|permission/i.test(e.message||'');
@@ -160,7 +162,6 @@
       status('Salvando na nuvem…','busy');
       const negado=[],conflito=[];
       for(const it of lista){
-        if(!podeEditar(it.setor)){negado.push(it.setor);continue}
         const r=await gravar(it);
         if(r==='ok'){synced[it.setor]=it.j;sent.push(JSON.stringify(it.dados));if(sent.length>30)sent.shift()}
         else if(r==='conflito')conflito.push(it.setor);else negado.push(it.setor);
@@ -174,7 +175,7 @@
       }
       status('Sincronizado com a nuvem · '+hora(),'ok');mostraNova();
     }catch(e){
-      console.warn(e);pronto=false;
+      console.warn(e);pronto=false;registraErro((e&&e.message)||e,'ao salvar na nuvem');
       erro('Conexão perdida','Não foi possível salvar na nuvem. As últimas alterações não foram salvas. Reconecte e carregue de novo a versão da nuvem.',()=>carregar(true));
     }finally{pushing=false;if(again){again=false;agendar()}}
   }
@@ -202,21 +203,7 @@
   const guardaUi=()=>{if(!uiOk)return;try{localStorage.setItem(UIK,JSON.stringify({sector:state.selectedSector,week:state.selectedWeek}))}catch(e){}};
   const restauraUi=()=>{try{const u=JSON.parse(localStorage.getItem(UIK)||'null');if(u&&state.sectors[u.sector]){state.selectedSector=u.sector;state.selectedWeek=Math.min(3,Math.max(0,+u.week||0))}}catch(e){}uiOk=true};
 
-  /* ---------- setores liberados e modo somente leitura ---------- */
-  function ajustaSetores(){return true}
-  const LIVRES='.period-tabs button,.tab,#toggleSettings,#toggleOperators,#toggleBoard,#toggleOff,#printFileButton,#scheduleTable thead button,#sectorSelect,#logoutBtn,#adminBtn,#syncDiag';
-  const bloqueado=t=>{if(!document.body.classList.contains('somente-leitura')||!t||!t.closest)return false;
-    return !!(t.closest('main,#weekStart,.import-label,#modelButton,#xlsxFile'))&&!t.closest(LIVRES)};
-  ['click','change','input','keydown'].forEach(tp=>document.addEventListener(tp,e=>{
-    if(!bloqueado(e.target))return;if(tp==='keydown'&&e.key!=='Enter'&&e.key!==' ')return;
-    e.stopImmediatePropagation();if(tp==='click'||tp==='keydown')e.preventDefault();
-  },true));
-  const ro=document.createElement('div');ro.id='roBanner';ro.hidden=true;ro.textContent='Somente leitura: você pode ver este setor, mas não editar.';
-  const mainEl=document.querySelector('main');if(mainEl)mainEl.insertBefore(ro,mainEl.firstChild);
-  function aplicaLeitura(){
-    const so=!!perfil&&!podeEditar(state.selectedSector);
-    document.body.classList.toggle('somente-leitura',so);ro.hidden=!so;
-  }
+  const mainEl=document.querySelector('main');
 
   /* ---------- buscar da nuvem ---------- */
   async function carregar(primeira){
@@ -234,19 +221,16 @@
       for(const k of SETORES())state.sectors[k].weeks.forEach(w=>{w.activeCount=1;w.employees=w.employees.slice(0,1);w.rotation=rotation(1,w.shifts.length)});
     }
     aplicar(data);
-    if(!ajustaSetores())return false;
     if(primeira!==false||!uiOk)restauraUi();
-    if(!visivel(state.selectedSector))state.selectedSector=SETORES().find(visivel);
     try{normalize();render()}catch(e){console.warn(e)}
-    pronto=true;aplicaLeitura();
+    pronto=true;
     // setores que ainda não existem na nuvem são criados (só por quem pode editar)
     if(blank){for(const k of SETORES())synced[k]=JSON.stringify(carga(k));synced._config=JSON.stringify(cfgDados())}
-    else for(const k of SETORES().concat('_config'))if(podeEditar(k)&&!data.some(l=>l.setor===k))synced[k]=undefined;
+    else for(const k of SETORES().concat('_config'))if(!data.some(l=>l.setor===k))synced[k]=undefined;
     mostraNova();
     painel(null);
     await enviar();
     status('Sincronizado com a nuvem · '+hora(),'ok');
-    mostraDiag('Baixou '+data.length+' linhas');
     return true;
   }
   function tempoReal(){
@@ -263,8 +247,76 @@
   }
 
   /* ---------- salvar do app → nuvem (nada vai para o aparelho) ---------- */
-  save=function(){agendar()};
-  const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me&&pronto){mostraDiag();guardaUi();aplicaLeitura();mostraNova()}}catch(e){}return v};
+  save=function(){anotaDesfazer();agendar()};
+
+  /* ---------- desfazer / refazer (Ctrl+Z, Ctrl+Y) ---------- */
+  const pilha=[],refaz=[];let ultimo=null,ultimaTela='',desfazendo=false;
+  const retrato=()=>JSON.stringify({sectors:state.sectors,roster:state.roster||{},baseMonday:state.baseMonday,settings:state.settings});
+  const tela=()=>state.selectedSector+'/'+state.selectedWeek;
+  function botoesDesfazer(){const d=$('undoBtn'),r=$('redoBtn');if(d)d.disabled=!pilha.length;if(r)r.disabled=!refaz.length}
+  function zeraDesfazer(){pilha.length=0;refaz.length=0;try{ultimo=retrato();ultimaTela=tela()}catch(e){ultimo=null}botoesDesfazer()}
+  function anotaDesfazer(){
+    if(!me||!pronto||applying||desfazendo)return;
+    const agora=retrato();
+    if(agora===ultimo){ultimaTela=tela();return}
+    // só trocar de setor/semana pode ajustar detalhes internos: isso não conta como alteração a desfazer
+    if(ultimo!==null&&tela()===ultimaTela){pilha.push(ultimo);if(pilha.length>40)pilha.shift();refaz.length=0}
+    ultimo=agora;ultimaTela=tela();botoesDesfazer();
+  }
+  function volta(de,para,msg){
+    if(!me||!pronto)return;
+    if(!de.length){warn(msg);return}
+    para.push(retrato());const d=JSON.parse(de.pop());
+    desfazendo=true;
+    try{state.sectors=d.sectors;state.roster=d.roster;state.baseMonday=d.baseMonday;state.settings=d.settings;state.notice='';
+      if(!state.sectors[state.selectedSector])state.selectedSector=Object.keys(state.sectors)[0];
+      normalize();render()}finally{desfazendo=false}
+    ultimo=retrato();ultimaTela=tela();botoesDesfazer();agendar();
+  }
+  const desfazer=()=>volta(pilha,refaz,'Nada para desfazer.');
+  const refazer=()=>volta(refaz,pilha,'Nada para refazer.');
+  document.addEventListener('keydown',e=>{
+    if(!(e.ctrlKey||e.metaKey)||e.altKey)return;const k=e.key.toLowerCase();
+    if(k!=='z'&&k!=='y')return;
+    const t=e.target,tag=t&&t.tagName;
+    if(tag==='TEXTAREA'||(tag==='INPUT'&&!/^(checkbox|radio|button|range)$/.test(t.type||'')))return; // em campo de texto vale o desfazer do próprio campo
+    if(!ov.hidden||document.getElementById('adminOverlay')||document.getElementById('histOverlay'))return;
+    e.preventDefault();(k==='y'||e.shiftKey)?refazer():desfazer();
+  });
+  afterRender.push(()=>{if(me&&pronto){guardaUi();mostraNova()}});
+
+  /* ---------- histórico de versões da própria conta ---------- */
+  const quandoFmt=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const escH=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  async function abreHistorico(){
+    if(!me||!pronto||document.getElementById('histOverlay'))return;
+    const setor=state.selectedSector;
+    const h=document.createElement('div');h.id='histOverlay';
+    h.innerHTML='<div class="hist-box"><header><div><h2>Histórico · '+escH(nomeSetor(setor))+'</h2><small>Versões anteriores deste setor, guardadas automaticamente enquanto você edita (até 60).</small></div><button type="button" class="button outline" id="histFechar">Fechar</button></header><div id="histLista"><p class="hist-vazio">Carregando…</p></div></div>';
+    document.body.appendChild(h);
+    const fecha=()=>h.remove();
+    h.querySelector('#histFechar').addEventListener('click',fecha);
+    h.addEventListener('click',e=>{if(e.target===h)fecha()});
+    const {data,error}=await sb.from('escalas_historico').select('id,resumo,versao_em,salvo_em').eq('dono',alvo).eq('setor',setor).order('id',{ascending:false}).limit(30);
+    const L=h.querySelector('#histLista');
+    if(error){L.innerHTML='<p class="hist-vazio">Não foi possível carregar o histórico. Verifique a internet e tente de novo.</p>';return}
+    if(!data.length){L.innerHTML='<p class="hist-vazio">Ainda não há versões anteriores deste setor. Elas aparecem conforme você edita.</p>';return}
+    L.innerHTML='<table><thead><tr><th>Versão de</th><th>Conteúdo</th><th></th></tr></thead><tbody>'+data.map(v=>{const r=v.resumo||{};
+      return '<tr><td>'+quandoFmt(v.versao_em||v.salvo_em)+'</td><td>'+escH((r.colaboradoras||0)+' colaboradoras'+((r.primeiros||[]).length?' · '+r.primeiros.join(', ')+'…':''))+'</td><td><button type="button" class="button outline" data-ver="'+v.id+'">Restaurar</button></td></tr>'}).join('')+'</tbody></table>';
+    L.addEventListener('click',async e=>{
+      const b=e.target.closest('button[data-ver]');if(!b)return;
+      if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmar?';setTimeout(()=>{if(b.isConnected){b.dataset.ok='';b.textContent='Restaurar'}},4000);return}
+      b.disabled=true;
+      const {data:v,error:e2}=await sb.from('escalas_historico').select('dados').eq('id',+b.dataset.ver).maybeSingle();
+      if(e2||!v){warn('Não foi possível carregar essa versão.');b.disabled=false;return}
+      const d={...v.dados},rs=d._roster;delete d._roster;
+      state.sectors[setor]=d;state.roster=state.roster||{};
+      if(Array.isArray(rs)&&rs.length)state.roster[setor]=rs;
+      state.notice='';fecha();
+      try{normalize();render()}catch(x){console.warn(x)}
+      warn('Versão restaurada. Se não era essa, use Desfazer (Ctrl+Z).');
+    });
+  }
 
   /* ---------- aviso de conta nova (em branco) ---------- */
   const cn=document.createElement('div');cn.id='contaNova';cn.hidden=true;

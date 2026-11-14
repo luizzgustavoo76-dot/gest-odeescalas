@@ -1,0 +1,43 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));
+const route=async p=>{await p.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));await p.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}))};
+const ctx=await b.newContext({viewport:{width:1400,height:900}});const A=await ctx.newPage();await route(A);const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(600);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const n=()=>A.evaluate(()=>state.sectors['frente-caixa'].weeks[0].activeCount);
+T('sem faixa azul',!(await A.$('#syncDiag')));
+T('build no rodapé',/build \d+/.test(await A.textContent('#buildTag')),await A.textContent('#buildTag'));
+T('desfazer começa desligado',await A.evaluate(()=>document.getElementById('undoBtn').disabled));
+await A.evaluate(()=>setActive(5));await A.waitForTimeout(100);await A.evaluate(()=>setActive(8));await A.waitForTimeout(100);
+T('duas alterações',await n()===8);
+await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('Ctrl+Z volta para 5',await n()===5,''+await n());
+await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('Ctrl+Z volta para 1',await n()===1,''+await n());
+await A.keyboard.press('Control+y');await A.waitForTimeout(200);T('Ctrl+Y refaz para 5',await n()===5,''+await n());
+await A.click('#undoBtn');await A.waitForTimeout(200);T('botão desfazer',await n()===1);
+await A.click('#redoBtn');await A.click('#redoBtn');await A.waitForTimeout(200);T('botão refazer até 8',await n()===8);
+await A.selectOption('#sectorSelect','padaria');await A.waitForTimeout(200);await A.selectOption('#sectorSelect','frente-caixa');await A.waitForTimeout(200);
+await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('trocar de setor não vira passo de desfazer',await n()===5,''+await n());
+await A.waitForTimeout(1800);
+T('o desfeito foi salvo na nuvem',await A.evaluate(()=>__db.escalas.find(e=>e.setor==='frente-caixa').dados.weeks[0].activeCount===5));
+// Ctrl+Z dentro de campo de texto não mexe na escala
+await A.evaluate(()=>setActive(6));await A.waitForTimeout(1800);
+await A.evaluate(()=>{const t=document.getElementById('extraHolidays');document.querySelector('.tab[data-tab=rules]').click();t.focus()});
+await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('Ctrl+Z em campo de texto é do campo',await n()===6);
+await A.evaluate(()=>document.activeElement.blur());
+// histórico
+await A.click('#histBtn');await A.waitForTimeout(500);
+const linhas=await A.evaluate(()=>document.querySelectorAll('#histLista [data-ver]').length);
+T('histórico lista versões da conta',linhas>=1,linhas+' versões');
+const antes=await n();
+await A.locator('#histLista [data-ver]').last().click();await A.locator('#histLista [data-ver]').last().click();await A.waitForTimeout(600);
+T('restaurou uma versão antiga',await n()!==antes&&!(await A.$('#histOverlay')),antes+' → '+await n());
+await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('restauração pode ser desfeita',await n()===antes);
+// erros
+await A.evaluate(()=>{setTimeout(()=>{throw new Error('erro de teste')},0)});await A.waitForTimeout(300);
+T('erro vai para o painel',await A.evaluate(()=>(__db.erros||[]).some(e=>/erro de teste/.test(e.mensagem))),JSON.stringify(await A.evaluate(()=>__db.erros)));
+await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=atividade]');await A.waitForTimeout(400);
+T('filtro "Só erros" existe',await A.evaluate(()=>!!document.querySelector('#aFiltro option[value=erro]')));
+console.log('erros de página:',errs.filter(e=>!/erro de teste/.test(e)).length);
+await b.close()})();

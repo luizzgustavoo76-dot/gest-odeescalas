@@ -229,3 +229,13 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Painel de administração (admin.js + função admin-usuarios): contas, senha, nível (administrador/usuário), bloquear, excluir, atividade e histórico. Cada conta tem os próprios dados; o administrador pode abrir e editar os de qualquer conta. Botão Sair refeito; removido Atualizar da nuvem.
 
 - Backup completo (baixar/restaurar) no painel; recuperar senha por e-mail e trocar a própria senha; conta nova abre em branco; ajustes de desempenho das regras de acesso (RLS) e índices.
+
+- Build 76: desfazer/refazer (Ctrl+Z / Ctrl+Y), histórico de versões para a própria conta, erros do app registrados na aba Atividade, modo Resumo/Editar no celular, instalar como aplicativo (manifest + ícones), enviar a escala por WhatsApp, regras configuráveis (sábado, postos do setor, quem não folga junto), ordem das linhas mantida ao editar na tabela, teto da fonte do domingo na impressão. Código: app.js formatado, ganchos `afterRender`, restos removidos, faixa de diagnóstico removida.
+
+## Estrutura do código
+- `index.html` – página; carrega `app.js` e depois, em ordem, a biblioteca do Supabase (`vendor/supabase.js`, com reserva no jsDelivr), `supabase-config.js`, `admin.js` e `sync.js`.
+- `app.js` – regras da escala e desenho da tela. Depois de cada `render()` rodam os ganchos de `afterRender`.
+- `sync.js` – login, dados na nuvem, desfazer/refazer, histórico da conta, troca de senha, registro de erros.
+- `admin.js` – painel de administração.
+- `supabase/` – banco (`schema.sql`), função `admin-usuarios` e instruções.
+- `tests/` – testes automáticos. Rodar: `npm install --no-save playwright && npx playwright install chromium && node tests/run.js`. No GitHub rodam sozinhos a cada envio (aba Actions).

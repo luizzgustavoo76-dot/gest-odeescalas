@@ -6,9 +6,9 @@
   const NIVEIS=[['admin','Administrador'],['usuario','Usuário']];
   const nomeNivel=id=>(NIVEIS.find(n=>n[0]===id)||[0,id])[1];
   const nomeSetor=id=>(SETORES.find(n=>n[0]===id)||[0,id])[1];
-  const ACOES={backup_baixado:'Baixou o backup completo',backup_restaurado:'Restaurou um backup',escala_salva:'Salvou a escala',escala_restaurada:'Restaurou uma versão da escala',usuario_criado:'Criou o usuário',usuario_editado:'Editou a conta de',usuario_nivel:'Mudou o nível de',usuario_senha:'Trocou a senha de',usuario_bloquear:'Bloqueou',usuario_desbloquear:'Desbloqueou',usuario_excluido:'Excluiu o usuário'};
+  const ACOES={erro_app:'Erro no app',backup_baixado:'Baixou o backup completo',backup_restaurado:'Restaurou um backup',escala_salva:'Salvou a escala',escala_restaurada:'Restaurou uma versão da escala',usuario_criado:'Criou o usuário',usuario_editado:'Editou a conta de',usuario_nivel:'Mudou o nível de',usuario_senha:'Trocou a senha de',usuario_bloquear:'Bloqueou',usuario_desbloquear:'Desbloqueou',usuario_excluido:'Excluiu o usuário'};
   const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let ctx=null,ultimoBackup=null,lista=[],ov=null,aba='usuarios',marcados=new Set(),abertos=new Set(),filtro={q:'',papel:'',status:'',ordem:'nome'},sel='frente-caixa',donoSel=null;
+  let ctx=null,ultimoBackup=null,erros24=0,lista=[],ov=null,aba='usuarios',marcados=new Set(),abertos=new Set(),filtro={q:'',papel:'',status:'',ordem:'nome'},sel='frente-caixa',donoSel=null;
 
   async function chama(corpo){
     const {data,error}=await ctx.sb.functions.invoke('admin-usuarios',{body:corpo});
@@ -21,11 +21,9 @@
     return data;
   }
   const aviso=(m,ok)=>{const e=ov.querySelector('#admMsg');e.textContent=m||'';e.dataset.ok=ok?'1':'';e.hidden=!m;if(m)e.scrollIntoView({block:'nearest'})};
-  const setoresHtml=(sel)=>SETORES.map(([id,n])=>`<label class="adm-chk"><input type="checkbox" data-set="${id}" ${sel.includes(id)?'checked':''}> ${esc(n)}</label>`).join('');
   const niveisHtml=s=>NIVEIS.map(([id,n])=>`<option value="${id}" ${id===s?'selected':''}>${n}</option>`).join('');
   const fmt=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
   const rel=t=>{if(!t)return 'nunca entrou';const d=(Date.now()-new Date(t))/6e4;if(d<2)return 'agora há pouco';if(d<60)return Math.round(d)+' min atrás';if(d<1440)return Math.round(d/60)+' h atrás';return Math.round(d/1440)+' dia(s) atrás'};
-  const lerSetores=el=>[...el.querySelectorAll('input[data-set]:checked')].map(i=>i.dataset.set);
   const gerarSenha=()=>{const a='abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';const r=crypto.getRandomValues(new Uint32Array(10));r.forEach(n=>s+=a[n%a.length]);return s};
 
   /* ---------- Resumo ---------- */
@@ -36,6 +34,7 @@
     if(ad<2)alertas.push('Só há '+ad+' administrador. Recomenda-se ter pelo menos 2, para não perder o acesso se uma conta for bloqueada.');
     const dias=ultimoBackup?(Date.now()-new Date(ultimoBackup))/864e5:null;
     if(dias===null)alertas.push('Nenhum backup foi baixado ainda. Abra a aba Backup e baixe um.');else if(dias>7)alertas.push('O último backup foi há '+Math.floor(dias)+' dias. Baixe um novo na aba Backup.');
+    if(erros24)alertas.push(erros24+' erro(s) do app nas últimas 24 horas. Veja na aba Atividade, filtro "Só erros do app".');
     if(nunca)alertas.push(nunca+' usuário(s) nunca entraram.');
     if(vazios)alertas.push(vazios+' conta(s) ainda sem nenhuma escala salva (ainda não importaram os dados).');
     const tab=`<div class="adm-matriz"><table><thead><tr><th>Conta</th><th>Setores com dados</th><th>Última edição</th><th></th></tr></thead><tbody>${lista.map(u=>`<tr><td>${esc(u.nome||u.email)}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}</td><td>${u.setores_salvos} de ${SETORES.length}</td><td>${fmt(u.ultima_edicao)}</td><td><button type="button" class="button outline" data-abrir="${esc(u.id)}">Abrir dados</button></td></tr>`).join('')}</tbody></table></div>`;
@@ -101,12 +100,13 @@
     try{
       const r=await chama({acao:'auditoria',limite:200,filtro:filtro.atv||''});
       const ev=r.eventos||[];
-      box.innerHTML=`<div class="adm-filtros"><select id="aFiltro"><option value="">Todas as atividades</option><option value="usuario" ${filtro.atv==='usuario'?'selected':''}>Só usuários e acessos</option><option value="escala" ${filtro.atv==='escala'?'selected':''}>Só escalas</option></select><button type="button" class="button outline" id="aCsv">Exportar CSV</button></div>
+      box.innerHTML=`<div class="adm-filtros"><select id="aFiltro"><option value="">Todas as atividades</option><option value="usuario" ${filtro.atv==='usuario'?'selected':''}>Só usuários e acessos</option><option value="escala" ${filtro.atv==='escala'?'selected':''}>Só escalas</option><option value="erro" ${filtro.atv==='erro'?'selected':''}>Só erros do app</option></select><button type="button" class="button outline" id="aCsv">Exportar CSV</button></div>
       <p class="adm-ajuda">Registro dos últimos eventos. Salvamentos seguidos da mesma pessoa no mesmo setor (em até 10 min) aparecem agrupados.</p>
       ${ev.length?`<div class="adm-matriz"><table class="adm-log"><thead><tr><th>Quando</th><th>Quem</th><th>O quê</th></tr></thead><tbody>${ev.map(e=>{
         const alvo=e.acao.startsWith('escala')?nomeSetor(e.alvo):e.alvo;
         let det='';const d=e.detalhes||{};
         if(e.acao.startsWith('escala')&&d.colaboradoras!=null)det=` de ${d.dono_email||'—'} (${d.colaboradoras} colaboradoras${e.qtd>1?' · '+e.qtd+' salvamentos':''})`;
+        else if(e.acao==='erro_app')det=` — ${d.mensagem||''}`;
         else if(d.papel)det=` → ${nomeNivel(d.papel)}`;
         
         return `<tr><td>${fmt(e.ultima_em||e.quando)}</td><td>${esc(e.ator_email||'—')}</td><td>${esc(ACOES[e.acao]||e.acao)} <b>${esc(alvo||'')}</b>${esc(det)}</td></tr>`}).join('')}</tbody></table></div>`:'<p class="adm-vazio">Nada registrado ainda.</p>'}`;
@@ -174,7 +174,7 @@
   }
 
   async function carrega(){
-    try{const r=await chama({acao:'listar'});lista=r.usuarios||[];ultimoBackup=r.ultimo_backup||null;marcados=new Set([...marcados].filter(i=>lista.some(u=>u.id===i)));
+    try{const r=await chama({acao:'listar'});lista=r.usuarios||[];ultimoBackup=r.ultimo_backup||null;erros24=r.erros_24h||0;marcados=new Set([...marcados].filter(i=>lista.some(u=>u.id===i)));
       ov.querySelector('#admTotal').textContent=lista.length+' usuário(s)';mostra()}
     catch(e){ov.querySelector('#admConteudo').innerHTML='<p class="adm-vazio">Não foi possível carregar os usuários: '+esc(e.message)+'</p>'}
   }

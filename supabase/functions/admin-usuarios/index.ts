@@ -149,7 +149,9 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
       };
     }).sort((a: any, b: any) => (a.nome || a.email).localeCompare(b.nome || b.email));
     const { data: ub } = await admin.from("auditoria").select("quando").eq("acao", "backup_baixado").order("id", { ascending: false }).limit(1);
-    return json({ usuarios, ultimo_backup: ub?.[0]?.quando || null });
+    const { count: erros } = await admin.from("auditoria").select("id", { count: "exact", head: true })
+      .eq("acao", "erro_app").gt("quando", new Date(Date.now() - 864e5).toISOString());
+    return json({ usuarios, ultimo_backup: ub?.[0]?.quando || null, erros_24h: erros || 0 });
   }
 
   if (acao === "criar") {
