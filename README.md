@@ -173,3 +173,6 @@ Bloco próprio para o domingo: marque quais PDVs funcionam no domingo (no máxim
 
 ### Aba Equipe com PDVs
 A quantidade de PDVs disponíveis agora fica na própria aba **Equipe** (Frente de Caixa); a aba "PDVs" deixou de existir.
+
+### Ajustes de leitura na impressão
+Título e datas da semana centralizados; colunas mais juntas (sem o espaço grande entre posto e entrada); folgas no formato "Seg. 09/11 e Ter. 10/11" (dia da semana, dia e mês na mesma célula).

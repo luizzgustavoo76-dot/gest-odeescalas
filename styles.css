@@ -119,3 +119,10 @@
 @media print{#toast{display:none!important}}
 @media print{.sunday-dashboard td:nth-child(2),.sunday-dashboard th:nth-child(2){display:none!important}#pdvActivePanel{display:none}}
 #pdvPlanPanel:empty{display:none}#pdvPlanPanel .pdv-plan{margin:0;padding:0;border:0}
+@media print{
+ .schedule-title{display:block!important;text-align:center}.schedule-title>div{text-align:center}.schedule-title h2{text-align:center;font-size:15px}
+ #scheduleTable th,#scheduleTable td{width:1%}#scheduleTable th:last-child,#scheduleTable td:last-child{width:auto}
+ #scheduleTable th:nth-last-child(2),#scheduleTable td:nth-last-child(2){width:auto}
+ .sunday-dashboard .print-brand{position:relative}.sunday-dashboard .print-brand span{position:absolute;left:0;right:0;margin:0;text-align:center;pointer-events:none}
+}
+@media print{.hero,.hero>*,#mainTitle,#sectorLabel{text-align:center!important;justify-content:center!important}.hero{display:block!important}}
