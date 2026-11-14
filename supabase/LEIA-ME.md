@@ -35,14 +35,17 @@ Ids dos setores: `frente-caixa`, `acougue-frios`, `loja-deposito`, `padaria`, `h
 - Na primeira entrada, se a nuvem já tiver escalas, elas substituem as do aparelho (uma cópia fica em `localStorage` na chave `bom-dia-antes-da-nuvem`). Setores que ainda não existem na nuvem sobem do aparelho.
 - Duas pessoas editando o **mesmo setor ao mesmo tempo**: vale a última gravação.
 
-## Painel de administração (usuários e acessos)
-O botão **Administração** (só para administradores) cria usuários, define a senha, o nível (Administrador, Gerente ou Somente leitura) e os setores liberados, além de redefinir senha, bloquear e excluir. O painel tem 4 abas:
+## Contas individuais e painel de administração
+Cada conta tem os **próprios dados** (escalas, colaboradoras, folgas), separados das outras. Uma conta nova começa em branco e importa a própria planilha. Só o administrador cria contas.
 
-- **Resumo**: totais, alertas (ex.: só 1 administrador, usuários sem setor) e a matriz "quem acessa o quê".
-- **Usuários**: busca, filtros (nível, setor, situação), ordenação, gerador de senha, copiar e-mail/senha, ações em lote (mudar nível, liberar setores, bloquear) e exportar CSV.
-- **Atividade**: registro de quem salvou escalas e quem criou/editou/bloqueou usuários.
-- **Histórico de escalas**: versões anteriores de cada setor, com botão para restaurar.
+- **Usuário**: vê e edita apenas os seus dados.
+- **Administrador**: gerencia contas e pode abrir e editar os dados de qualquer conta ("Abrir dados"; uma faixa amarela avisa de quem são os dados, com o botão "Voltar aos meus dados").
+
+O botão **Administração** (só para administradores) tem 4 abas:
+
+- **Resumo**: totais, alertas (ex.: só 1 administrador, conta sem dados) e os dados de cada conta, com "Abrir dados".
+- **Usuários**: criar conta, busca, filtros, ordenação, gerador de senha, copiar e-mail/senha, ações em lote (mudar nível, bloquear) e exportar CSV.
+- **Atividade**: registro de quem salvou escalas (e de qual conta) e quem criou/editou/bloqueou contas.
+- **Histórico de escalas**: versões anteriores de cada setor de cada conta, com botão para restaurar.
+
 Ele usa a Edge Function `admin-usuarios` (código em `supabase/functions/admin-usuarios/index.ts`), publicada no Supabase com a chave de serviço guardada no servidor. Se precisar publicar de novo: Supabase → Edge Functions → Deploy a new function, nome `admin-usuarios`, cole o arquivo e desligue "Verify JWT" (a função confere o administrador sozinha).
-- **Administrador**: vê e edita tudo e gerencia usuários.
-- **Gerente**: vê e edita só os setores marcados.
-- **Somente leitura**: vê só os setores marcados.

@@ -8,7 +8,7 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const SETORES = ["frente-caixa", "acougue-frios", "loja-deposito", "padaria", "horti-fruit"];
-const NIVEIS = ["admin", "gerente", "leitor"];
+const NIVEIS = ["admin", "usuario"];
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const falha = (msg: string, status = 400) => json({ erro: msg }, status);
@@ -30,7 +30,6 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   try { b = await req.json(); } catch { return falha("Pedido inválido."); }
   const acao = String(b.acao || "");
 
-  const limpaSetores = (v: unknown) => Array.isArray(v) ? [...new Set(v.map(String))].filter((s) => SETORES.includes(s)) : [];
   const nivelOk = (n: unknown) => NIVEIS.includes(String(n));
   const totalAdmins = async () => {
     const { count } = await admin.from("perfis").select("id", { count: "exact", head: true }).eq("papel", "admin");
@@ -58,7 +57,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     const setor = String(b.setor || "");
     if (!SETORES.includes(setor)) return falha("Setor inválido.");
     const { data, error } = await admin.from("escalas_historico").select("id,setor,resumo,versao_em,versao_por,salvo_em")
-      .eq("setor", setor).order("id", { ascending: false }).limit(30);
+      .eq("dono", String(b.dono || "")).eq("setor", setor).order("id", { ascending: false }).limit(30);
     if (error) return falha(error.message, 500);
     const ids = [...new Set((data || []).map((r: any) => r.versao_por).filter(Boolean))];
     const { data: ps } = ids.length ? await admin.from("perfis").select("id,email,nome").in("id", ids) : { data: [] };
@@ -69,9 +68,9 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   if (acao === "restaurar") {
     const { data: v } = await admin.from("escalas_historico").select("*").eq("id", Number(b.id)).maybeSingle();
     if (!v) return falha("Versão não encontrada.", 404);
-    const { error } = await admin.from("escalas").update({ dados: v.dados }).eq("setor", v.setor);
+    const { error } = await admin.from("escalas").update({ dados: v.dados }).eq("dono", v.dono).eq("setor", v.setor);
     if (error) return falha(error.message, 500);
-    await log("escala_restaurada", v.setor, { versao_em: v.versao_em, resumo: v.resumo });
+    await log("escala_restaurada", v.setor, { versao_em: v.versao_em, resumo: v.resumo, dono: v.dono, dono_email: await emailDe(v.dono) });
     return json({ ok: true });
   }
 
@@ -87,17 +86,8 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
         if (alvoId === eu && b.papel !== "admin") { pulados.push(em + " (você mesmo)"); continue; }
         const { data: atual } = await admin.from("perfis").select("papel").eq("id", alvoId).maybeSingle();
         if (atual?.papel === "admin" && b.papel !== "admin" && (await totalAdmins()) <= 1) { pulados.push(em + " (único admin)"); continue; }
-        const upd: any = { papel: String(b.papel) };
-        if (b.papel === "admin") upd.setores = [];
-        await admin.from("perfis").update(upd).eq("id", alvoId);
+        await admin.from("perfis").update({ papel: String(b.papel) }).eq("id", alvoId);
         await log("usuario_nivel", em, { papel: b.papel });
-      } else if (op === "setores_add" || op === "setores_set") {
-        const novos = limpaSetores(b.setores);
-        const { data: atual } = await admin.from("perfis").select("papel,setores").eq("id", alvoId).maybeSingle();
-        if (!atual || atual.papel === "admin") { pulados.push(em + " (admin vê tudo)"); continue; }
-        const final = op === "setores_set" ? novos : [...new Set([...(atual.setores || []), ...novos])];
-        await admin.from("perfis").update({ setores: final }).eq("id", alvoId);
-        await log("usuario_setores", em, { setores: final });
       } else if (op === "bloquear" || op === "desbloquear") {
         if (op === "bloquear" && alvoId === eu) { pulados.push(em + " (você mesmo)"); continue; }
         const { error } = await admin.auth.admin.updateUserById(alvoId, { ban_duration: op === "bloquear" ? "876000h" : "none" });
@@ -114,10 +104,13 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (error) return falha(error.message, 500);
     const { data: perfis } = await admin.from("perfis").select("*");
     const mapa = new Map((perfis || []).map((p: any) => [p.id, p]));
+    const { data: esc } = await admin.from("escalas").select("dono,setor,atualizado_em").neq("setor", "_config");
+    const dados = new Map<string, { n: number; ult: string | null }>();
+    for (const e of esc || []) { const d = dados.get(e.dono) || { n: 0, ult: null }; d.n++; if (!d.ult || e.atualizado_em > d.ult) d.ult = e.atualizado_em; dados.set(e.dono, d); }
     const usuarios = lista.users.map((u: any) => {
       const p: any = mapa.get(u.id) || {};
       return {
-        id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "leitor", setores: p.setores || [],
+        id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "usuario", setores_salvos: dados.get(u.id)?.n || 0, ultima_edicao: dados.get(u.id)?.ult || null,
         ultimo_login: u.last_sign_in_at || null, criado_em: u.created_at, confirmado: !!u.email_confirmed_at,
         bloqueado: !!(u.banned_until && new Date(u.banned_until) > new Date()),
       };
@@ -137,10 +130,10 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     });
     if (error) return falha(/already|registered|exists/i.test(error.message) ? "Já existe um usuário com esse e-mail." : error.message);
     const { error: eP } = await admin.from("perfis").upsert({
-      id: data.user.id, email, nome, papel: String(b.papel), setores: b.papel === "admin" ? [] : limpaSetores(b.setores),
+      id: data.user.id, email, nome, papel: String(b.papel),
     });
     if (eP) return falha(eP.message, 500);
-    await log("usuario_criado", email, { papel: b.papel, setores: b.papel === "admin" ? [] : limpaSetores(b.setores) });
+    await log("usuario_criado", email, { papel: b.papel });
     return json({ ok: true, id: data.user.id });
   }
 
@@ -151,10 +144,10 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
     if (id === eu && b.papel !== "admin" && (await totalAdmins()) <= 1) return falha("Você é o único administrador. Torne outra pessoa administradora antes.");
     const { error } = await admin.from("perfis").update({
-      nome: String(b.nome || "").trim(), papel: String(b.papel), setores: b.papel === "admin" ? [] : limpaSetores(b.setores),
+      nome: String(b.nome || "").trim(), papel: String(b.papel),
     }).eq("id", id);
     if (error) return falha(error.message, 500);
-    await log("usuario_editado", await emailDe(id), { papel: b.papel, setores: b.papel === "admin" ? [] : limpaSetores(b.setores) });
+    await log("usuario_editado", await emailDe(id), { papel: b.papel });
     return json({ ok: true });
   }
 

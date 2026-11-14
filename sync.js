@@ -37,11 +37,12 @@
   const ver={};              // versão (atualizado_em) de cada setor, como está na nuvem
   const synced={};           // JSON de cada setor, como está na nuvem
   const sent=[];
-  let me=null,perfil=null,timer=null,pushing=false,again=false,applying=false,channel=null,pronto=false,uiOk=false;
+  let me=null,alvo=null,alvoNome='',perfil=null,timer=null,pushing=false,again=false,applying=false,channel=null,pronto=false,uiOk=false;
   const ehAdmin=()=>!!perfil&&perfil.papel==='admin';
-  const visivel=s=>!!perfil&&(ehAdmin()||s==='_config'||(perfil.setores||[]).includes(s));
-  const podeEditar=s=>!!perfil&&(ehAdmin()||(perfil.papel==='gerente'&&(s==='_config'||(perfil.setores||[]).includes(s))));
-  const NIVEL={admin:'administrador',gerente:'gerente',leitor:'somente leitura'};
+  // cada conta tem os próprios dados; o administrador pode abrir e editar os de qualquer conta
+  const visivel=()=>!!perfil;
+  const podeEditar=()=>!!perfil&&!!alvo;
+  const NIVEL={admin:'administrador',usuario:'usuário'};
 
   const traduz=m=>/invalid login/i.test(m)?'E-mail ou senha incorretos.':/email not confirmed/i.test(m)?'E-mail ainda não confirmado.':/rate limit|too many/i.test(m)?'Muitas tentativas. Aguarde um pouco.':'Não foi possível entrar: '+m;
   $('loginForm').addEventListener('submit',async ev=>{
@@ -68,7 +69,7 @@
     location.reload();
   };
   $('logoutBtn').addEventListener('click',sair);$('errOut').addEventListener('click',sair);
-  $('adminBtn').addEventListener('click',()=>{if(window.abrirAdmin)window.abrirAdmin({sb,eu:me})});
+  $('adminBtn').addEventListener('click',()=>{if(window.abrirAdmin)window.abrirAdmin({sb,eu:me,abrirComo:trocarAlvo,alvo:()=>alvo})});
 
   /* ---------- faixa de diagnóstico ---------- */
   const diag=document.createElement('div');diag.id='syncDiag';diag.hidden=true;document.body.appendChild(diag);
@@ -116,11 +117,11 @@
   async function gravar(it){
     const v=ver[it.setor];
     if(v===undefined){
-      const {data,error}=await sb.from('escalas').insert({setor:it.setor,dados:it.dados}).select();
+      const {data,error}=await sb.from('escalas').insert({dono:alvo,setor:it.setor,dados:it.dados}).select();
       if(error){if(error.code==='23505')return'conflito';if(rls(error))return'negado';throw error}
       ver[it.setor]=data[0].atualizado_em;return'ok';
     }
-    const {data,error}=await sb.from('escalas').update({dados:it.dados}).eq('setor',it.setor).eq('atualizado_em',v).select();
+    const {data,error}=await sb.from('escalas').update({dados:it.dados}).eq('dono',alvo).eq('setor',it.setor).eq('atualizado_em',v).select();
     if(error){if(rls(error))return'negado';throw error}
     if(!data||!data.length)return'conflito';
     ver[it.setor]=data[0].atualizado_em;return'ok';
@@ -142,7 +143,7 @@
       if(negado.length||conflito.length){
         if(conflito.length)warn('Outra pessoa alterou '+conflito.map(nomeSetor).join(', ')+' antes de você salvar. Carreguei a versão mais recente: refaça sua alteração.');
         else warn('Você não tem permissão para editar: '+negado.map(nomeSetor).join(', ')+'. Recarreguei a versão da nuvem.');
-        const {data,error}=await sb.from('escalas').select('*').in('setor',conflito.concat(negado));
+        const {data,error}=await sb.from('escalas').select('*').eq('dono',alvo).in('setor',conflito.concat(negado));
         if(error)throw error;
         aplicar(data);
       }
@@ -177,15 +178,7 @@
   const restauraUi=()=>{try{const u=JSON.parse(localStorage.getItem(UIK)||'null');if(u&&state.sectors[u.sector]){state.selectedSector=u.sector;state.selectedWeek=Math.min(3,Math.max(0,+u.week||0))}}catch(e){}uiOk=true};
 
   /* ---------- setores liberados e modo somente leitura ---------- */
-  function ajustaSetores(){
-    const sel=$('sectorSelect');
-    if(sel)[...sel.options].forEach(o=>{if(!visivel(o.value))o.remove()});
-    if(!SETORES().some(visivel)){
-      pronto=false;erro('Nenhum setor liberado','Seu acesso ainda não tem nenhum setor liberado. Peça ao administrador para liberar.',()=>location.reload());return false;
-    }
-    if(sel&&!visivel(sel.value))sel.value=SETORES().find(visivel);
-    return true;
-  }
+  function ajustaSetores(){return true}
   const LIVRES='.period-tabs button,.tab,#toggleSettings,#toggleOperators,#toggleBoard,#toggleOff,#printFileButton,#scheduleTable thead button,#sectorSelect,#logoutBtn,#adminBtn,#syncDiag';
   const bloqueado=t=>{if(!document.body.classList.contains('somente-leitura')||!t||!t.closest)return false;
     return !!(t.closest('main,#weekStart,.import-label,#modelButton,#xlsxFile'))&&!t.closest(LIVRES)};
@@ -203,10 +196,14 @@
   /* ---------- buscar da nuvem ---------- */
   async function carregar(primeira){
     painel('load','Buscando as escalas na nuvem.');
-    const {data,error}=await sb.from('escalas').select('*');
+    const {data,error}=await sb.from('escalas').select('*').eq('dono',alvo);
     if(error){pronto=false;erro('Sem conexão','Não foi possível buscar as escalas na nuvem. O app só abre com conexão. Verifique a internet e tente de novo.',()=>carregar(primeira));return false}
     clearTimeout(timer);timer=null;
     for(const k of Object.keys(ver))delete ver[k];
+    for(const k of Object.keys(synced))delete synced[k];
+    // começa de uma escala em branco para não misturar dados de outra conta
+    const sel0=state.selectedSector,sem0=state.selectedWeek;
+    state=newState();if(sel0&&state.sectors[sel0]){state.selectedSector=sel0;state.selectedWeek=sem0}
     aplicar(data);
     if(!ajustaSetores())return false;
     if(primeira!==false||!uiOk)restauraUi();
@@ -224,7 +221,7 @@
   function tempoReal(){
     if(channel)sb.removeChannel(channel);
     channel=sb.channel('escalas-tempo-real').on('postgres_changes',{event:'*',schema:'public',table:'escalas'},p=>{
-      const l=p.new;if(!l||!l.setor||!pronto)return;
+      const l=p.new;if(!l||!l.setor||!pronto||l.dono!==alvo)return;
       const j=JSON.stringify(l.dados);
       if(l.atualizado_em===ver[l.setor]||sent.includes(j)||j===synced[l.setor])return; // eco do que eu mesmo salvei
       const meu=l.setor==='_config'?JSON.stringify(cfgDados())!==synced._config:(state.sectors[l.setor]&&JSON.stringify(carga(l.setor))!==synced[l.setor]);
@@ -238,19 +235,32 @@
   save=function(){agendar()};
   const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me&&pronto){mostraDiag();guardaUi();aplicaLeitura()}}catch(e){}return v};
 
+  /* ---------- administrador abrindo os dados de outra conta ---------- */
+  const vc=document.createElement('div');vc.id='verComo';vc.hidden=true;
+  vc.innerHTML='<span id="verComoTxt"></span><button type="button" class="button" id="verComoVolta">Voltar aos meus dados</button>';
+  if(mainEl)mainEl.insertBefore(vc,mainEl.firstChild);
+  async function trocarAlvo(id,nome){
+    if(!ehAdmin()||!me||!id)return false;
+    if(pronto&&(timer||pendentes().length)){clearTimeout(timer);timer=null;await enviar()}
+    alvo=id;alvoNome=id===me.id?'':(nome||'outra conta');
+    vc.hidden=id===me.id;$('verComoTxt').textContent='Você está vendo e editando os dados de '+alvoNome+'.';
+    const ok=await carregar(false);return ok;
+  }
+  $('verComoVolta').addEventListener('click',()=>{if(me)trocarAlvo(me.id)});
+
   /* ---------- sessão ---------- */
   async function entrou(user){
     me=user;painel('load','Entrando…');
     const {data:p,error}=await sb.from('perfis').select('*').eq('id',user.id).maybeSingle();
     if(error){me=null;erro('Sem conexão','Não foi possível verificar seu acesso. Verifique a internet e tente de novo.',()=>entrou(user));return}
     if(!p){me=null;await sb.auth.signOut();painel('login');loginErr('Esta sessão não é mais válida. Entre novamente com seu e-mail e senha.');return}
-    perfil=p;
-    $('userWho').textContent=(perfil.nome||user.email)+' · '+NIVEL[perfil.papel]+(perfil.papel!=='admin'&&perfil.setores&&perfil.setores.length?' ('+perfil.setores.map(nomeSetor).join(', ')+')':'');
+    perfil=p;if(!alvo||alvo!==user.id){alvo=user.id;alvoNome=''}
+    $('userWho').textContent=(perfil.nome||user.email)+(perfil.papel==='admin'?' · administrador':'');
     $('adminBtn').hidden=!ehAdmin();bar.hidden=false;
     if(await carregar(true))tempoReal();
   }
   function saiu(){
-    me=null;perfil=null;pronto=false;bar.hidden=true;clearTimeout(timer);timer=null;
+    me=null;alvo=null;perfil=null;pronto=false;bar.hidden=true;clearTimeout(timer);timer=null;
     if(channel){sb.removeChannel(channel);channel=null}
     painel('login');status('Entre para ver as escalas','');
   }

@@ -273,3 +273,5 @@ body.somente-leitura main :is(input,select,textarea,.stepper,.model-button,.off-
 .adm-matriz td.mE{background:#dff3e8;color:#14673f;font-weight:700;text-align:center}.adm-matriz td.mV{background:#e8eef7;color:#173766;font-weight:700;text-align:center}.adm-matriz td:not(:first-child):not(.mE):not(.mV){text-align:center;color:#b0b7c3}
 .adm-log td:last-child{white-space:normal}
 #admConteudo{display:flex;flex-direction:column;gap:14px}.adm-lote{margin-top:-4px}
+#verComo{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#fff4d6;border:2px solid #e0a800;color:#6b4a00;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-weight:700}
+#verComo[hidden]{display:none}#verComo .button{padding:7px 14px;min-height:0;font-size:13px}
