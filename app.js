@@ -1257,9 +1257,21 @@ function balanceOffs(w, chain) {
         tb = (lims[b].ub < 5 ? 0 : 1) + (lims[b].lb > 0 ? 0 : 1);
       return ta - tb || emps[a].shift - emps[b].shift || a - b;
     });
+  /* descanso a cada 6 dias: depois de uma semana com domingo de folga, quem trabalha o domingo seguinte deve folgar cedo na semana (senão passa de 6 dias seguidos);
+     e na semana do domingo de folga (5x2) a folga fica mais para o fim da semana */
+  const seqCost = (e, d) => {
+    let c = 0;
+    const pe = prev && prev.employees[emps.indexOf(e)];
+    if (e.sundayWork && pe && !pe.sundayWork) {
+      const p2 = Math.max(0, ...pe.offDays.map((k) => idx(k) + 1));
+      c += Math.max(0, d + 1 - p2 - 1) * 600;
+    } else if (!e.sundayWork && !six) c += (5 - d) * 120;
+    return c;
+  };
   const dayCost = (e, d, picked) => {
     const cs = get(e.shift, d) + picked.filter((x) => x === d).length;
     let c = (2 * (cs - tgt(e.shift, d)) + 1) * 100 + (2 * (tot[d] - tgtTot(d)) + 1) * 30; // segue o movimento esperado do dia
+    if (!picked.length) c += seqCost(e, d);
     if (d === 5 && evitaSabado()) c += 400; // evita sábado (regra configurável)
     const M = shiftMem[e.shift] || 0;
     if (M >= 2 && M - (cs + 1) < Math.ceil(M / 2)) c += 8000; // pelo menos metade do turno presente
