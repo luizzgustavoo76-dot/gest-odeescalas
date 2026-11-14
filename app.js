@@ -1626,7 +1626,6 @@ function postsPanel() {
       .join('');
   return `<div class="setting-block rotation-block post-plan"><label>Rodízio de turnos dos postos</label><p class="helper">O posto de cada colaboradora é o da ficha e não muda; no posto Operadora Caixa, o PDV é escolhido no painel "PDVs de cada turno" (aba Regras). Em cada turno, informe quantas colaboradoras de cada posto trabalham nele; elas passam para outro turno a cada semana. Sem alteração, o sistema divide automaticamente entre cedo e tarde.</p>
   <div class="post-shift-wrap"><div class="post-shift-grid" style="--cols:${keys.length}"><span></span>${head}${rows}</div></div>
-  <label class="early-row">Cedo = entrada antes de <input type="time" id="postEarly" value="${state.settings.earlyBefore || '09:00'}" /></label>
   <p class="helper">Dica: a soma de cada coluna deve ser igual ao número de colaboradoras daquele posto nesta semana. Quem tem restrição de horário fica nos turnos cedo.</p>
   <button class="button secondary full" id="applyPosts" type="button">Aplicar rodízio de turnos dos postos nas 4 semanas</button>
   <button class="button outline full" id="clearPosts" type="button">Limpar escolha (automático)</button>
