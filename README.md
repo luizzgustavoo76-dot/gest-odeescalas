@@ -191,3 +191,6 @@ A letra e a altura das linhas se ajustam ao número de colaboradoras (poucas = l
 
 ### Troca de PDV também na prévia
 A prévia da escala (tela) mostra, ao lado do PDV da operadora que assume, o horário da troca em vermelho, por exemplo "(após 17:20)", igual ao documento impresso.
+
+### Mínimo de colaboradoras por domingo (aba Regras)
+Campo editável por setor (− / + ou digitando). O padrão é Frente de Caixa 4, Açougue e Frios 4, Loja e Depósito 2, Padaria 3, Horti Fruit 1; "Voltar ao padrão" restaura. O número vale para a escala de domingo, o painel de conformidade e as sugestões de domingos.
