@@ -182,3 +182,6 @@ O cabeçalho da folha de domingo (impressão e arquivo "Baixar para imprimir") t
 
 ### Impressão adaptável
 A letra e a altura das linhas se ajustam ao número de colaboradoras (poucas = letra grande; muitas = letra menor) para ocupar a folha inteira, com as colunas distribuídas na largura toda. Continua sendo 1 folha da semana + 1 folha de domingo.
+
+### Mesmo layout nos dois botões
+"Baixar para imprimir" agora gera o arquivo a partir da própria página e do mesmo CSS de impressão do botão "Imprimir escala", então o layout é idêntico (cabeçalho, título centralizado, colunas, trocas de PDV e escala de domingo).

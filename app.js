@@ -746,20 +746,27 @@ function pdvSwaps(){
 /* ===== baixar a escala (semana + domingo) em arquivo para imprimir ===== */
 async function printFile(){
   if(issues().length){renderWarning();document.getElementById('scheduleWarning').scrollIntoView({behavior:'smooth',block:'center'});return}
-  const w=week(),name=SECTORS[state.selectedSector],esc=x=>String(x).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-  let logo='';try{const r=await fetch('logo.png'),b=await r.blob();logo=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=()=>ok('');f.readAsDataURL(b)})}catch(e){}
-  const cl=document.getElementById('scheduleTable').cloneNode(true);
-  cl.querySelectorAll('tr').forEach(tr=>{const c=[...tr.children];if(c.length>2){c[1].remove();c[c.length-1].remove()}});
-  cl.querySelectorAll('.c-off').forEach(td=>{td.innerHTML=td.innerHTML.replace(/(\d{1,2}\/\d{1,2})\/\d{2}(?!\d)/g,'$1')});
-  cl.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
-  cl.removeAttribute('id');cl.classList.add('wk');
-  const sd=document.querySelector('#sundaySchedule table'),sun=sd?sd.cloneNode(true):null;
-  if(sun)sun.querySelectorAll('tr').forEach(tr=>{if(tr.children.length>3)tr.children[1].remove()});if(sun)sun.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
-  const wm=printMetrics(w.employees.length,150,11,14),sm=printMetrics((sun?sun.querySelectorAll('tbody tr').length:0)+1,160,14,16),dense=11;
-  const head=t=>`<div class="hd"><div class="l">${logo?`<img src="${logo}" alt="">`:''}<b>${esc(name)}</b></div><span>${esc(t)}</span><i></i></div>`;
-  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>@page{size:A4 landscape;margin:8mm}body{font:${dense}px Arial,sans-serif;color:#111;margin:0}.hd{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2px solid #ffd100;padding-bottom:3mm;margin-bottom:3mm}.hd .l{display:flex;align-items:center;gap:8px}.hd img{height:11mm}.hd b{font-size:15px;color:#1a3a6b}.hd span{text-align:center;font-weight:bold;font-size:14px;grid-column:2}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{width:1%}th:last-child,td:last-child{width:auto}th{text-align:left;font-size:9px;text-transform:uppercase;color:#1a3a6b;background:#f3f5f8;padding:4px 6px}td{padding:0 8px;height:${wm.row}mm;font-size:${wm.font}pt;border-bottom:1px solid #d9dde3}th{font-size:${(wm.font*.75).toFixed(1)}pt;height:8mm}tr{break-inside:avoid}.pg{break-after:page}.pg:last-child{break-after:auto}.shift-pill{display:none}.swap-note{font-weight:bold;color:#b00020}.sun th,.sun td{width:auto;padding:0 12px}.sun td{height:${sm.row}mm;font-size:${sm.font}pt}.sun th{font-size:${(sm.font*.75).toFixed(1)}pt}table.wk th:nth-child(1){width:20%}table.wk th:nth-child(2){width:28%}table.wk th:nth-child(3){width:10%}table.wk th:nth-child(4){width:15%}table.wk th:nth-child(5){width:10%}table.wk th:last-child{width:17%}</style></head><body><div class="pg">${head(document.getElementById('weekTitle').textContent)}${cl.outerHTML}</div>${sun?`<div class="pg">${head('Escala de domingo · '+short(date('domingo')))}${sun.outerHTML.replace(/<table/,'<table class="sun"')}</div>`:''}<script>addEventListener('load',()=>setTimeout(()=>print(),300))<\/script></body></html>`;
-  try{const d=window.claude&&claude.use?await claude.use('downloads'):null;if(d){await d.save({filename:'escala-'+state.selectedSector+'.html',data:html});toast('Abra o arquivo baixado: ele já abre a impressão.',true);return}}catch(e){if(e&&e.code==='declined')return}
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='escala-'+state.selectedSector+'.html';a.click();
+  /* o arquivo usa a MESMA página e o MESMO CSS da impressão normal, então o layout é idêntico */
+  const dataUrl=async src=>{try{const r=await fetch(src),b=await r.blob();return await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=()=>ok('');f.readAsDataURL(b)})}catch(e){return ''}};
+  let css='';try{css=await (await fetch('styles.css')).text()}catch(e){}
+  if(!css)css=[...document.styleSheets].map(sh=>{try{return [...sh.cssRules].map(r=>r.cssText).join('\n')}catch(e){return ''}}).join('\n');
+  if(!css){toast('Não consegui montar o arquivo de impressão. Use o botão Imprimir escala.');return}
+  const logo=await dataUrl('logo.png');
+  window.dispatchEvent(new Event('beforeprint'));
+  let html='';
+  try{
+    const clone=document.documentElement.cloneNode(true);
+    clone.querySelectorAll('script,link[rel="stylesheet"],style').forEach(n=>n.remove());
+    clone.querySelectorAll('img').forEach(im=>{if(logo&&/logo\.png/.test(im.getAttribute('src')||''))im.setAttribute('src',logo)});
+    clone.querySelectorAll('input,select,textarea,button').forEach(n=>{n.disabled=true});
+    const st=document.createElement('style');st.textContent='@page{size:A4 landscape;margin:8mm}'+css.replace(/@media print/g,'@media all')+'html{background:#fff}body{background:#fff!important}';
+    clone.querySelector('head').appendChild(st);
+    const sc=document.createElement('script');sc.textContent="addEventListener('load',()=>setTimeout(()=>print(),400))";clone.querySelector('body').appendChild(sc);
+    html='<!doctype html>'+clone.outerHTML;
+  }finally{window.dispatchEvent(new Event('afterprint'))}
+  const fname='escala-'+state.selectedSector+'.html';
+  try{const d=window.claude&&claude.use?await claude.use('downloads'):null;if(d){await d.save({filename:fname,data:html});toast('Abra o arquivo baixado: ele já abre a impressão.',true);return}}catch(e){if(e&&e.code==='declined')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=fname;a.click();
 }
 document.getElementById('printFileButton').addEventListener('click',printFile);
 
