@@ -178,3 +178,5 @@
 
 /* coluna "Limite c/ extras" com metade da largura */
 .table-wrap #scheduleTable th:last-child,.table-wrap #scheduleTable td:last-child{width:89px!important;max-width:89px!important;padding-left:6px!important;padding-right:6px!important;font-size:11px}
+.table-wrap #scheduleTable th:last-child,.table-wrap #scheduleTable td:last-child{text-align:center!important}
+.table-wrap #scheduleTable th:last-child button{margin:0 auto;text-align:center;justify-content:center}
