@@ -117,3 +117,4 @@
 .pdv-swaps{margin:8px 0;font-size:11px;background:#fff8dc;border:1px solid #e6d27a;border-radius:6px;padding:6px 8px}.pdv-swaps ul{margin:4px 0 0;padding-left:16px}@media print{.pdv-swaps{display:none}}
 .swap-note{display:none}@media print{.swap-note{display:inline!important;font-weight:bold;color:#b00020;font-size:inherit}}
 @media print{#toast{display:none!important}}
+@media print{.sunday-dashboard td:nth-child(2),.sunday-dashboard th:nth-child(2){display:none!important}#pdvActivePanel{display:none}}

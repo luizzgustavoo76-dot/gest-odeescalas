@@ -69,24 +69,24 @@ function assignPdvs(w,wi,fresh){
   const emps=w.employees.filter(e=>e.station==='caixa'),days=e=>DAYS.filter(d=>worksOn(e,d[0],wi)).map(d=>d[0]);
   const iv=e=>[mins(w.shifts[e.shift].start),mins(w.shifts[e.shift].end)];
   const clash=(a,b)=>{const x=iv(a),y=iv(b);if(!(x[0]<y[1]&&y[0]<x[1]))return false;const da=days(a);return days(b).some(d=>da.includes(d))};
-  const done=[];let short=0;
+  const act=activePdvs(w);const done=[];let short=0;
   /* fresh: quem entra mais cedo (1º turno) pega os PDVs mais baixos, 1 a 4 primeiro */
   if(fresh)emps.sort((a,b)=>mins(w.shifts[a.shift].start)-mins(w.shifts[b.shift].start)||a.id-b.id);
   const plan=(fresh&&sector().pdvPlan)||{},reserved=new Set(Object.values(plan).flat());
   emps.forEach(e=>{
     const used=new Set(done.filter(o=>clash(e,o)).map(o=>o.pdv));
-    let pick=(!fresh&&e.pdv>=1&&e.pdv<=w.pdvCount&&!used.has(e.pdv))?e.pdv:0;
+    let pick=(!fresh&&act.includes(e.pdv)&&!used.has(e.pdv))?e.pdv:0;
     /* PDVs escolhidos para este turno; sem escolha, usa os que não foram reservados a outro turno */
-    const mine=(plan[e.shift]||[]).filter(n=>n<=w.pdvCount).sort((x,y)=>x-y);
+    const mine=(plan[e.shift]||[]).filter(n=>act.includes(n)).sort((x,y)=>x-y);
     if(!pick&&mine.length)pick=mine.find(n=>!used.has(n))||0;
     /* revezamento: sem PDV livre entre os marcados, assume o PDV de quem é de outro turno e sai antes (troca de operadora) */
     const share=list=>{const ok=list.filter(n=>{const h=done.filter(o=>o.pdv===n&&clash(e,o));return h.length>=1&&h.every(o=>o.shift!==e.shift)&&new Set(h.map(o=>o.shift)).size===h.length}),cnt=n=>done.filter(o=>o.pdv===n&&clash(e,o)).length,endOf=n=>Math.max(...done.filter(o=>o.pdv===n&&clash(e,o)).map(o=>mins(w.shifts[o.shift].end)));return ok.sort((x,y)=>cnt(x)-cnt(y)||endOf(x)-endOf(y)||x-y)[0]||0};
     if(!pick&&fresh&&mine.length)pick=share(mine);
-    if(!pick&&fresh&&!mine.length)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
-    if(!pick&&fresh)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
-    if(!pick)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)){pick=n;break}
-    if(!pick&&fresh)pick=share(Array.from({length:w.pdvCount},(_,i)=>i+1));
-    if(!pick){pick=((e.id-1)%w.pdvCount)+1;short++}
+    if(!pick&&fresh&&!mine.length)for(const n of act)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
+    if(!pick&&fresh)for(const n of act)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
+    if(!pick)for(const n of act)if(!used.has(n)){pick=n;break}
+    if(!pick&&fresh)pick=share(act);
+    if(!pick){pick=act[(e.id-1)%act.length];short++}
     e.pdv=pick;done.push(e);
   });
   return short;
@@ -168,7 +168,7 @@ const mark=f=>week().sortField===f?(week().sortDirection==='asc'?'↑':'↓'):'�
 function render(){normalize();const w=week(),name=SECTORS[state.selectedSector];document.getElementById('sectorSelect').value=state.selectedSector;document.getElementById('weekStart').value=monday(state.baseMonday);document.getElementById('sectorLabel').textContent='PAINEL GERENCIAL · '+name.toUpperCase();document.getElementById('mainTitle').textContent='Escala semanal · '+name;document.getElementById('settingsTitle').textContent='Semana '+(state.selectedWeek+1);document.getElementById('weekTitle').textContent=range()+' · Semana '+(state.selectedWeek+1);document.getElementById('activeEmployees').value=w.activeCount;document.getElementById('pdvCount').value=w.pdvCount;document.getElementById('shiftCount').value=w.shifts.length;document.getElementById('weekClose').value=state.settings.weekClose;document.getElementById('sundayClose').value=state.settings.sundayClose;document.getElementById('extraHolidays').value=state.settings.extraText||'';document.getElementById('activeMetric').textContent=w.activeCount;document.getElementById('shiftMetric').textContent=w.shifts.length;document.getElementById('modelMetric').textContent=w.model;document.getElementById('pdvMetric').textContent=w.pdvCount;document.getElementById('pdvMetricCard').hidden=!hasPdv();document.querySelector('[data-tab="pdvs"]').hidden=!hasPdv();document.querySelector('[data-panel="pdvs"]').hidden=!hasPdv();if(!hasPdv()&&document.querySelector('.tab.active').dataset.tab==='pdvs')activateTab('team');document.querySelectorAll('.model-button').forEach(x=>x.classList.toggle('active',x.dataset.model===w.model));document.getElementById('operatorsTag').textContent=w.activeCount+' ativas';renderWeekTabs();renderShifts();renderRotation();renderCoverage();renderSchedule();renderSunday();renderOperators();renderBoard();renderAlerts();renderWarning();renderCompliance();renderOffAnalysis();renderGen();renderBackupStatus();save()}
 function renderWeekTabs(){document.getElementById('periodTabs').innerHTML=[0,1,2,3].map(i=>`<button class="period-tab ${i===state.selectedWeek?'active':''}" data-week="${i}" type="button">Semana ${i+1}<small>${range(i)}</small></button>`).join('')}
 function renderShifts(){document.getElementById('shiftsEditor').innerHTML=loadInfo()+week().shifts.map((s,i)=>`<div class="shift-card"><h3>${escape(s.name)}</h3><div class="time-grid"><label>Entrada<input data-shift="${i}" data-field="start" type="time" value="${s.start}" /></label><label>Saída calculada<input type="time" value="${s.end}" disabled /></label><label>Saída para almoço<input data-shift="${i}" data-field="lunchStart" type="time" value="${s.lunchStart}" /></label><label>Retorno automático (+2h)<input type="time" value="${s.lunchEnd}" disabled /></label></div><p class="helper">Limite com hora extra (máx. 1h30): até ${plus(s.end,EXTRA_MAX)}.</p></div>`).join('')+sundayCard()}
-function renderRotation(){document.getElementById('rotationPanel').innerHTML=postsPanel()}
+function renderRotation(){document.getElementById('rotationPanel').innerHTML=postsPanel();const ap=document.getElementById('pdvActivePanel');if(ap)ap.innerHTML=pdvActivePanel()}
 function renderCoverage(){document.getElementById('coverageCards').innerHTML=week().shifts.map((s,i)=>{const n=week().employees.filter(e=>e.shift===i).length;return `<div class="coverage-card"><strong><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}</strong><span>${s.start}–${s.end} · ${n} colaboradora${n===1?'':'s'}</span></div>`}).join('')}
 function heading(){const fields=[['name','Colaboradora'],['shift','Turno'],...(hasPosts()?[['station','Posto']]:[]),['start','Entrada'],['lunch','Almoço'],['end','Saída'],['off','Folgas com data'],['hours','Limite c/ extras (máx. 1h30)']];return `<thead><tr>${fields.map(([f,n])=>f==='station'?`<th>${n}</th>`:`<th><button class="sort-button" data-sort="${f}" type="button">${n} <span>${mark(f)}</span></button></th>`).join('')}</tr></thead>`}
 function row(e){const s=week().shifts[e.shift];return `<tr><td class="c-name"><button class="employee-link" data-jump="${e.id}" type="button">${escape(e.name)}</button></td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}</td>${hasPosts()?`<td data-label="Posto">${stationText(e)}${swapNote(e)}</td>`:''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off">${offText(e)}</td><td data-label="Limite c/ extras">${plus(s.end,EXTRA_MAX)}</td></tr>`}
@@ -730,12 +730,12 @@ function pdvPlanPanel(){
   const w=week(),plan=sector().pdvPlan||{};
   const rows=w.shifts.map((sh,i)=>{
     const n=w.employees.filter(e=>e.station==='caixa'&&e.shift===i).length,sel=(plan[i]||[]).filter(x=>x<=w.pdvCount).slice(0,n),warn=false;
-    const chips=Array.from({length:w.pdvCount},(_,k)=>k+1).map(p=>`<label class="pdv-chip"><input type="checkbox" data-pdvshift="${i}" value="${p}" ${sel.includes(p)?'checked':''} ${!sel.includes(p)&&sel.length>=n?'disabled':''} /><span>${p}</span></label>`).join('');
+    const chips=activePdvs(w).map(p=>`<label class="pdv-chip"><input type="checkbox" data-pdvshift="${i}" value="${p}" ${sel.includes(p)?'checked':''} ${!sel.includes(p)&&sel.length>=n?'disabled':''} /><span>${p}</span></label>`).join('');
     return `<div class="pdv-shift"><b>${escape(sh.name)} · ${sh.start}</b><small class="${warn?'post-warn':''}">${n} operadora${n===1?'':'s'} neste horário · ${sel.length?sel.length+' de '+n+' PDV'+(n===1?'':'s')+' marcado'+(sel.length===1?'':'s'):'pode marcar até '+n+' PDV'+(n===1?'':'s')+' (ou deixe automático)'}${warn?' (faltam PDVs marcados: o restante usa outros números livres ou faz troca)':''}</small><div class="pdv-chips">${chips}</div></div>`}).join('');
   return `<div class="pdv-plan"><label>PDVs de cada turno (Operadora Caixa)</label><p class="helper">Marque quais PDVs cada turno usa, no máximo um por operadora do horário (4 operadoras cedo = até 4 PDVs); sem marcação, o sistema escolhe automático (1º turno nos números mais baixos). Vale ao aplicar o rodízio, ao gerar a escala e no botão abaixo. O mesmo PDV pode ser marcado em mais de um turno: quando não há PDV livre, a operadora do turno seguinte assume o PDV de quem sai antes (troca de operadora). Quem passar da quantidade marcada usa outro PDV livre.</p>${rows}${pdvSwaps()}<button class="button outline full" id="applyPdvPlan" type="button">Aplicar PDVs nas 4 semanas</button><button class="link-btn" id="clearPdvPlan" type="button">Limpar escolha (automático)</button></div>`;
 }
 document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-pdvshift]'))return;const sh=+t.dataset.pdvshift,sec=sector(),lim=week().employees.filter(x=>x.station==='caixa'&&x.shift===sh).length;sec.pdvPlan=sec.pdvPlan||{};const cur=new Set(sec.pdvPlan[sh]||[]),v=+t.value;if(t.checked&&cur.size>=lim){render();toast('Este turno tem '+lim+' operadora(s): só pode marcar '+lim+' PDV(s).');return}t.checked?cur.add(v):cur.delete(v);sec.pdvPlan[sh]=[...cur].sort((a,b)=>a-b);render()});
-document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#applyPdvPlan,#clearPdvPlan');if(!b)return;const sec=sector();if(b.id==='clearPdvPlan'){sec.pdvPlan={};render();toast('PDVs por turno voltaram ao automático.');return}sector().weeks.forEach((w,wi)=>assignPdvs(w,wi,true));render();toast('PDVs aplicados nas 4 semanas.',true)});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#applyPdvPlan,#clearPdvPlan,#applyPdvActive');if(!b)return;const sec=sector();if(b.id==='clearPdvPlan'){sec.pdvPlan={};render();toast('PDVs por turno voltaram ao automático.');return}sector().weeks.forEach((w,wi)=>assignPdvs(w,wi,true));render();toast('PDVs aplicados nas 4 semanas.',true)});
 
 /* resumo das trocas de operadora no mesmo PDV (semana selecionada) */
 function pdvSwaps(){
@@ -755,7 +755,7 @@ async function printFile(){
   cl.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
   cl.removeAttribute('id');
   const sd=document.querySelector('#sundaySchedule table'),sun=sd?sd.cloneNode(true):null;
-  if(sun)sun.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
+  if(sun)sun.querySelectorAll('tr').forEach(tr=>{if(tr.children.length>3)tr.children[1].remove()});if(sun)sun.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
   const dense=w.employees.length>30?'8.5':w.employees.length>22?'9.5':w.employees.length>16?'10.5':'11';
   const head=t=>`<div class="hd">${logo?`<img src="${logo}" alt="">`:''}<b>${esc(name)}</b><span>${esc(t)}</span></div>`;
   const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>@page{size:A4 landscape;margin:8mm}body{font:${dense}px Arial,sans-serif;color:#111;margin:0}.hd{display:flex;align-items:center;gap:10px;border-bottom:2px solid #ffd100;padding-bottom:3mm;margin-bottom:3mm}.hd img{height:11mm}.hd b{font-size:15px;color:#1a3a6b}.hd span{margin-left:auto;font-weight:bold;font-size:13px}table{width:100%;border-collapse:collapse;white-space:nowrap}th{text-align:left;font-size:9px;text-transform:uppercase;color:#1a3a6b;background:#f3f5f8;padding:4px 6px}td{padding:${dense<9?1:dense<10?1.6:dense<11?2.4:3.2}px 6px;border-bottom:1px solid #d9dde3}tr{break-inside:avoid}.pg{break-after:page}.pg:last-child{break-after:auto}.shift-pill{display:none}.swap-note{font-weight:bold;color:#b00020}</style></head><body><div class="pg">${head(document.getElementById('weekTitle').textContent)}${cl.outerHTML}</div>${sun?`<div class="pg">${head('Escala de domingo')}${sun.outerHTML.replace(/<table/,'<table style="font-size:12px"')}</div>`:''}<script>addEventListener('load',()=>setTimeout(()=>print(),300))<\/script></body></html>`;
@@ -773,3 +773,12 @@ function swapNote(e){
   if(i>0)part.push('após '+w.shifts[g[i-1].shift].end);
   return part.length?` <small class="swap-note">(${part.join(' · ')})</small>`:'';
 }
+
+/* ===== PDVs em funcionamento (aba Regras) ===== */
+function activePdvs(w){const all=Array.from({length:w.pdvCount},(_,i)=>i+1),sel=(sector().pdvActive||[]).filter(n=>n<=w.pdvCount);return sel.length?all.filter(n=>sel.includes(n)):all}
+function pdvActivePanel(){
+  if(!hasPdv())return '';
+  const w=week(),act=activePdvs(w),chips=Array.from({length:w.pdvCount},(_,k)=>k+1).map(p=>`<label class="pdv-chip"><input type="checkbox" data-pdvactive value="${p}" ${act.includes(p)?'checked':''} /><span>${p}</span></label>`).join('');
+  return `<div class="setting-block pdv-plan"><label>PDVs em funcionamento (Frente de Caixa)</label><p class="helper">Marque quais PDVs vão funcionar. Só eles recebem operadoras (hoje: ${act.length} de ${w.pdvCount}). Sem nenhum marcado, todos funcionam. Depois de mudar, clique em aplicar para redistribuir nas 4 semanas.</p><div class="pdv-chips">${chips}</div><button class="button outline full" id="applyPdvActive" type="button">Aplicar PDVs nas 4 semanas</button></div>`;
+}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-pdvactive]'))return;const sec=sector(),w=week(),cur=new Set(activePdvs(w)),v=+t.value;t.checked?cur.add(v):cur.delete(v);sec.pdvActive=cur.size===w.pdvCount?[]:[...cur].sort((a,b)=>a-b);render()});
