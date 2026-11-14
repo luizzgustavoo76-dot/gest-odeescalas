@@ -275,3 +275,6 @@ body.somente-leitura main :is(input,select,textarea,.stepper,.model-button,.off-
 #admConteudo{display:flex;flex-direction:column;gap:14px}.adm-lote{margin-top:-4px}
 #verComo{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#fff4d6;border:2px solid #e0a800;color:#6b4a00;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-weight:700}
 #verComo[hidden]{display:none}#verComo .button{padding:7px 14px;min-height:0;font-size:13px}
+#contaNova{background:#e8f1ff;border:2px solid #7aa7e8;color:#173766;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:14px}#contaNova[hidden]{display:none}
+#userBar #pwBtn{padding:6px 12px;min-height:0;font-size:13px}
+#passForm p{margin:0}

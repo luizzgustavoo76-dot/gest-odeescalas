@@ -99,6 +99,39 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     return json({ ok: true, feitos, pulados });
   }
 
+  if (acao === "backup") {
+    const { data: esc, error } = await admin.from("escalas").select("dono,setor,dados,atualizado_em").order("dono").order("setor");
+    if (error) return falha(error.message, 500);
+    const { data: perfis } = await admin.from("perfis").select("id,email,nome,papel,criado_em");
+    const mail = new Map((perfis || []).map((p: any) => [p.id, p.email]));
+    await log("backup_baixado", null, { linhas: (esc || []).length, contas: (perfis || []).length });
+    return json({
+      sistema: "bom-dia-gestao-escalas", versao: 1, gerado_em: new Date().toISOString(),
+      perfis: perfis || [],
+      escalas: (esc || []).map((e: any) => ({ dono: e.dono, dono_email: mail.get(e.dono) || null, setor: e.setor, dados: e.dados, atualizado_em: e.atualizado_em })),
+    });
+  }
+
+  if (acao === "restaurar_backup") {
+    const bk = b.backup;
+    if (!bk || bk.sistema !== "bom-dia-gestao-escalas" || !Array.isArray(bk.escalas)) return falha("Este arquivo não é um backup válido do app.");
+    const { data: perfis } = await admin.from("perfis").select("id,email");
+    const porId = new Set((perfis || []).map((p: any) => p.id));
+    const porEmail = new Map((perfis || []).map((p: any) => [String(p.email || "").toLowerCase(), p.id]));
+    let restauradas = 0; const semConta = new Set<string>();
+    for (const e of bk.escalas) {
+      if (!e || typeof e.setor !== "string" || typeof e.dados !== "object" || e.dados === null) continue;
+      if (e.setor !== "_config" && !SETORES.includes(e.setor)) continue;
+      const dono = porId.has(e.dono) ? e.dono : porEmail.get(String(e.dono_email || "").toLowerCase());
+      if (!dono) { semConta.add(String(e.dono_email || e.dono)); continue; }
+      const { error } = await admin.from("escalas").upsert({ dono, setor: e.setor, dados: e.dados }, { onConflict: "dono,setor" });
+      if (error) return falha(error.message, 500);
+      restauradas++;
+    }
+    await log("backup_restaurado", null, { linhas: restauradas, sem_conta: [...semConta] });
+    return json({ ok: true, restauradas, sem_conta: [...semConta] });
+  }
+
   if (acao === "listar") {
     const { data: lista, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
     if (error) return falha(error.message, 500);
@@ -115,7 +148,8 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
         bloqueado: !!(u.banned_until && new Date(u.banned_until) > new Date()),
       };
     }).sort((a: any, b: any) => (a.nome || a.email).localeCompare(b.nome || b.email));
-    return json({ usuarios });
+    const { data: ub } = await admin.from("auditoria").select("quando").eq("acao", "backup_baixado").order("id", { ascending: false }).limit(1);
+    return json({ usuarios, ultimo_backup: ub?.[0]?.quando || null });
   }
 
   if (acao === "criar") {

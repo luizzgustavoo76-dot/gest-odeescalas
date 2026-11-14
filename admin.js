@@ -6,9 +6,9 @@
   const NIVEIS=[['admin','Administrador'],['usuario','Usuário']];
   const nomeNivel=id=>(NIVEIS.find(n=>n[0]===id)||[0,id])[1];
   const nomeSetor=id=>(SETORES.find(n=>n[0]===id)||[0,id])[1];
-  const ACOES={escala_salva:'Salvou a escala',escala_restaurada:'Restaurou uma versão da escala',usuario_criado:'Criou o usuário',usuario_editado:'Editou a conta de',usuario_nivel:'Mudou o nível de',usuario_senha:'Trocou a senha de',usuario_bloquear:'Bloqueou',usuario_desbloquear:'Desbloqueou',usuario_excluido:'Excluiu o usuário'};
+  const ACOES={backup_baixado:'Baixou o backup completo',backup_restaurado:'Restaurou um backup',escala_salva:'Salvou a escala',escala_restaurada:'Restaurou uma versão da escala',usuario_criado:'Criou o usuário',usuario_editado:'Editou a conta de',usuario_nivel:'Mudou o nível de',usuario_senha:'Trocou a senha de',usuario_bloquear:'Bloqueou',usuario_desbloquear:'Desbloqueou',usuario_excluido:'Excluiu o usuário'};
   const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let ctx=null,lista=[],ov=null,aba='usuarios',marcados=new Set(),abertos=new Set(),filtro={q:'',papel:'',status:'',ordem:'nome'},sel='frente-caixa',donoSel=null;
+  let ctx=null,ultimoBackup=null,lista=[],ov=null,aba='usuarios',marcados=new Set(),abertos=new Set(),filtro={q:'',papel:'',status:'',ordem:'nome'},sel='frente-caixa',donoSel=null;
 
   async function chama(corpo){
     const {data,error}=await ctx.sb.functions.invoke('admin-usuarios',{body:corpo});
@@ -34,6 +34,8 @@
     const vazios=lista.filter(u=>!u.bloqueado&&!u.setores_salvos).length;
     const alertas=[];
     if(ad<2)alertas.push('Só há '+ad+' administrador. Recomenda-se ter pelo menos 2, para não perder o acesso se uma conta for bloqueada.');
+    const dias=ultimoBackup?(Date.now()-new Date(ultimoBackup))/864e5:null;
+    if(dias===null)alertas.push('Nenhum backup foi baixado ainda. Abra a aba Backup e baixe um.');else if(dias>7)alertas.push('O último backup foi há '+Math.floor(dias)+' dias. Baixe um novo na aba Backup.');
     if(nunca)alertas.push(nunca+' usuário(s) nunca entraram.');
     if(vazios)alertas.push(vazios+' conta(s) ainda sem nenhuma escala salva (ainda não importaram os dados).');
     const tab=`<div class="adm-matriz"><table><thead><tr><th>Conta</th><th>Setores com dados</th><th>Última edição</th><th></th></tr></thead><tbody>${lista.map(u=>`<tr><td>${esc(u.nome||u.email)}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}</td><td>${u.setores_salvos} de ${SETORES.length}</td><td>${fmt(u.ultima_edicao)}</td><td><button type="button" class="button outline" data-abrir="${esc(u.id)}">Abrir dados</button></td></tr>`).join('')}</tbody></table></div>`;
@@ -126,13 +128,53 @@
     }catch(e){box.querySelector('#hLista').innerHTML='<p class="adm-vazio">Não foi possível carregar: '+esc(e.message)+'</p>'}
   }
 
+  /* ---------- Backup ---------- */
+  function backup(){
+    const box=ov.querySelector('#admConteudo');
+    const dias=ultimoBackup?Math.floor((Date.now()-new Date(ultimoBackup))/864e5):null;
+    box.innerHTML=`<div class="adm-cards"><div class="${dias===null||dias>7?'red':''}"><b>${dias===null?'—':dias}</b><span>${dias===null?'nenhum backup baixado':'dia(s) desde o último backup ('+fmt(ultimoBackup)+')'}</span></div></div>
+      <section class="adm-novo"><h3>Baixar backup completo</h3>
+        <p class="adm-ajuda">Gera um arquivo com as escalas de <b>todas as contas</b> e a lista de contas, e salva no seu computador (pasta Downloads). Guarde-o em local seguro (pen drive, nuvem pessoal). Faça isso toda semana ou antes de mudanças grandes. Senhas não entram no backup.</p>
+        <div class="adm-btns"><button type="button" class="button" id="bkBaixar">Baixar backup agora</button></div></section>
+      <section class="adm-novo"><h3>Restaurar de um backup</h3>
+        <p class="adm-ajuda">Escolha um arquivo de backup. As escalas dele voltam para as contas de mesmo e-mail e <b>substituem</b> as atuais (a versão atual é guardada antes no histórico, então dá para desfazer). Contas que não existem mais são ignoradas: crie-as de novo antes, com o mesmo e-mail.</p>
+        <div class="adm-btns"><label class="button outline import-label">Escolher arquivo de backup…<input type="file" id="bkArq" accept=".json,application/json" hidden></label></div>
+        <div id="bkInfo"></div></section>`;
+    box.querySelector('#bkBaixar').onclick=async ev=>{
+      const b=ev.currentTarget;b.disabled=true;b.textContent='Gerando…';aviso('');
+      try{
+        const dados=await chama({acao:'backup'});
+        const d=new Date(),p=n=>String(n).padStart(2,'0');
+        const nome='backup-bom-dia-'+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'_'+p(d.getHours())+'h'+p(d.getMinutes())+'.json';
+        const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(dados)],{type:'application/json'}));a.download=nome;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);
+        ultimoBackup=new Date().toISOString();
+        aviso('Backup gerado: '+nome+' ('+dados.escalas.length+' linhas de '+dados.perfis.length+' conta(s)). Guarde o arquivo em local seguro.',true);
+        backup();
+      }catch(e){aviso(e.message);b.disabled=false;b.textContent='Baixar backup agora'}
+    };
+    box.querySelector('#bkArq').onchange=async e=>{
+      const f=e.target.files[0];if(!f)return;const info=box.querySelector('#bkInfo');aviso('');
+      let bk;try{bk=JSON.parse(await f.text())}catch(er){aviso('Não consegui ler esse arquivo: não é um JSON válido.');return}
+      if(!bk||bk.sistema!=='bom-dia-gestao-escalas'||!Array.isArray(bk.escalas)){aviso('Este arquivo não é um backup válido do app.');return}
+      const contas=new Set(bk.escalas.map(x=>x.dono_email||x.dono));
+      info.innerHTML=`<p class="adm-aviso">Backup de ${esc(fmt(bk.gerado_em))}: ${bk.escalas.length} linhas de ${contas.size} conta(s). Restaurar agora vai substituir as escalas atuais dessas contas.</p><div class="adm-btns"><button type="button" class="button perigo-solid" id="bkOk">Sim, restaurar</button><button type="button" class="button outline" id="bkNao">Cancelar</button></div>`;
+      info.querySelector('#bkNao').onclick=()=>{info.innerHTML='';e.target.value=''};
+      info.querySelector('#bkOk').onclick=async ev=>{
+        ev.currentTarget.disabled=true;
+        try{const r=await chama({acao:'restaurar_backup',backup:bk});info.innerHTML='';
+          aviso(r.restauradas+' linha(s) restaurada(s).'+(r.sem_conta.length?' Sem conta correspondente (ignoradas): '+r.sem_conta.join(', ')+'.':'')+' Quem estiver com o app aberto recebe os dados restaurados na hora.',true)}
+        catch(er){aviso(er.message);ev.currentTarget.disabled=false}
+      };
+    };
+  }
+
   function baixaCsv(nome,linhas){
     const txt='﻿'+linhas.map(l=>l.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'}));a.download=nome;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
   }
 
   async function carrega(){
-    try{const r=await chama({acao:'listar'});lista=r.usuarios||[];marcados=new Set([...marcados].filter(i=>lista.some(u=>u.id===i)));
+    try{const r=await chama({acao:'listar'});lista=r.usuarios||[];ultimoBackup=r.ultimo_backup||null;marcados=new Set([...marcados].filter(i=>lista.some(u=>u.id===i)));
       ov.querySelector('#admTotal').textContent=lista.length+' usuário(s)';mostra()}
     catch(e){ov.querySelector('#admConteudo').innerHTML='<p class="adm-vazio">Não foi possível carregar os usuários: '+esc(e.message)+'</p>'}
   }
@@ -142,6 +184,7 @@
     if(aba==='resumo')box.innerHTML=resumo();
     else if(aba==='usuarios'){box.innerHTML=usuarios();ligaUsuarios();desenhaLista()}
     else if(aba==='atividade')atividade();
+    else if(aba==='backup')backup();
     else historico();
   }
 
@@ -207,7 +250,7 @@
   function monta(){
     ov=document.createElement('div');ov.id='adminOverlay';
     ov.innerHTML=`<div class="adm-box"><header class="adm-head"><div><h2>Administração</h2><small id="admTotal"></small></div><button type="button" class="button outline" id="admFechar">Fechar</button></header>
-      <nav class="adm-abas"><button type="button" data-aba="resumo">Resumo</button><button type="button" data-aba="usuarios">Usuários</button><button type="button" data-aba="atividade">Atividade</button><button type="button" data-aba="historico">Histórico de escalas</button></nav>
+      <nav class="adm-abas"><button type="button" data-aba="resumo">Resumo</button><button type="button" data-aba="usuarios">Usuários</button><button type="button" data-aba="atividade">Atividade</button><button type="button" data-aba="historico">Histórico de escalas</button><button type="button" data-aba="backup">Backup</button></nav>
       <p id="admMsg" class="adm-msg" hidden></p>
       <div id="admConteudo"><p class="adm-vazio">Carregando…</p></div>
       <p class="adm-ajuda">Cada conta tem os próprios dados. <b>Usuário</b>: vê e edita só os seus. <b>Administrador</b>: além disso, gerencia contas e pode abrir e editar os dados de qualquer uma. </p></div>`;

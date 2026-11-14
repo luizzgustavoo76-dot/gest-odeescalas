@@ -17,12 +17,15 @@
   const ov=document.createElement('div');ov.id='loginOverlay';ov.hidden=false;
   ov.innerHTML=`
    <form id="loginForm" class="login-card" autocomplete="on" hidden><img src="logo.png" alt="Bom Dia" class="login-logo"><h2>Gestão de Escalas</h2><p>Entre com seu e-mail e senha.</p><label>E-mail<input id="loginEmail" type="email" required autocomplete="username"></label><label>Senha<input id="loginPass" type="password" required autocomplete="current-password"></label><p id="loginErr" class="login-err" hidden></p><button class="button" type="submit" id="loginBtn">Entrar</button><button class="link-btn" type="button" id="loginReset">Esqueci minha senha</button></form>
+   <form id="passForm" class="login-card" hidden><img src="logo.png" alt="Bom Dia" class="login-logo"><h2 id="passTitle">Nova senha</h2><p id="passDesc"></p><label>Nova senha (mín. 6 caracteres)<input id="passNova" type="password" required minlength="6" autocomplete="new-password"></label><label>Repita a nova senha<input id="passRep" type="password" required minlength="6" autocomplete="new-password"></label><p id="passErr" class="login-err" hidden></p><button class="button" type="submit" id="passBtn">Salvar nova senha</button><button class="link-btn" type="button" id="passCancel">Cancelar</button></form>
    <div id="loadCard" class="login-card"><img src="logo.png" alt="Bom Dia" class="login-logo"><h2>Carregando…</h2><p id="loadMsg">Buscando as escalas na nuvem.</p></div>
    <div id="errCard" class="login-card" hidden><img src="logo.png" alt="Bom Dia" class="login-logo"><h2 id="errTitle">Sem conexão</h2><p id="errMsg"></p><button class="button" type="button" id="errRetry">Tentar de novo</button><button class="link-btn" type="button" id="errOut">Sair</button></div>`;
   document.body.appendChild(ov);document.body.classList.add('need-login');
   let retryFn=()=>location.reload();
+  let recuperando=/type=recovery/.test(location.hash);
+  const linkRuim=/error_code=|error_description=/.test(location.hash);
   const painel=(n,msg)=>{ // 'login' | 'load' | 'err' | null (libera o app)
-    $('loginForm').hidden=n!=='login';$('loadCard').hidden=n!=='load';$('errCard').hidden=n!=='err';
+    $('loginForm').hidden=n!=='login';$('passForm').hidden=n!=='senha';$('loadCard').hidden=n!=='load';$('errCard').hidden=n!=='err';
     ov.hidden=!n;document.body.classList.toggle('need-login',!!n);
     if(n==='load'&&msg)$('loadMsg').textContent=msg;
   };
@@ -37,7 +40,7 @@
   const ver={};              // versão (atualizado_em) de cada setor, como está na nuvem
   const synced={};           // JSON de cada setor, como está na nuvem
   const sent=[];
-  let me=null,alvo=null,alvoNome='',perfil=null,timer=null,pushing=false,again=false,applying=false,channel=null,pronto=false,uiOk=false;
+  let blank=false,me=null,alvo=null,alvoNome='',perfil=null,timer=null,pushing=false,again=false,applying=false,channel=null,pronto=false,uiOk=false;
   const ehAdmin=()=>!!perfil&&perfil.papel==='admin';
   // cada conta tem os próprios dados; o administrador pode abrir e editar os de qualquer conta
   const visivel=()=>!!perfil;
@@ -53,12 +56,33 @@
   $('loginReset').addEventListener('click',async()=>{
     const em=$('loginEmail').value.trim();if(!em){loginErr('Digite seu e-mail e clique de novo.');return}
     const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]});
-    loginErr(error?traduz(error.message):'Enviamos um link para redefinir a senha no seu e-mail.');
+    loginErr(error?traduz(error.message):'Se esse e-mail tiver conta, enviamos um link para redefinir a senha. Confira também a caixa de spam.');
+  });
+
+  /* ---------- trocar senha / recuperar senha ---------- */
+  const passErr=m=>{const e=$('passErr');e.textContent=m||'';e.hidden=!m};
+  function mostraSenha(recup){
+    $('passTitle').textContent=recup?'Defina sua nova senha':'Trocar senha';
+    $('passDesc').textContent=recup?'Você entrou pelo link do e-mail. Escolha uma senha nova para continuar.':'Escolha uma nova senha para a sua conta.';
+    $('passCancel').hidden=!!recup;$('passNova').value='';$('passRep').value='';passErr('');painel('senha');
+  }
+  $('passCancel').addEventListener('click',()=>painel(null));
+  $('passForm').addEventListener('submit',async ev=>{
+    ev.preventDefault();passErr('');
+    const a=$('passNova').value,b2=$('passRep').value;
+    if(a.length<6){passErr('A senha precisa ter pelo menos 6 caracteres.');return}
+    if(a!==b2){passErr('As duas senhas não são iguais.');return}
+    const btn=$('passBtn');btn.disabled=true;btn.textContent='Salvando…';
+    const {error}=await sb.auth.updateUser({password:a});
+    btn.disabled=false;btn.textContent='Salvar nova senha';
+    if(error){passErr(/same|different/i.test(error.message)?'Escolha uma senha diferente da atual.':/weak|pwned|leak|compromis/i.test(error.message)?'Essa senha é fraca ou já vazou na internet. Escolha outra.':'Não foi possível trocar: '+error.message);return}
+    if(recuperando){recuperando=false;try{history.replaceState(null,'',location.pathname)}catch(e){}location.reload();return}
+    painel(null);warn('Senha alterada com sucesso.');
   });
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Administração</button><button type="button" class="button" id="logoutBtn">Sair</button>';
+  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Administração</button><button type="button" class="button outline" id="pwBtn">Trocar senha</button><button type="button" class="button" id="logoutBtn">Sair</button>';
   const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
   // Sair: encerra a sessão, apaga o login guardado no aparelho e recarrega a página (funciona mesmo com sessão antiga/inválida)
   const sair=async()=>{
@@ -69,6 +93,7 @@
     location.reload();
   };
   $('logoutBtn').addEventListener('click',sair);$('errOut').addEventListener('click',sair);
+  $('pwBtn').addEventListener('click',()=>mostraSenha(false));
   $('adminBtn').addEventListener('click',()=>{if(window.abrirAdmin)window.abrirAdmin({sb,eu:me,abrirComo:trocarAlvo,alvo:()=>alvo})});
 
   /* ---------- faixa de diagnóstico ---------- */
@@ -147,7 +172,7 @@
         if(error)throw error;
         aplicar(data);
       }
-      status('Sincronizado com a nuvem · '+hora(),'ok');
+      status('Sincronizado com a nuvem · '+hora(),'ok');mostraNova();
     }catch(e){
       console.warn(e);pronto=false;
       erro('Conexão perdida','Não foi possível salvar na nuvem. As últimas alterações não foram salvas. Reconecte e carregue de novo a versão da nuvem.',()=>carregar(true));
@@ -204,6 +229,10 @@
     // começa de uma escala em branco para não misturar dados de outra conta
     const sel0=state.selectedSector,sem0=state.selectedWeek;
     state=newState();if(sel0&&state.sectors[sel0]){state.selectedSector=sel0;state.selectedWeek=sem0}
+    blank=data.length===0;
+    if(blank){ // conta nova: escala em branco (1 colaboradora por semana), nada é salvo até a pessoa mexer
+      for(const k of SETORES())state.sectors[k].weeks.forEach(w=>{w.activeCount=1;w.employees=w.employees.slice(0,1);w.rotation=rotation(1,w.shifts.length)});
+    }
     aplicar(data);
     if(!ajustaSetores())return false;
     if(primeira!==false||!uiOk)restauraUi();
@@ -211,7 +240,9 @@
     try{normalize();render()}catch(e){console.warn(e)}
     pronto=true;aplicaLeitura();
     // setores que ainda não existem na nuvem são criados (só por quem pode editar)
-    for(const k of SETORES().concat('_config'))if(podeEditar(k)&&!data.some(l=>l.setor===k))synced[k]=undefined;
+    if(blank){for(const k of SETORES())synced[k]=JSON.stringify(carga(k));synced._config=JSON.stringify(cfgDados())}
+    else for(const k of SETORES().concat('_config'))if(podeEditar(k)&&!data.some(l=>l.setor===k))synced[k]=undefined;
+    mostraNova();
     painel(null);
     await enviar();
     status('Sincronizado com a nuvem · '+hora(),'ok');
@@ -233,7 +264,17 @@
 
   /* ---------- salvar do app → nuvem (nada vai para o aparelho) ---------- */
   save=function(){agendar()};
-  const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me&&pronto){mostraDiag();guardaUi();aplicaLeitura()}}catch(e){}return v};
+  const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me&&pronto){mostraDiag();guardaUi();aplicaLeitura();mostraNova()}}catch(e){}return v};
+
+  /* ---------- aviso de conta nova (em branco) ---------- */
+  const cn=document.createElement('div');cn.id='contaNova';cn.hidden=true;
+  cn.innerHTML='<b>Conta nova, em branco.</b> <span id="contaNovaTxt"></span> <button type="button" class="link-btn" id="contaNovaOk">Entendi</button>';
+  if(mainEl)mainEl.insertBefore(cn,mainEl.firstChild);
+  let cnFechado=false;
+  function mostraNova(){const quem=alvo&&me&&alvo!==me.id;
+    $('contaNovaTxt').textContent=quem?'Esta conta ainda não tem nenhuma escala salva.':'Comece clicando em "Importar planilha…" no alto da página (use "Baixar modelo" se precisar de um exemplo) ou cadastre as colaboradoras manualmente.';
+    cn.hidden=!(blank&&Object.keys(ver).length===0&&!cnFechado)}
+  $('contaNovaOk').addEventListener('click',()=>{cnFechado=true;cn.hidden=true});
 
   /* ---------- administrador abrindo os dados de outra conta ---------- */
   const vc=document.createElement('div');vc.id='verComo';vc.hidden=true;
@@ -257,7 +298,14 @@
     perfil=p;if(!alvo||alvo!==user.id){alvo=user.id;alvoNome=''}
     $('userWho').textContent=(perfil.nome||user.email)+(perfil.papel==='admin'?' · administrador':'');
     $('adminBtn').hidden=!ehAdmin();bar.hidden=false;
-    if(await carregar(true))tempoReal();
+    if(await carregar(true)){tempoReal();if(ehAdmin())lembraBackup()}
+  }
+  let lembrou=false;
+  async function lembraBackup(){
+    if(lembrou)return;lembrou=true;
+    try{const {data}=await sb.functions.invoke('admin-usuarios',{body:{acao:'listar'}});
+      const u=data&&data.ultimo_backup,dias=u?(Date.now()-new Date(u))/864e5:null;
+      if(data&&data.usuarios&&(dias===null||dias>7))warn(dias===null?'Você ainda não baixou nenhum backup. Abra Administração → Backup.':'Faz '+Math.floor(dias)+' dias que você não baixa o backup. Abra Administração → Backup.')}catch(e){}
   }
   function saiu(){
     me=null;alvo=null;perfil=null;pronto=false;bar.hidden=true;clearTimeout(timer);timer=null;
@@ -265,11 +313,14 @@
     painel('login');status('Entre para ver as escalas','');
   }
   sb.auth.onAuthStateChange((ev,sess)=>{
+    if(ev==='PASSWORD_RECOVERY'){recuperando=true;mostraSenha(true);return}
     if(ev==='SIGNED_OUT'||(!sess&&ev!=='INITIAL_SESSION'))saiu();
-    else if(sess&&ev==='SIGNED_IN'&&!me)setTimeout(()=>entrou(sess.user),0);
+    else if(sess&&ev==='SIGNED_IN'&&!me&&!recuperando)setTimeout(()=>entrou(sess.user),0);
   });
   (async()=>{
     let s;try{s=(await sb.auth.getSession()).data.session}catch(e){erro('Sem conexão','Não foi possível verificar o login. Verifique a internet e tente de novo.');return}
-    if(s)await entrou(s.user);else painel('login');
+    if(s&&recuperando)mostraSenha(true);
+    else if(s)await entrou(s.user);
+    else{painel('login');if(linkRuim)loginErr('Este link é inválido ou já expirou. Clique em "Esqueci minha senha" para receber outro.')}
   })();
 })();

@@ -227,3 +227,5 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Corrige sincronização dos nomes: a lista de nomes (roster) agora vai junto com cada setor na nuvem; dados antigos recuperam os nomes da semana 1.
 - Dados 100% na nuvem: o app só abre com login e conexão; nenhuma escala, nome ou folga é lida/gravada no aparelho (só preferências visuais e o login). Antes de salvar confere a versão do setor: se outra pessoa alterou, recarrega a versão nova e avisa. Perda de conexão bloqueia o app até recarregar da nuvem.
 - Painel de administração (admin.js + função admin-usuarios): contas, senha, nível (administrador/usuário), bloquear, excluir, atividade e histórico. Cada conta tem os próprios dados; o administrador pode abrir e editar os de qualquer conta. Botão Sair refeito; removido Atualizar da nuvem.
+
+- Backup completo (baixar/restaurar) no painel; recuperar senha por e-mail e trocar a própria senha; conta nova abre em branco; ajustes de desempenho das regras de acesso (RLS) e índices.

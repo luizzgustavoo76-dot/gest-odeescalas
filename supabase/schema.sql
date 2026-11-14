@@ -53,16 +53,22 @@ alter table public.perfis  enable row level security;
 alter table public.escalas enable row level security;
 drop policy if exists perfis_ler on public.perfis;
 drop policy if exists perfis_admin on public.perfis;
+drop policy if exists perfis_admin_inserir on public.perfis;
+drop policy if exists perfis_admin_alterar on public.perfis;
+drop policy if exists perfis_admin_apagar on public.perfis;
 drop policy if exists escalas_ler on public.escalas;
 drop policy if exists escalas_inserir on public.escalas;
 drop policy if exists escalas_alterar on public.escalas;
 drop policy if exists escalas_apagar on public.escalas;
-create policy perfis_ler on public.perfis for select to authenticated using (id = auth.uid() or public.sou_admin());
-create policy perfis_admin on public.perfis for all to authenticated using (public.sou_admin()) with check (public.sou_admin());
-create policy escalas_ler on public.escalas for select to authenticated using (dono = auth.uid() or public.sou_admin());
-create policy escalas_inserir on public.escalas for insert to authenticated with check (dono = auth.uid() or public.sou_admin());
-create policy escalas_alterar on public.escalas for update to authenticated using (dono = auth.uid() or public.sou_admin()) with check (dono = auth.uid() or public.sou_admin());
-create policy escalas_apagar on public.escalas for delete to authenticated using (dono = auth.uid() or public.sou_admin());
+create policy perfis_ler on public.perfis for select to authenticated using (id = (select auth.uid()) or (select public.sou_admin()));
+create policy perfis_admin_inserir on public.perfis for insert to authenticated with check ((select public.sou_admin()));
+create policy perfis_admin_alterar on public.perfis for update to authenticated using ((select public.sou_admin())) with check ((select public.sou_admin()));
+create policy perfis_admin_apagar on public.perfis for delete to authenticated using ((select public.sou_admin()));
+create policy escalas_ler on public.escalas for select to authenticated using (dono = (select auth.uid()) or (select public.sou_admin()));
+create policy escalas_inserir on public.escalas for insert to authenticated with check (dono = (select auth.uid()) or (select public.sou_admin()));
+create policy escalas_alterar on public.escalas for update to authenticated using (dono = (select auth.uid()) or (select public.sou_admin())) with check (dono = (select auth.uid()) or (select public.sou_admin()));
+create policy escalas_apagar on public.escalas for delete to authenticated using (dono = (select auth.uid()) or (select public.sou_admin()));
+create index if not exists escalas_atualizado_por_idx on public.escalas (atualizado_por);
 
 -- 5) Atualização em tempo real entre aparelhos
 do $$ begin
@@ -80,7 +86,7 @@ create table if not exists public.auditoria (
 create index if not exists auditoria_quando_idx on public.auditoria (quando desc);
 alter table public.auditoria enable row level security;
 drop policy if exists auditoria_admin_ler on public.auditoria;
-create policy auditoria_admin_ler on public.auditoria for select to authenticated using (public.sou_admin());
+create policy auditoria_admin_ler on public.auditoria for select to authenticated using ((select public.sou_admin()));
 
 create table if not exists public.escalas_historico (
   id bigint generated always as identity primary key,
@@ -90,6 +96,7 @@ create table if not exists public.escalas_historico (
   salvo_em timestamptz not null default now()
 );
 create index if not exists escalas_historico_dono_idx on public.escalas_historico (dono, setor, id desc);
+create index if not exists escalas_historico_versao_por_idx on public.escalas_historico (versao_por);
 alter table public.escalas_historico enable row level security;
 drop policy if exists historico_admin_ler on public.escalas_historico;
 create policy historico_admin_ler on public.escalas_historico for select to authenticated using (public.sou_admin());

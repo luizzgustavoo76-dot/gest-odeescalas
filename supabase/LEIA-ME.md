@@ -47,5 +47,13 @@ O botão **Administração** (só para administradores) tem 4 abas:
 - **Usuários**: criar conta, busca, filtros, ordenação, gerador de senha, copiar e-mail/senha, ações em lote (mudar nível, bloquear) e exportar CSV.
 - **Atividade**: registro de quem salvou escalas (e de qual conta) e quem criou/editou/bloqueou contas.
 - **Histórico de escalas**: versões anteriores de cada setor de cada conta, com botão para restaurar.
+- **Backup**: baixa um arquivo `.json` com as escalas de todas as contas para o seu computador (faça toda semana; o app avisa quando passar de 7 dias) e restaura a partir de um arquivo.
+
+## Recuperar e trocar senha
+- **Trocar a própria senha**: botão "Trocar senha" no alto do app.
+- **Esqueci minha senha**: na tela de login, o app envia um link por e-mail. Para o link voltar para o site, no Supabase vá em Authentication → URL Configuration e coloque em *Site URL* e em *Redirect URLs* o endereço do site (ex.: `https://SEU-USUARIO.github.io/gest-odeescalas/`). O e-mail padrão do Supabase tem limite de poucos envios por hora; se precisar de mais, configure um SMTP próprio em Authentication → SMTP. Se o e-mail não chegar, o administrador pode definir uma senha nova pelo painel.
+
+## Conta nova
+Uma conta sem dados abre em branco (1 colaboradora por semana) com um aviso para importar a planilha. Nada é salvo até a pessoa mexer em alguma coisa.
 
 Ele usa a Edge Function `admin-usuarios` (código em `supabase/functions/admin-usuarios/index.ts`), publicada no Supabase com a chave de serviço guardada no servidor. Se precisar publicar de novo: Supabase → Edge Functions → Deploy a new function, nome `admin-usuarios`, cole o arquivo e desligue "Verify JWT" (a função confere o administrador sozinha).
