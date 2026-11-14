@@ -33,4 +33,13 @@ await A.evaluate(()=>document.querySelector('.tab[data-tab=rotation]').click());
 await A.click('#clearPosts');await A.waitForTimeout(200);
 T('limpar volta ao automático',await A.evaluate(()=>!sector().postShifts));
 T('sem erros de página',errs.length===0,errs.join(';'));
+// PDV acima do número de operadoras do turno: erro vermelho
+await A.evaluate(()=>{week().pdvCount=Math.max(week().pdvCount,20);render();document.querySelector('.tab[data-tab=rules]').click()});
+const info=await A.evaluate(()=>{const w=week();const i=w.shifts.findIndex((_,j)=>w.employees.filter(e=>e.station==='caixa'&&e.shift===j).length>0);return {i,n:w.employees.filter(e=>e.station==='caixa'&&e.shift===i).length}});
+if(info.i>=0){
+ for(let p=1;p<=info.n+1;p++){await A.evaluate(([i,p])=>{const c=document.querySelector('[data-pdvshift="'+i+'"][value="'+p+'"]');c.click()},[info.i,p]);await A.waitForTimeout(150)}
+ const tz=await A.evaluate(()=>{const t=document.getElementById('toast');return {oculto:t.hidden,txt:t.textContent,bg:getComputedStyle(t).backgroundColor}});
+ T('PDV a mais que operadoras mostra erro vermelho',!tz.oculto&&/^Erro/.test(tz.txt)&&tz.bg==='rgb(161, 22, 26)',tz.txt+' | '+tz.bg);
+ T('o PDV excedente não foi marcado',await A.evaluate(i=>sector().pdvPlan[i].length,info.i)===info.n);
+} else T('há turno com operadora para testar',false);
 await b.close()})();

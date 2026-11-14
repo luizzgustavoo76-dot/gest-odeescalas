@@ -2962,7 +2962,7 @@ function pdvPlanPanel() {
       const chips = activePdvs(w)
         .map(
           (p) =>
-            `<label class="pdv-chip"><input type="checkbox" data-pdvshift="${i}" value="${p}" ${sel.includes(p) ? 'checked' : ''} ${!sel.includes(p) && sel.length >= n ? 'disabled' : ''} /><span>${p}</span></label>`,
+            `<label class="pdv-chip"><input type="checkbox" data-pdvshift="${i}" value="${p}" ${sel.includes(p) ? 'checked' : ''} /><span>${p}</span></label>`,
         )
         .join('');
       return `<div class="pdv-shift"><b>${escape(sh.name)} · ${sh.start}</b><small class="${warn ? 'post-warn' : ''}">${n} operadora${n === 1 ? '' : 's'} neste horário · ${sel.length ? sel.length + ' de ' + n + ' PDV' + (n === 1 ? '' : 's') + ' marcado' + (sel.length === 1 ? '' : 's') : 'pode marcar até ' + n + ' PDV' + (n === 1 ? '' : 's') + ' (ou deixe automático)'}${warn ? ' (faltam PDVs marcados: o restante usa outros números livres ou faz troca)' : ''}</small><div class="pdv-chips">${chips}</div></div>`;
@@ -2981,7 +2981,12 @@ document.addEventListener('change', (e) => {
     v = +t.value;
   if (t.checked && cur.size >= lim) {
     render();
-    toast('Este turno tem ' + lim + ' operadora(s): só pode marcar ' + lim + ' PDV(s).');
+    const nome = (week().shifts[sh] || {}).name || 'Este turno';
+    toast(
+      lim
+        ? 'Erro: o ' + nome + ' tem só ' + lim + ' operadora' + (lim === 1 ? '' : 's') + ' e você tentou marcar o PDV ' + v + '. Desmarque um PDV antes ou aumente as operadoras do turno.'
+        : 'Erro: o ' + nome + ' não tem nenhuma operadora da Frente de Caixa, então não dá para marcar PDVs nele.',
+    );
     return;
   }
   t.checked ? cur.add(v) : cur.delete(v);
