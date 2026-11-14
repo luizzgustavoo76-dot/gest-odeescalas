@@ -152,3 +152,6 @@ Ao gerar as escalas, quem trabalha no 1º turno (entrada mais cedo) recebe os PD
 
 ## PDVs de cada turno (selecionável)
 Na aba **Rodízio** (Frente de Caixa) há o bloco "PDVs de cada turno": marque quais PDVs cada turno usa (ex.: 1º turno = PDV 1 a 4). Mostra quantas operadoras há em cada horário e avisa se faltarem PDVs marcados. Vale ao aplicar o rodízio, ao gerar a escala e no botão "Aplicar PDVs nas 4 semanas". Sem marcação, o sistema escolhe automático. Quem passar da quantidade marcada usa outro PDV livre.
+
+### Troca de operadora no mesmo PDV
+Se há mais operadoras do que PDVs, o mesmo PDV pode ser marcado em mais de um turno. Sem PDV livre, a operadora do turno seguinte assume o PDV de quem sai antes, e o painel lista "Trocas de operadora nesta semana" (quem sai, horário da troca e quem assume).

@@ -79,9 +79,13 @@ function assignPdvs(w,wi,fresh){
     /* PDVs escolhidos para este turno; sem escolha, usa os que não foram reservados a outro turno */
     const mine=(plan[e.shift]||[]).filter(n=>n<=w.pdvCount).sort((x,y)=>x-y);
     if(!pick&&mine.length)pick=mine.find(n=>!used.has(n))||0;
+    /* revezamento: sem PDV livre entre os marcados, assume o PDV de quem é de outro turno e sai antes (troca de operadora) */
+    const share=list=>{const ok=list.filter(n=>{const h=done.filter(o=>o.pdv===n&&clash(e,o));return h.length>=1&&h.every(o=>o.shift!==e.shift)&&new Set(h.map(o=>o.shift)).size===h.length}),cnt=n=>done.filter(o=>o.pdv===n&&clash(e,o)).length,endOf=n=>Math.max(...done.filter(o=>o.pdv===n&&clash(e,o)).map(o=>mins(w.shifts[o.shift].end)));return ok.sort((x,y)=>cnt(x)-cnt(y)||endOf(x)-endOf(y)||x-y)[0]||0};
+    if(!pick&&fresh&&mine.length)pick=share(mine);
     if(!pick&&fresh&&!mine.length)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
     if(!pick&&fresh)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
     if(!pick)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)){pick=n;break}
+    if(!pick&&fresh)pick=share(Array.from({length:w.pdvCount},(_,i)=>i+1));
     if(!pick){pick=((e.id-1)%w.pdvCount)+1;short++}
     e.pdv=pick;done.push(e);
   });
@@ -727,8 +731,15 @@ function pdvPlanPanel(){
   const rows=w.shifts.map((sh,i)=>{
     const n=w.employees.filter(e=>e.station==='caixa'&&e.shift===i).length,sel=(plan[i]||[]).filter(x=>x<=w.pdvCount),warn=sel.length&&sel.length<n;
     const chips=Array.from({length:w.pdvCount},(_,k)=>k+1).map(p=>`<label class="pdv-chip"><input type="checkbox" data-pdvshift="${i}" value="${p}" ${sel.includes(p)?'checked':''} /><span>${p}</span></label>`).join('');
-    return `<div class="pdv-shift"><b>${escape(sh.name)} · ${sh.start}</b><small class="${warn?'post-warn':''}">${n} operadora${n===1?'':'s'} neste horário${sel.length?' · '+sel.length+' PDV'+(sel.length===1?'':'s')+' marcado'+(sel.length===1?'':'s'):' · automático'}${warn?' (faltam PDVs: o restante usa outros números livres)':''}</small><div class="pdv-chips">${chips}</div></div>`}).join('');
-  return `<div class="pdv-plan"><label>PDVs de cada turno (Operadora Caixa)</label><p class="helper">Marque quais PDVs cada turno usa; sem marcação, o sistema escolhe automático (1º turno nos números mais baixos). Vale ao aplicar o rodízio, ao gerar a escala e no botão abaixo. Quem passar da quantidade marcada usa outro PDV livre.</p>${rows}<button class="button outline full" id="applyPdvPlan" type="button">Aplicar PDVs nas 4 semanas</button><button class="link-btn" id="clearPdvPlan" type="button">Limpar escolha (automático)</button></div>`;
+    return `<div class="pdv-shift"><b>${escape(sh.name)} · ${sh.start}</b><small class="${warn?'post-warn':''}">${n} operadora${n===1?'':'s'} neste horário${sel.length?' · '+sel.length+' PDV'+(sel.length===1?'':'s')+' marcado'+(sel.length===1?'':'s'):' · automático'}${warn?' (faltam PDVs marcados: o restante usa outros números livres ou faz troca)':''}</small><div class="pdv-chips">${chips}</div></div>`}).join('');
+  return `<div class="pdv-plan"><label>PDVs de cada turno (Operadora Caixa)</label><p class="helper">Marque quais PDVs cada turno usa; sem marcação, o sistema escolhe automático (1º turno nos números mais baixos). Vale ao aplicar o rodízio, ao gerar a escala e no botão abaixo. O mesmo PDV pode ser marcado em mais de um turno: quando não há PDV livre, a operadora do turno seguinte assume o PDV de quem sai antes (troca de operadora). Quem passar da quantidade marcada usa outro PDV livre.</p>${rows}${pdvSwaps()}<button class="button outline full" id="applyPdvPlan" type="button">Aplicar PDVs nas 4 semanas</button><button class="link-btn" id="clearPdvPlan" type="button">Limpar escolha (automático)</button></div>`;
 }
-document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-pdvshift]'))return;const sh=+t.dataset.pdvshift,sec=sector();sec.pdvPlan=sec.pdvPlan||{};const cur=new Set(sec.pdvPlan[sh]||[]),v=+t.value;t.checked?cur.add(v):cur.delete(v);/* um PDV só pode ser de um turno que se sobrepõe: remove das outras marcações */if(t.checked)Object.keys(sec.pdvPlan).forEach(k=>{if(+k!==sh)sec.pdvPlan[k]=(sec.pdvPlan[k]||[]).filter(x=>x!==v)});sec.pdvPlan[sh]=[...cur].sort((a,b)=>a-b);render()});
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-pdvshift]'))return;const sh=+t.dataset.pdvshift,sec=sector();sec.pdvPlan=sec.pdvPlan||{};const cur=new Set(sec.pdvPlan[sh]||[]),v=+t.value;t.checked?cur.add(v):cur.delete(v);sec.pdvPlan[sh]=[...cur].sort((a,b)=>a-b);render()});
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#applyPdvPlan,#clearPdvPlan');if(!b)return;const sec=sector();if(b.id==='clearPdvPlan'){sec.pdvPlan={};render();toast('PDVs por turno voltaram ao automático.');return}sector().weeks.forEach((w,wi)=>assignPdvs(w,wi,true));render();toast('PDVs aplicados nas 4 semanas.',true)});
+
+/* resumo das trocas de operadora no mesmo PDV (semana selecionada) */
+function pdvSwaps(){
+  const w=week(),by={};w.employees.filter(e=>e.station==='caixa').forEach(e=>{(by[e.pdv]=by[e.pdv]||[]).push(e)});
+  const list=Object.keys(by).map(Number).sort((a,b)=>a-b).map(p=>{const g=by[p].filter(e=>w.shifts[e.shift]).sort((a,b)=>mins(w.shifts[a.shift].end)-mins(w.shifts[b.shift].end));if(g.length<2||new Set(g.map(e=>e.shift)).size<2)return '';return `<li><b>PDV ${p}</b>: ${g.map((e,i)=>{const f=w.shifts[e.shift];return escape(e.name)+' ('+f.start+'–'+f.end+')'+(i<g.length-1?' → troca às '+f.end+' →':'')}).join(' ')}</li>`}).filter(Boolean);
+  return list.length?`<div class="pdv-swaps"><b>Trocas de operadora nesta semana</b><ul>${list.join('')}</ul></div>`:'';
+}
