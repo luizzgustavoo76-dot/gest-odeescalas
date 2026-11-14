@@ -1,0 +1,25 @@
+name: Biblioteca do Supabase junto com o site
+# Baixa a biblioteca do Supabase para a pasta vendor/ (uma vez), para o site não depender de um servidor externo.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar a biblioteca se ainda não estiver no repositório
+        run: |
+          if [ ! -s vendor/supabase.js ]; then
+            mkdir -p vendor
+            curl -fsSL https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js -o vendor/supabase.js
+            test "$(wc -c < vendor/supabase.js)" -gt 50000
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add vendor/supabase.js
+            git commit -m "Inclui a biblioteca do Supabase em vendor/"
+            git push
+          fi
