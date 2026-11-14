@@ -216,3 +216,4 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 
 - Coluna "Limite c/ extras" da prévia com metade da largura (89px).
 - Cadastro da semana: botão Recolher/Expandir configuração.
+- Disposição de horários: botão Recolher/Expandir.

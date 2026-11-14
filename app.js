@@ -910,3 +910,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='addEm
   let c=false;try{c=localStorage.getItem('bom-dia-op-collapsed')==='1'}catch(e){}
   set(c);btn.addEventListener('click',()=>set(!sec.classList.contains('collapsed')));
 })();
+
+/* disposição de horários: recolher / expandir */
+(function(){
+  const sec=document.getElementById('coverageBoard')&&document.getElementById('coverageBoard').closest('.coverage-board'),btn=document.getElementById('toggleBoard');if(!sec||!btn)return;
+  const set=c=>{sec.classList.toggle('collapsed',c);btn.textContent=c?'Expandir configuração ▾':'Recolher configuração ▴';btn.setAttribute('aria-expanded',String(!c));try{localStorage.setItem('bom-dia-board-collapsed',c?'1':'0')}catch(e){}};
+  let c=false;try{c=localStorage.getItem('bom-dia-board-collapsed')==='1'}catch(e){}
+  set(c);btn.addEventListener('click',()=>set(!sec.classList.contains('collapsed')));
+})();

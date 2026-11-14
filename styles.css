@@ -187,3 +187,5 @@
 /* cadastro da semana recolhível */
 .op-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .operators.collapsed #operatorsList{display:none!important}
+
+.coverage-board.collapsed .table-wrap{display:none!important}
