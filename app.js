@@ -4,12 +4,16 @@ const POST_NAMES={pacote:'Pacote',fiscal:'Fiscal',recepcao:'Recepção',caixa:'O
 /* postos de cada setor (o posto é fixo da colaboradora; o rodízio é de turnos) e postos que precisam ter alguém no domingo */
 const SECTOR_POSTS={'frente-caixa':['caixa','pacote','fiscal','recepcao'],'horti-fruit':['equipe'],'acougue-frios':['acougue','frios','repositorfrios','limpeza'],'loja-deposito':['deposito','reposicao','trocaetiqueta','cartaz','limpeza'],padaria:['producao','atendimento','limpeza']};
 const SUNDAY_POSTS={'frente-caixa':['fiscal','recepcao'],'horti-fruit':[],'acougue-frios':['acougue','frios'],'loja-deposito':['deposito','reposicao'],padaria:['producao','atendimento']};
-const postKeys=()=>SECTOR_POSTS[state.selectedSector]||[],sundayPosts=()=>SUNDAY_POSTS[state.selectedSector]||[],hasPosts=()=>postKeys().length>0;
+const SUNDAY_POST_MIN={'frente-caixa':{caixa:2,pacote:0,fiscal:1,recepcao:1},'acougue-frios':{acougue:2,frios:2,repositorfrios:0,limpeza:0},'loja-deposito':{deposito:1,reposicao:1,trocaetiqueta:0,cartaz:0,limpeza:0},padaria:{producao:1,atendimento:2,limpeza:0},'horti-fruit':{equipe:1}};
+const postKeys=()=>SECTOR_POSTS[state.selectedSector]||[],hasPosts=()=>postKeys().length>0;
+/* mínimo por posto no domingo: o que o gestor definiu ou o padrão do setor (soma = mínimo anterior do setor) */
+function sundayPostMin(k){const st=state.sectors&&state.sectors[state.selectedSector],v=st&&st.sundayPostMin&&st.sundayPostMin[k];return Number.isFinite(v)?v:((SUNDAY_POST_MIN[state.selectedSector]||{})[k]||0)}
+const sundayPosts=()=>postKeys().filter(k=>sundayPostMin(k)>0);
 const STORE='bom-dia-escalas-v9',OLD='bom-dia-escalas-v8';
 const DEFAULTS={earlyBefore:'09:00',weekClose:'19:30',sundayClose:'18:00',alternateSundays:true,extraText:'',v10:1},EXTRA_MAX=90;
 const SECTORS={'frente-caixa':'Frente de Caixa','acougue-frios':'Açougue e Frios','loja-deposito':'Loja e Depósito',padaria:'Padaria','horti-fruit':'Horti Fruit'};
 const SUNDAY_MIN={'frente-caixa':4,'acougue-frios':4,'loja-deposito':2,padaria:3,'horti-fruit':1};
-function sundayMin(){const v=state.sectors&&state.sectors[state.selectedSector]&&state.sectors[state.selectedSector].sundayMin;return Number.isFinite(v)?v:(SUNDAY_MIN[state.selectedSector]||0)}
+function sundayMin(){return hasPosts()?postKeys().reduce((t,k)=>t+sundayPostMin(k),0):(SUNDAY_MIN[state.selectedSector]||0)}
 const DAYS=[['segunda','Seg.',0],['terça','Ter.',1],['quarta','Qua.',2],['quinta','Qui.',3],['sexta','Sex.',4],['sábado','Sáb.',5],['domingo','Dom.',6]];
 const PRESETS=[['07:00','11:00'],['09:30','12:00'],['10:10','13:00']],COLORS=['#d12d32','#f0a919','#245da8','#7d4db0','#14845a'];
 const TRAFFIC=[['Manhã','08:00','10:00',3],['Almoço','12:00','15:00',4],['Tarde','15:00','18:00',6],['Fechamento','18:00','19:30',6]];
@@ -310,7 +314,7 @@ function fillSundays(){
     /* o posto é da colaboradora: nas semanas vazias, quem estiver no PDV herda o posto Pacote/Fiscal/Recepção da Semana 1 */
     const cand=w.employees.map((e,i)=>i).filter(i=>!works(weeks[wi-1],i)&&!works(weeks[wi+1],i)).sort((a,b)=>worked(a)-worked(b)||a-b);
     const pick=[],take=i=>{if(i!==undefined&&!pick.includes(i)&&pick.length<k)pick.push(i)};
-    if(hasPosts())sundayPosts().forEach(p=>{const c=cand.find(i=>w.employees[i].station===p);if(c===undefined)noPost.push((wi+1)+' ('+POST_NAMES[p]+')');else take(c)});
+    if(hasPosts())sundayPosts().forEach(p=>{for(let n=0;n<sundayPostMin(p);n++){const c=cand.find(i=>w.employees[i].station===p&&!pick.includes(i));if(c===undefined){if(n===0)noPost.push((wi+1)+' ('+POST_NAMES[p]+')');break}take(c)}});
     cand.forEach(take);
     pick.forEach(i=>{w.employees[i].sundayWork=true});
     filled.push(wi);if(pick.length<k)short.push(wi+1);
@@ -653,7 +657,7 @@ function compliance(){
       if(pl.brk&&pl.work>0&&pl.work<workDuration(w.model,wi))add('atenção',L+'domingo dia todo: '+hm(pl.work)+' trabalhadas, abaixo da carga diária do modelo ('+hm(workDuration(w.model,wi))+').',[wi]);
       if(!pl.brk&&pl.len>360)add('erro',L+'domingo: mais de 6h seguidas sem intervalo; use o tipo "Dia todo (com almoço)".',[wi]);
       if(pl.en>mins(S.sundayClose))add('atenção',L+'domingo: a jornada termina às '+time(pl.en)+', depois do limite de domingo ('+S.sundayClose+').',[wi]);
-      sundayPosts().forEach(p=>{if(!sunW.some(e=>e.station===p))add('erro',L+'domingo sem '+POST_NAMES[p]+': escale pelo menos 1 colaboradora no posto '+POST_NAMES[p]+'.',[wi])});
+      sundayPosts().forEach(p=>{const c=sunW.filter(e=>e.station===p).length,mn=sundayPostMin(p);if(c===0)add('erro',L+'domingo sem '+POST_NAMES[p]+': escale pelo menos '+mn+' colaboradora'+(mn===1?'':'s')+' no posto '+POST_NAMES[p]+'.',[wi]);else if(c<mn)add('atenção',L+'domingo: '+POST_NAMES[p]+' com '+c+' (mínimo '+mn+').',[wi])});
       const rs=sunW.filter(e=>e.restricted).map(e=>e.name);
       if(rs.length&&pl.en>1080)add('erro',L+rs.join(', ')+' (estudante/mãe com restrição) escalada no domingo até '+time(pl.en)+'; a CCT protege contra escala após 18h.',[wi]);
     }
@@ -822,9 +826,12 @@ window.addEventListener('afterprint',()=>{['--pf','--pr','--sf','--sr'].forEach(
 
 /* ===== mínimo de colaboradoras por domingo (aba Regras) ===== */
 function sundayMinPanel(){
-  const cur=sundayMin(),std=SUNDAY_MIN[state.selectedSector]||0,n=sundayWorkers().length;
-  return `<div class="setting-block"><label for="sundayMinInput">Mínimo de colaboradoras por domingo</label><div class="number-row"><button class="stepper" id="sundayMinDec" type="button">−</button><input id="sundayMinInput" type="number" min="0" max="50" value="${cur}" /><button class="stepper" id="sundayMinInc" type="button">+</button></div><p class="helper">${SECTORS[state.selectedSector]}: padrão ${std}. Este domingo tem ${n} escalada${n===1?'':'s'}${n<cur?' (abaixo do mínimo)':''}. O painel de conformidade avisa quando ficar abaixo, e a sugestão de domingos usa este número.</p>${cur!==std?'<button class="link-btn" id="sundayMinReset" type="button">Voltar ao padrão ('+std+')</button>':''}</div>`;
+  const sw=sundayWorkers(),keys=postKeys();
+  if(!keys.length)return '';
+  const rows=keys.map(k=>{const mn=sundayPostMin(k),n=sw.filter(e=>e.station===k).length;return `<div class="spm-row"><span class="post-name">${POST_NAMES[k]}<small class="${n<mn?'post-warn':''}">hoje ${n} no domingo</small></span><div class="number-row"><button class="stepper" data-spm="${k}" data-d="-1" type="button">−</button><input type="number" min="0" max="50" data-spm-in="${k}" value="${mn}" aria-label="Mínimo de ${POST_NAMES[k]} no domingo" /><button class="stepper" data-spm="${k}" data-d="1" type="button">+</button></div></div>`}).join('');
+  const custom=!!(sector().sundayPostMin&&Object.keys(sector().sundayPostMin).length);
+  return `<div class="setting-block spm"><label>Mínimo por posto no domingo — ${SECTORS[state.selectedSector]}</label><p class="helper">Defina quantas colaboradoras cada posto precisa no domingo. Total mínimo do setor: <b>${sundayMin()}</b> (este domingo tem ${sw.length}). O painel de conformidade avisa quando um posto fica abaixo e a sugestão de domingos tenta cumprir cada posto.</p>${rows}${custom?'<button class="link-btn" id="spmReset" type="button">Voltar ao padrão do setor</button>':''}</div>`;
 }
-function setSundayMin(v){const sec=sector();sec.sundayMin=Math.max(0,Math.min(50,Math.floor(+v)||0));render()}
-document.addEventListener('change',e=>{if(e.target.id==='sundayMinInput')setSundayMin(e.target.value)});
-document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('#sundayMinDec,#sundayMinInc,#sundayMinReset');if(!t)return;if(t.id==='sundayMinReset'){delete sector().sundayMin;render();return}setSundayMin(sundayMin()+(t.id==='sundayMinInc'?1:-1))});
+function setSundayPostMin(k,v){const sec=sector();sec.sundayPostMin=sec.sundayPostMin||{};sec.sundayPostMin[k]=Math.max(0,Math.min(50,Math.floor(+v)||0));render()}
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.spmIn;if(k)setSundayPostMin(k,e.target.value)});
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-spm],#spmReset');if(!t)return;if(t.id==='spmReset'){delete sector().sundayPostMin;render();return}setSundayPostMin(t.dataset.spm,sundayPostMin(t.dataset.spm)+(+t.dataset.d))});
