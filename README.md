@@ -163,4 +163,4 @@ Cada turno só deixa marcar tantos PDVs quanto operadoras tem naquele horário (
 O botão **Baixar para imprimir** gera um arquivo .html com a folha da semana e a folha de domingo. Abra o arquivo baixado: a janela de impressão abre sozinha (A4 paisagem, 2 folhas). Útil quando o botão "Imprimir escala" não funciona na prévia do navegador.
 
 ### Troca de PDV na impressão
-Quando um PDV é dividido entre turnos, a escala impressa (e o arquivo "Baixar para imprimir") mostra ao lado do PDV de cada operadora até que horas ela fica ("até 17:20") e a partir de que horas a outra assume ("após 17:20").
+Quando um PDV é dividido entre turnos, a escala impressa (e o arquivo "Baixar para imprimir") mostra, só na operadora que assume o PDV, a partir de que horas ela entra no lugar da outra ("após 17:20").

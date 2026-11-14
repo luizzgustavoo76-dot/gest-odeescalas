@@ -771,6 +771,5 @@ function swapNote(e){
   if(g.length<2||new Set(g.map(o=>o.shift)).size<2)return '';
   const i=g.indexOf(e),part=[];
   if(i>0)part.push('após '+w.shifts[g[i-1].shift].end);
-  if(i<g.length-1)part.push('até '+w.shifts[e.shift].end);
   return part.length?` <small class="swap-note">(${part.join(' · ')})</small>`:'';
 }
