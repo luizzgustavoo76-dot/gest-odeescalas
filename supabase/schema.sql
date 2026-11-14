@@ -38,7 +38,7 @@ create table if not exists public.escalas (
 );
 
 create or replace function public.carimbo() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public as $$
 begin
   new.atualizado_em := now();
   new.atualizado_por := auth.uid();
@@ -92,6 +92,13 @@ create policy escalas_apagar  on public.escalas for delete to authenticated
 do $$ begin
   alter publication supabase_realtime add table public.escalas;
 exception when duplicate_object then null; end $$;
+
+-- 5b) Endurecimento: só o necessário fica executável
+revoke execute on function public.novo_perfil() from public, anon, authenticated;
+revoke execute on function public.sou_admin() from public, anon;
+revoke execute on function public.posso_editar(text) from public, anon;
+grant execute on function public.sou_admin() to authenticated;
+grant execute on function public.posso_editar(text) to authenticated;
 
 -- 6) DEPOIS de criar seu usuário em Authentication → Users, rode UMA vez
 --    (troque pelo seu e-mail) para virar administrador:
