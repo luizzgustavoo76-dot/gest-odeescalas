@@ -201,3 +201,6 @@ Em vez de um mínimo geral, cada posto do setor tem o seu mínimo de colaborador
 - Ambos podem ser desfeitos em "Gerar".
 
 O botão "+ Adicionar colaboradora" tem um campo **Nome**: o nome digitado vale nas 4 semanas e é convertido para MAIÚSCULAS (ex.: "maria das graças" vira "MARIA DAS GRAÇAS"). Sem nome, usa "Colaboradora N". Enter no campo também adiciona.
+
+### Edição direto na prévia da escala
+A tabela da prévia é editável: **Turno** (lista), **Posto** (lista; na Operadora Caixa também o **PDV**) e **Folgas** (botões Seg a Sáb; o Dom aparece marcado quando a pessoa não trabalha no domingo). Usa as mesmas regras das fichas: limite de folgas (2 no 5x2, 1 no 6x1), Recepção e Fiscal sem folgar no mesmo dia, domingo sem dois seguidos. Turno, PDV e folgas valem para a semana aberta; posto e nome valem nas 4 semanas. A impressão não mostra os controles, só o texto.
