@@ -34,7 +34,7 @@ create table if not exists public.escalas (
   setor text primary key,
   dados jsonb not null,
   atualizado_em timestamptz not null default now(),
-  atualizado_por uuid references auth.users(id)
+  atualizado_por uuid references auth.users(id) on delete set null
 );
 
 create or replace function public.carimbo() returns trigger
