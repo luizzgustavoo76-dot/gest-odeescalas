@@ -70,7 +70,7 @@ T('varredura: nenhuma "falsa confirmação" nem total de folgas alterado',varre.
 T('varredura: a maioria das ações é aplicada em todos os dias',varre.ok>=50,String(varre.ok));
 // vermelho prevalece: sugerir folgas sem domingos escolhidos
 await A.evaluate(()=>{toastErroEm=0;toastEm=0;document.getElementById('toast').hidden=true;week().employees.forEach(e=>e.sundayWork=false);render()});
-await A.evaluate(()=>document.querySelector('[data-suggest-off-all]').click());await A.waitForTimeout(400);
+await A.evaluate(()=>document.querySelector('[data-suggest-off]').click());await A.waitForTimeout(400);
 const tv=await A.evaluate(()=>{const t=document.getElementById('toast');return {h:t.hidden,txt:t.textContent,bg:t.style.background}});
 T('erro em "sugerir folgas" não é trocado por mensagem verde',!tv.h&&tv.bg===''||/rro|ntes|escolh|domingo/i.test(tv.txt)&&tv.bg==='',JSON.stringify(tv));
 T('sem erros de página',errs.length===0,errs.join(';'));

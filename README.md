@@ -243,3 +243,8 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - `tests/` – testes automáticos. Rodar: `npm install --no-save playwright && npx playwright install chromium && node tests/run.js`. No GitHub rodam sozinhos a cada envio (aba Actions).
 
 - **Semana de domingo a sábado:** o domingo abre a semana em todo o app. No 6x1 cada semana tem 1 folga (sem folga extra); contas antigas recomeçam a escala (nomes e postos ficam) na primeira abertura.
+
+## Completar as 4 semanas (build 92)
+A aba **Equipe** tem 3 botões de preenchimento: **Completar as 4 semanas** (equipe, modelo, PDVs, turnos, domingos e folgas, sempre a partir da Semana 1),
+**Copiar preenchimento completo** (semana aberta idêntica nas outras) e **Sugerir folgas só desta semana**.
+Se a Semana 1 não tem domingos marcados, o app escolhe (respeitando o mínimo por posto, sem domingos seguidos e com ao menos 2 domingos de folga por mês); se já tem, mantém os seus.

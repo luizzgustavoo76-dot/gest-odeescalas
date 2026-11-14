@@ -782,6 +782,15 @@ function staff() {
   );
 }
 const mark = (f) => (week().sortField === f ? (week().sortDirection === 'asc' ? '↑' : '↓') : '↕');
+/* usuário com setor definido: o seletor de setor some e o app fica nesse setor */
+window.travaSetor = (k) => {
+  const p = document.querySelector('.sector-picker');
+  if (p) p.hidden = !!k;
+  if (k && SECTORS[k]) {
+    state.selectedSector = k;
+    render();
+  }
+};
 function render() {
   normalize();
   const w = week(),
@@ -804,7 +813,6 @@ function render() {
   document.getElementById('pdvMetric').textContent = w.pdvCount;
   document.getElementById('pdvMetricCard').hidden = !hasPdv();
   document.getElementById('pdvGroup').hidden = !hasPdv();
-  document.getElementById('replPdvBtn').hidden = !hasPdv();
   document.querySelectorAll('.model-button').forEach((x) => x.classList.toggle('active', x.dataset.model === w.model));
   document.getElementById('operatorsTag').textContent = w.activeCount + ' ativas';
   renderWeekTabs();
@@ -1519,6 +1527,74 @@ function suggestOffAll() {
   sector().weeks.forEach((w) => balanceOffs(w, true));
   state.notice = 'Folgas sugeridas nas 4 semanas. ' + sundayNote(r) + MOVE_NOTE;
   render();
+}
+/* "Completar as 4 semanas": a Semana 1 é sempre a base. Copia equipe, modelo, PDVs e turnos para as semanas 2-4, escolhe os domingos
+   (se a Semana 1 ainda não tem domingos definidos, o app escolhe; se já tem, mantém os seus) e calcula as folgas das 4 semanas. */
+function completarSemanas() {
+  const weeks = sector().weeks,
+    w0 = weeks[0];
+  normalizeWeek(w0);
+  if (!w0.employees.length || w0.activeCount < 1) {
+    state.selectedWeek = 0;
+    render();
+    toast('Erro: preencha primeiro a Semana 1 (colaboradoras, turnos e modelo). As outras semanas são calculadas a partir dela.');
+    return;
+  }
+  const antes = state.selectedWeek;
+  let auto = false;
+  if (!baseOk()) {
+    /* domingos da Semana 1: mantém quem já foi marcado, garante o mínimo de cada posto e completa até metade da equipe no máximo */
+    auto = true;
+    const n = w0.employees.length,
+      alvo = Math.max(1, Math.min(Math.max(sundayMin() || 0, Math.ceil(n * 0.4)), Math.floor(n / 2) || 1));
+    const marca = (e) => {
+      if (e && !e.sundayWork) e.sundayWork = true;
+    };
+    if (hasPosts())
+      sundayPosts().forEach((p) => {
+        for (let k = w0.employees.filter((e) => e.station === p && e.sundayWork).length; k < sundayPostMin(p); k++) {
+          const c = w0.employees.find((e) => e.station === p && !e.sundayWork);
+          if (!c) break;
+          marca(c);
+        }
+      });
+    const falta = () => alvo - w0.employees.filter((e) => e.sundayWork).length;
+    /* completa distribuindo entre os turnos (quem tem menos domingos no turno primeiro) */
+    while (falta() > 0) {
+      const livres = w0.employees.filter((e) => !e.sundayWork);
+      if (!livres.length) break;
+      const porTurno = (s) => w0.employees.filter((e) => e.shift === s && e.sundayWork).length;
+      livres.sort((a, b) => porTurno(a.shift) - porTurno(b.shift) || w0.employees.indexOf(a) - w0.employees.indexOf(b));
+      marca(livres[0]);
+    }
+  }
+  /* copia a Semana 1 (equipe, modelo, PDVs, turnos) para as outras e recalcula domingos e folgas */
+  state.selectedWeek = 0;
+  weeks.forEach((target, index) => {
+    if (index === 0) return;
+    weeks[index] = clone(w0);
+    normalizeWeek(weeks[index]);
+    sortShifts(weeks[index]);
+    weeks[index].employees.forEach((e) => {
+      e.sundayWork = false;
+    });
+  });
+  const r = fillSundays();
+  weeks.forEach((w) => balanceOffs(w, true));
+  state.selectedWeek = antes;
+  const aviso = r.short.length || (r.noPost && r.noPost.length);
+  state.notice =
+    'Semanas 2 a 4 completadas a partir da Semana 1. ' +
+    (auto ? 'Os domingos da Semana 1 foram escolhidos pelo app (você pode trocar e clicar de novo). ' : 'Os domingos que você marcou na Semana 1 foram mantidos. ') +
+    sundayNote(r) +
+    MOVE_NOTE;
+  render();
+  toast(
+    aviso
+      ? 'Semanas completadas, mas com atenção: confira os avisos de domingo na tela.'
+      : 'Pronto: equipe, modelo, PDVs, domingos e folgas das 4 semanas calculados a partir da Semana 1.',
+    !aviso,
+  );
 }
 function suggestSundays() {
   if (!baseOk()) {
@@ -2999,6 +3075,7 @@ document.addEventListener('click', (event) => {
     suggest = event.target.closest('[data-suggest-off]'),
     sun = event.target.closest('[data-suggest-sundays]'),
     allOff = event.target.closest('[data-suggest-off-all]'),
+    comp = event.target.closest('[data-complete]'),
     posts = event.target.closest('#applyPosts'),
     clearPosts = event.target.closest('#clearPosts'),
     gen = event.target.closest('#genRun'),
@@ -3035,6 +3112,7 @@ document.addEventListener('click', (event) => {
   if (suggest) suggestOffDays();
   if (sun) suggestSundays();
   if (allOff) suggestOffAll();
+  if (comp) completarSemanas();
   if (posts) applyPostPlan(false);
   if (clearPosts) {
     const sec = sector();
@@ -3876,6 +3954,7 @@ try {
     ['[data-replicate="pdvs"]', 'Quantidade de PDVs copiada para as outras semanas.'],
     ['[data-replicate="all"]', 'Preenchimento completo copiado para as outras semanas.'],
     ['[data-replicate="shifts"]', 'Turnos replicados nas outras semanas.'],
+    ['[data-complete]', 'Semanas completadas a partir da Semana 1.'],
     ['[data-suggest-off-all]', 'Folgas sugeridas nas 4 semanas.'],
     ['[data-suggest-off]', 'Folgas sugeridas para esta semana.'],
     ['[data-suggest-sundays]', 'Domingos alternados sugeridos nas 4 semanas.'],
