@@ -883,4 +883,5 @@ function addEmployee(station){
   render();toast('Colaboradora '+(n+1)+' adicionada.',true);
 }
 (function(){const r0=render;render=function(){const v=r0.apply(this,arguments);try{addBars()}catch(e){}return v}})();
+try{render()}catch(e){}
 document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#addEmpBtn')){const sel=document.getElementById('addEmpPost');addEmployee(sel?sel.value:undefined);return}if(e.target.closest&&e.target.closest('#addSunBtn')){const v=document.getElementById('addSunSel').value;if(v!=='')addSundayWorker(+v)}});
