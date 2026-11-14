@@ -31,7 +31,7 @@ function rotation(active=12,shifts=3){return{enabled:false,counts:distribute(act
 function newWeek(){return{model:'5x2',activeCount:12,pdvCount:10,shifts:[0,1,2].map(i=>shift(i)),employees:Array.from({length:12},(_,i)=>worker(i+1)),sortField:'start',sortDirection:'asc',rotation:rotation()}}
 function newSector(){return{weeks:[0,1,2,3].map(newWeek)}}
 function newState(){return{selectedSector:'frente-caixa',selectedWeek:0,baseMonday:monday(new Date()),sectors:Object.fromEntries(Object.keys(SECTORS).map(k=>[k,newSector()]))}}
-function load(){for(const key of [STORE,OLD,'bom-dia-escalas-v7'])try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.sectors)return saved}catch(_){ }return newState()}
+function load(){return newState()} /* dados só da nuvem: nada é lido do aparelho (veja sync.js) */
 var state;state=load();if(state.settings&&!state.settings.v10)state.settings.sundayClose='18:00';state.settings={...DEFAULTS,...state.settings};
 const clone=value=>JSON.parse(JSON.stringify(value));
 function sector(){if(!state.sectors[state.selectedSector])state.sectors[state.selectedSector]=newSector();return state.sectors[state.selectedSector]}
@@ -160,7 +160,7 @@ function renderBackupStatus(){
   el.textContent=t?'Dados salvos neste dispositivo · último backup em '+short(t)+' '+pad(t.getHours())+':'+pad(t.getMinutes()):'Dados salvos só neste dispositivo · faça um backup';
   box.classList.toggle('warn',days===null||days>=7);
 }
-function save(){try{localStorage.setItem(STORE,JSON.stringify(state))}catch(e){}}
+function save(){} /* sem gravação no aparelho: sync.js envia para a nuvem */
 function activateTab(name){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===name));document.querySelectorAll('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===name))}
 const effOff=e=>e.sundayWork?e.offDays:[...e.offDays,'domingo'],offLimit=(e,model=week().model)=>Math.max(0,2-(e.sundayWork?0:1)),sc=()=>sundayPlan(week()).en;
 function offText(e){const picked=DAYS.filter(d=>effOff(e).includes(d[0])||closedDay(d[0]));return picked.length?picked.map(d=>d[1]+' '+short(date(d[0]))+(closedDay(d[0])&&!effOff(e).includes(d[0])?' (feriado)':'')).join(' e '):'Definir'}
