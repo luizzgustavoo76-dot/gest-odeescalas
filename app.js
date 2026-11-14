@@ -586,7 +586,7 @@ function renderOffAnalysis(){
   if(expected){const bad=per.filter(x=>x.n!==expected);obs.push(`Conferência: ${N} colaboradoras × 2 folgas = <b>${2*N}</b>; a soma das folgas da semana é <b>${sumOff}</b>.`+(sumOff===2*N&&!bad.length?' Está certo (o domingo não trabalhado conta como uma das 2 folgas).':'')+(bad.length?' Fora do padrão: '+bad.map(x=>escape(x.e.name)+' ('+x.n+')').join(', ')+'.':'')+(holN?' Feriado com loja fechada não entra nessa conta.':''))}
   else{const bad=per.filter(x=>x.n<1||x.n>2);obs.push(`Conferência (6x1): a soma das folgas da semana é <b>${sumOff}</b> (quem trabalha no domingo tem 1 folga na semana; quem não trabalha tem o domingo mais 1 folga extra).`+(bad.length?' Fora do padrão: '+bad.map(x=>escape(x.e.name)+' ('+x.n+')').join(', ')+'.':''))}
   if(!obs.length)obs.push('Sem pontos de atenção nesta semana.');
-  el.innerHTML=`<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi+1}</p><h2>Quem folga e quanto sobra em cada turno</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div></div>
+  el.innerHTML=`<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi+1}</p><h2>Quem folga e quanto sobra em cada turno</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div><div class="op-head-actions"><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map(o=>'<li>'+o+'</li>').join('')}</ul></div>
   <h3 class="oa-title">Por turno</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${shiftRows}${totalRow}</tbody></table></div>
   ${posts.length?`<h3 class="oa-title">Por posto</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${postRows}</tbody></table></div>`:''}
@@ -917,4 +917,14 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='addEm
   const set=c=>{sec.classList.toggle('collapsed',c);btn.textContent=c?'Expandir configuração ▾':'Recolher configuração ▴';btn.setAttribute('aria-expanded',String(!c));try{localStorage.setItem('bom-dia-board-collapsed',c?'1':'0')}catch(e){}};
   let c=false;try{c=localStorage.getItem('bom-dia-board-collapsed')==='1'}catch(e){}
   set(c);btn.addEventListener('click',()=>set(!sec.classList.contains('collapsed')));
+})();
+
+/* análise de folgas: recolher / expandir (botão é redesenhado a cada render; clique delegado) */
+(function(){
+  const sec=()=>document.getElementById('offAnalysis');
+  const apply=c=>{const s=sec();if(!s)return;s.classList.toggle('collapsed',c);const b=document.getElementById('toggleOff');if(b){b.textContent=c?'Expandir configuração ▾':'Recolher configuração ▴';b.setAttribute('aria-expanded',String(!c))}};
+  const get=()=>{try{return localStorage.getItem('bom-dia-off-collapsed')==='1'}catch(e){return false}};
+  document.addEventListener('click',e=>{if(!e.target.closest('#toggleOff'))return;const c=!sec().classList.contains('collapsed');try{localStorage.setItem('bom-dia-off-collapsed',c?'1':'0')}catch(x){}apply(c)});
+  const r0=render;render=function(){const v=r0.apply(this,arguments);try{apply(get())}catch(e){}return v};
+  try{apply(get())}catch(e){}
 })();

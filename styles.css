@@ -189,3 +189,5 @@
 .operators.collapsed #operatorsList{display:none!important}
 
 .coverage-board.collapsed .table-wrap{display:none!important}
+
+.coverage-board.off-analysis.collapsed>*:not(.section-heading){display:none!important}
