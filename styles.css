@@ -151,3 +151,15 @@
 .settings.collapsed .tabs,.settings.collapsed .tab-panel,.settings.collapsed>button,.settings.collapsed .backup-row{display:none!important}
 .dashboard{min-width:0}
 .settings .tabs{display:flex!important;gap:4px}.settings .tabs .tab{flex:1 1 0;min-width:0}.settings .tab-panel.active .stepper+input{min-width:0}
+
+.settings .tab-panel.active[data-panel="team"]{display:block}
+.cfg-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;align-items:stretch}.cfg-top>.setting-block,.cfg-top>#pdvGroup,.cfg-top>#pdvGroup>.setting-block{height:100%;margin:0}
+.cfg-group{margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ed}.cfg-group h4{margin:0 0 8px;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:#6b7482}
+.cfg-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.cfg-btns .button{width:100%;min-height:46px;margin:0;display:flex;align-items:center;justify-content:center;text-align:center}
+.cfg-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-top:18px;padding-top:12px;border-top:1px solid #e3e7ed}.cfg-restore{display:flex;flex-wrap:wrap;gap:16px}.link-reset{border:0;background:transparent;color:#697386;text-decoration:underline;font-size:12px;cursor:pointer;padding:0}.cfg-foot .backup-row{margin:0;display:flex;gap:10px}.cfg-foot .backup-row .button{min-height:40px;display:flex;align-items:center;justify-content:center}
+.top-actions{display:grid!important;grid-template-columns:repeat(2,auto);gap:8px 10px;align-items:center;justify-content:start}.top-actions .button{min-height:42px;display:flex;align-items:center;justify-content:center;white-space:nowrap;margin:0}.top-actions .link-btn{justify-self:start}
+@media(max-width:760px){.top-actions{grid-template-columns:1fr 1fr}}
+.settings .tab-panel.active:not([data-panel="team"])>.button,.settings .tab-panel.active:not([data-panel="team"])>.link-btn{grid-column:1/-1;justify-self:start;width:auto;min-width:320px;min-height:44px;margin:6px 0}
+.settings .tab-panel.active:not([data-panel="team"]) .setting-block{align-self:start}
+.settings .tab-panel.active:not([data-panel="team"]) .button.full{width:auto;min-width:320px}
+.post-plan .post-grid{max-width:460px}.post-plan>.helper{max-width:780px}.post-plan>.button{max-width:460px}

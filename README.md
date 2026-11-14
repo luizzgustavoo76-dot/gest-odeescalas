@@ -207,3 +207,6 @@ A tabela da prévia é editável: **Turno** (lista), **Posto** (lista; na Operad
 
 ### Configuração da semana no topo
 O painel "Configuração da semana" (abas Equipe, Turnos, Rodízio, Regras e Gerar) agora fica acima da prévia, em largura total, e a prévia ocupa a largura toda da tela. O botão **Recolher configuração** esconde o painel para dar ainda mais espaço à prévia (o app lembra a escolha neste dispositivo).
+
+### Botões agrupados e alinhados
+Na aba **Equipe** os botões ficam em dois grupos alinhados ("Copiar para as outras semanas" e "Sugestões automáticas"), com o mesmo tamanho; restaurar e backup ficam numa linha de rodapé. Os botões do topo (importar, modelo, imprimir, baixar) ficam em grade, e nas demais abas os botões alinham à esquerda com tamanho padrão.
