@@ -193,3 +193,19 @@
 .coverage-board.off-analysis.collapsed>*:not(.section-heading){display:none!important}
 /* botões recolher/expandir com o mesmo tamanho */
 #toggleSettings,#toggleOperators,#toggleBoard,#toggleOff{width:220px!important;min-width:220px!important;text-align:center;justify-content:center;white-space:nowrap}
+
+/* login e sincronização (Supabase) */
+body.need-login main,body.need-login .topbar .top-actions>*:not(#userBar){visibility:hidden}
+#loginOverlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(23,55,102,.92);padding:16px}
+#loginOverlay[hidden]{display:none!important}
+.login-card{background:#fff;border-radius:14px;padding:28px 26px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.login-card h2{margin:0;font-size:20px;color:var(--navy,#173766);text-align:center}
+.login-card p{margin:0;color:#697386;font-size:13px;text-align:center}
+.login-card label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#202938}
+.login-card input{padding:10px 12px;border:1px solid #cfd5de;border-radius:8px;font-size:15px}
+.login-logo{height:56px;object-fit:contain;align-self:center}
+.login-err{color:#b91c1c!important;font-weight:600}
+#userBar{display:flex;align-items:center;gap:8px;font-size:12px;color:#fff}
+#userBar[hidden]{display:none}
+#statusText[data-sync=err]{color:#b91c1c}
+#statusText[data-sync=busy]{color:#b45309}
