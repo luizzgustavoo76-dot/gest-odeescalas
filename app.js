@@ -890,16 +890,17 @@ function row(e) {
       ? `<select class="tbl-sel tbl-pdv" data-employee="${i}" data-field="pdv" aria-label="PDV de ${ae(e.name)}">${Array.from({ length: w.pdvCount }, (_, k) => `<option value="${k + 1}" ${k + 1 === e.pdv ? 'selected' : ''}>PDV ${k + 1}</option>`).join('')}</select>`
       : '';
   const dd = (k) => short(date(k)).slice(0, 5),
+    domChip = e.sundayWork
+      ? `<label class="off-chip dom works" title="Trabalha no domingo"><input type="checkbox" disabled /><span>Dom <i>${dd('domingo')}</i><b>trabalha</b></span></label>`
+      : `<label class="off-chip dom" title="Domingo é folga"><input type="checkbox" checked disabled /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`,
     chips =
+      domChip +
       DAYS.filter((d) => d[0] !== 'domingo')
         .map(
           (d) =>
             `<label class="off-chip" title="Folga na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
         )
-        .join('') +
-      (e.sundayWork
-        ? `<label class="off-chip dom works" title="Trabalha no domingo"><input type="checkbox" disabled /><span>Dom <i>${dd('domingo')}</i><b>trabalha</b></span></label>`
-        : `<label class="off-chip dom" title="Domingo é folga"><input type="checkbox" checked disabled /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`);
+        .join('');
   return `<tr><td class="c-name"><button class="employee-link" data-jump="${e.id}" type="button">${escape(e.name)}</button></td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}</small></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
 }
 function renderSchedule() {
