@@ -272,7 +272,7 @@
   if(mainEl)mainEl.insertBefore(cn,mainEl.firstChild);
   let cnFechado=false;
   function mostraNova(){const quem=alvo&&me&&alvo!==me.id;
-    $('contaNovaTxt').textContent=quem?'Esta conta ainda não tem nenhuma escala salva.':'Comece clicando em "Importar planilha…" no alto da página (use "Baixar modelo" se precisar de um exemplo) ou cadastre as colaboradoras manualmente.';
+    $('contaNovaTxt').textContent=quem?'Esta conta ainda não tem nenhuma escala salva.':'Comece clicando em "Importar planilha…" no alto da página ou cadastre as colaboradoras manualmente.';
     cn.hidden=!(blank&&Object.keys(ver).length===0&&!cnFechado)}
   $('contaNovaOk').addEventListener('click',()=>{cnFechado=true;cn.hidden=true});
 
