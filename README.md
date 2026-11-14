@@ -155,3 +155,6 @@ Na aba **Rodízio** (Frente de Caixa) há o bloco "PDVs de cada turno": marque q
 
 ### Troca de operadora no mesmo PDV
 Se há mais operadoras do que PDVs, o mesmo PDV pode ser marcado em mais de um turno. Sem PDV livre, a operadora do turno seguinte assume o PDV de quem sai antes, e o painel lista "Trocas de operadora nesta semana" (quem sai, horário da troca e quem assume).
+
+### Limite de PDVs por turno
+Cada turno só deixa marcar tantos PDVs quanto operadoras tem naquele horário (ex.: 4 operadoras cedo = até 4 PDVs; 8 à tarde = até 8). Os demais ficam bloqueados até desmarcar algum.
