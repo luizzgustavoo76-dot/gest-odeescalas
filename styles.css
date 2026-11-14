@@ -118,3 +118,4 @@
 .swap-note{display:none}@media print{.swap-note{display:inline!important;font-weight:bold;color:#b00020;font-size:inherit}}
 @media print{#toast{display:none!important}}
 @media print{.sunday-dashboard td:nth-child(2),.sunday-dashboard th:nth-child(2){display:none!important}#pdvActivePanel{display:none}}
+#pdvPlanPanel:empty{display:none}#pdvPlanPanel .pdv-plan{margin:0;padding:0;border:0}
