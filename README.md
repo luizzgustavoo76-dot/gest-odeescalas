@@ -185,3 +185,6 @@ A letra e a altura das linhas se ajustam ao número de colaboradoras (poucas = l
 
 ### Mesmo layout nos dois botões
 "Baixar para imprimir" agora gera o arquivo a partir da própria página e do mesmo CSS de impressão do botão "Imprimir escala", então o layout é idêntico (cabeçalho, título centralizado, colunas, trocas de PDV e escala de domingo).
+
+### Impressão: um único documento
+"Imprimir escala" e "Baixar para imprimir" geram exatamente o mesmo documento (mesma função `buildPrintHtml`): o que aparece na tela ao abrir o arquivo é o que sai no papel. Qualquer ajuste de layout é feito nesse documento e vale para os dois botões.
