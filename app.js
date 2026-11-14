@@ -775,8 +775,9 @@ function swapNote(e){
 }
 
 /* ===== PDVs em funcionamento (aba Regras) ===== */
-function activePdvs(w){const all=Array.from({length:w.pdvCount},(_,i)=>i+1),sel=(sector().pdvActive||[]).filter(n=>n<=w.pdvCount);return sel.length?all.filter(n=>sel.includes(n)):all}
+function activePdvs(w){const all=Array.from({length:w.pdvCount},(_,i)=>i+1),sel=[];return sel.length?all.filter(n=>sel.includes(n)):all}
 function pdvActivePanel(){
+  return ''; /* removido: só os PDVs de domingo são escolhidos na aba Regras */
   if(!hasPdv())return '';
   const w=week(),act=activePdvs(w),chips=Array.from({length:w.pdvCount},(_,k)=>k+1).map(p=>`<label class="pdv-chip"><input type="checkbox" data-pdvactive value="${p}" ${act.includes(p)?'checked':''} /><span>${p}</span></label>`).join('');
   return `<div class="setting-block pdv-plan"><label>PDVs em funcionamento (Frente de Caixa)</label><p class="helper">Marque quais PDVs vão funcionar. Só eles recebem operadoras (hoje: ${act.length} de ${w.pdvCount}). Sem nenhum marcado, todos funcionam. Depois de mudar, clique em aplicar para redistribuir nas 4 semanas.</p><div class="pdv-chips">${chips}</div><button class="button outline full" id="applyPdvActive" type="button">Aplicar PDVs nas 4 semanas</button></div>`;

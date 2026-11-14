@@ -165,9 +165,6 @@ O botão **Baixar para imprimir** gera um arquivo .html com a folha da semana e 
 ### Troca de PDV na impressão
 Quando um PDV é dividido entre turnos, a escala impressa (e o arquivo "Baixar para imprimir") mostra, só na operadora que assume o PDV, a partir de que horas ela entra no lugar da outra ("após 17:20").
 
-### PDVs em funcionamento (aba Regras)
-Na aba **Regras** (Frente de Caixa) marque quais PDVs vão funcionar; só eles recebem operadoras (e só eles aparecem na escolha de PDVs por turno). Sem nenhum marcado, todos funcionam. Depois de mudar, use "Aplicar PDVs nas 4 semanas".
-
 ### Domingo na impressão
 A folha de domingo não mostra mais a coluna "Turno".
 
