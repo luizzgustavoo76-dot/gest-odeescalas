@@ -11,6 +11,7 @@ await A.evaluate(()=>{setActive(12);replicate('team');render()});
 await A.evaluate(()=>document.querySelector('.tab[data-tab=rotation]').click());
 T('painel mostra uma linha por turno',await A.evaluate(()=>document.querySelectorAll('#rotationPanel .post-shift-grid .post-name').length)===3);
 T('uma coluna por posto',await A.evaluate(()=>document.querySelectorAll('#rotationPanel [data-pshift="0"]').length===postKeys().length));
+T('posto sem colaboradora fica zerado e travado',await A.evaluate(()=>{const w=week();const vazios=postKeys().filter(k=>!w.employees.some(e=>e.station===k));return vazios.length>0&&vazios.every(k=>[...document.querySelectorAll('#rotationPanel [data-ppost="'+k+'"]')].every(i=>i.value==='0'&&i.disabled))}));
 // escolhe: Pacote 1 no 1º, 1 no 2º, 0 no 3º ; Fiscal 1 no 3º
 const posto=await A.evaluate(()=>{const w=week();const k=postKeys().find(x=>w.employees.filter(e=>e.station===x).length>=2)||postKeys()[0];return k});
 const n=await A.evaluate(k=>week().employees.filter(e=>e.station===k).length,posto);

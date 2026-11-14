@@ -1430,6 +1430,8 @@ function autoShiftCounts(k, w) {
   return out;
 }
 function shiftCounts(k, w) {
+  /* posto sem ninguém na semana: tudo zerado, mesmo que haja valores guardados */
+  if (!w.employees.some((e) => e.station === k)) return w.shifts.map(() => 0);
   const cu = postShiftsCustom(k);
   return w.shifts.map((_, i) => (cu ? Math.max(0, Math.floor(+cu[i]) || 0) : autoShiftCounts(k, w)[i]));
 }
@@ -1619,7 +1621,7 @@ function postsPanel() {
           keys
             .map(
               (k) =>
-                `<input type="number" min="0" max="30" data-pshift="${i}" data-ppost="${k}" value="${cnt[k][i]}" aria-label="${POST_NAMES[k]} no ${escape(sh.name)}" />`,
+                `<input type="number" min="0" max="30" data-pshift="${i}" data-ppost="${k}" value="${cnt[k][i]}" ${w.employees.some((e) => e.station === k) ? '' : 'disabled title="Nenhuma colaboradora neste posto"'} aria-label="${POST_NAMES[k]} no ${escape(sh.name)}" />`,
             )
             .join(''),
       )
