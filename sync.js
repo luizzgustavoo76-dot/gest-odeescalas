@@ -4,7 +4,7 @@
    - Sem conexão com a nuvem o app NÃO abre.
    - Antes de salvar, confere a versão: se outra pessoa alterou o setor, recarrega a versão nova em vez de sobrescrever. */
 (function(){
-  const BUILD='build 69';
+  const BUILD='build '+((document.querySelector('meta[name=build]')||{}).content||'?');
   const cfg=window.SUPABASE_CONFIG||{};
   const $=id=>document.getElementById(id);
   const SETORES=()=>Object.keys(state.sectors);
@@ -153,6 +153,22 @@
     }finally{pushing=false;if(again){again=false;agendar()}}
   }
   function agendar(){if(!me||!pronto||applying)return;clearTimeout(timer);status('Alterações pendentes…','busy');timer=setTimeout(enviar,800)}
+  /* atualização automática: confere se saiu versão nova e recarrega sozinho */
+  const meuBuild=(document.querySelector('meta[name=build]')||{}).content;
+  let verificando=false;
+  async function checaVersao(){
+    if(verificando||!meuBuild)return;verificando=true;
+    try{
+      const u=location.href.split('#')[0].split('?')[0];
+      const r=await fetch(u+'?_='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+      const m=(await r.text()).match(/<meta name="build" content="([^"]+)"/);
+      if(!m||m[1]===meuBuild)return;
+      if(pronto&&(timer||pendentes().length)){warn('Há uma versão nova do app. Ela será aplicada assim que suas alterações forem salvas.');return}
+      location.replace(u+'?v='+m[1]);
+    }catch(e){}finally{verificando=false}
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checaVersao()});
+  setInterval(checaVersao,120000);setTimeout(checaVersao,4000);
   window.addEventListener('beforeunload',e=>{if(pronto&&(timer||pendentes().length)){e.preventDefault();e.returnValue=''}});
 
   /* ---------- preferências visuais (único uso do aparelho além do login) ---------- */
