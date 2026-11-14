@@ -138,3 +138,4 @@
 @media print{#scheduleTable th,#scheduleTable th *{font-size:calc(var(--pf,10pt)*.75)!important}}
 .spm-row{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:center;margin:6px 0}.spm .number-row{margin:0}.spm .post-name small{display:block}
 .add-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:10px 0;padding:10px 12px;border:1px dashed #b8c1cc;border-radius:8px;background:#fafbfc}.add-bar label{font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px}.add-bar select{padding:6px 8px;border:1px solid #c5ccd6;border-radius:6px;font-size:13px;max-width:260px}.add-bar small{color:#5b6573;font-size:11px;flex:1 1 220px}
+.add-bar input[type=text]{padding:6px 8px;border:1px solid #c5ccd6;border-radius:6px;font-size:13px;min-width:210px}

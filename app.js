@@ -841,7 +841,8 @@ function addBars(){
   const eb=document.getElementById('addEmpBar');
   if(eb){
     const opts=hasPosts()?`<label>Posto <select id="addEmpPost">${postKeys().map(k=>`<option value="${k}">${POST_NAMES[k]}</option>`).join('')}</select></label>`:'';
-    eb.innerHTML=`${opts}<button class="button outline" id="addEmpBtn" type="button">+ Adicionar colaboradora</button><small>Entra nas 4 semanas, com folgas, turno${hasPdv()?' e PDV':''} recalculados.</small>`;
+    const keep=document.getElementById('addEmpName')?document.getElementById('addEmpName').value:'';
+    eb.innerHTML=`<label>Nome <input id="addEmpName" type="text" maxlength="60" placeholder="Nome da nova colaboradora" value="${escape(keep)}" /></label>${opts}<button class="button outline" id="addEmpBtn" type="button">+ Adicionar colaboradora</button><small>Entra nas 4 semanas, com folgas, turno${hasPdv()?' e PDV':''} recalculados.</small>`;
   }
   const sd=document.getElementById('sundaySchedule');
   if(sd&&!sd.querySelector('#addSunBar')){
@@ -868,20 +869,22 @@ function addSundayWorker(i){
   state.notice=w.employees[i].name+' foi escalada no domingo da Semana '+(state.selectedWeek+1)+'. Folgas da semana recalculadas. Você pode desfazer em "Gerar".';
   render();toast(w.employees[i].name+' adicionada ao domingo.',true);
 }
-function addEmployee(station){
+function addEmployee(station,nameIn){
   const sel=state.selectedSector,weeks=sector().weeks;weeks.forEach(w=>normalizeWeek(w));
   const n=weeks[0].employees.length;if(n>=50){toast('Limite de 50 colaboradoras por setor.');return}
   state.undo={...(state.undo||{}),[sel]:{at:new Date().toISOString(),weeks:clone(weeks),roster:clone(state.roster&&state.roster[sel]||[])}};
-  const r=roster();r[n]={name:'Colaboradora '+(n+1),restricted:false,station:hasPosts()?(station||postKeys()[0]):undefined};
+  const r=roster();const raw=String(nameIn||'').trim().replace(/\s+/g,' '),nm=(raw&&(raw===raw.toLowerCase()||raw===raw.toUpperCase()))?raw.toLowerCase().split(' ').map((w,i)=>i>0&&/^(de|da|do|das|dos|e)$/.test(w)?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' '):raw;r[n]={name:nm||('Colaboradora '+(n+1)),restricted:false,station:hasPosts()?(station||postKeys()[0]):undefined};
   weeks.forEach(w=>{w.activeCount=n+1;const e=worker(n+1,w.shifts.length);if(hasPosts())e.station=r[n].station;w.employees.push(e);w.rotation=rotation(w.activeCount,w.shifts.length)});
   normalize();
   /* turno: o que tiver menos gente do mesmo posto */
   weeks.forEach(w=>{const e=w.employees[n],c=w.shifts.map((_,i)=>w.employees.filter(x=>x!==e&&x.station===e.station&&x.shift===i).length);e.shift=c.indexOf(Math.min(...c))});
   weeks.forEach(w=>balanceOffs(w,true));
   if(hasPdv())weeks.forEach((w,wi)=>assignPdvs(w,wi));
-  state.notice='Colaboradora '+(n+1)+' adicionada'+(hasPosts()?' no posto '+POST_NAMES[r[n].station]:'')+' nas 4 semanas. Turno, folgas'+(hasPdv()?' e PDV':'')+' foram recalculados; o domingo dela fica como "não trabalha" (use o botão do domingo). Você pode desfazer em "Gerar".';
-  render();toast('Colaboradora '+(n+1)+' adicionada.',true);
+  state.notice=r[n].name+' adicionada'+(hasPosts()?' no posto '+POST_NAMES[r[n].station]:'')+' nas 4 semanas. Turno, folgas'+(hasPdv()?' e PDV':'')+' foram recalculados; o domingo dela fica como "não trabalha" (use o botão do domingo). Você pode desfazer em "Gerar".';
+  render();toast(r[n].name+' adicionada.',true);
 }
 (function(){const r0=render;render=function(){const v=r0.apply(this,arguments);try{addBars()}catch(e){}return v}})();
 try{render()}catch(e){}
-document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#addEmpBtn')){const sel=document.getElementById('addEmpPost');addEmployee(sel?sel.value:undefined);return}if(e.target.closest&&e.target.closest('#addSunBtn')){const v=document.getElementById('addSunSel').value;if(v!=='')addSundayWorker(+v)}});
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#addEmpBtn')){const sel=document.getElementById('addEmpPost');const nm=document.getElementById('addEmpName');addEmployee(sel?sel.value:undefined,nm?nm.value:'');const n2=document.getElementById('addEmpName');if(n2)n2.value='';return}if(e.target.closest&&e.target.closest('#addSunBtn')){const v=document.getElementById('addSunSel').value;if(v!=='')addSundayWorker(+v)}});
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='addEmpName'){e.preventDefault();document.getElementById('addEmpBtn').click()}});
