@@ -194,3 +194,8 @@ A prévia da escala (tela) mostra, ao lado do PDV da operadora que assume, o hor
 
 ### Mínimo por posto no domingo (aba Regras)
 Em vez de um mínimo geral, cada posto do setor tem o seu mínimo de colaboradoras no domingo (− / + ou digitando). Já vem preenchido com o que estava definido: Frente de Caixa = Operadora Caixa 2, Fiscal 1, Recepção 1 (total 4); Açougue e Frios = Açougue 2, Frios 2 (total 4); Loja e Depósito = Depósito 1, Reposição 1 (total 2); Padaria = Produção 1, Atendimento 2 (total 3); Horti Fruit = Equipe 1. O total do setor é a soma dos postos. A conformidade avisa quando um posto fica abaixo (erro se ficar sem ninguém) e a sugestão de domingos tenta cumprir cada posto. "Voltar ao padrão do setor" restaura.
+
+### Adicionar colaboradora e escalar no domingo (na prévia)
+- **Semana:** abaixo da tabela, "+ Adicionar colaboradora" (com escolha do posto) cria a colaboradora nas 4 semanas e já recalcula turno, folgas e PDV. O domingo dela começa como "não trabalha".
+- **Domingo:** abaixo da escala de domingo, "+ Adicionar ao domingo" escolhe uma colaboradora já cadastrada e marca que ela trabalha naquele domingo (não cria colaboradora nova), recalculando as folgas da semana. Respeita as regras: não trabalhou o domingo anterior nem trabalha o próximo, no máximo 2 domingos no mês, restrita não passa das 18h e domingo fechado por feriado. Quem não pode aparece desabilitada, com o motivo.
+- Ambos podem ser desfeitos em "Gerar".

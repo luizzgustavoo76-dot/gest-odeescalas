@@ -835,3 +835,52 @@ function sundayMinPanel(){
 function setSundayPostMin(k,v){const sec=sector();sec.sundayPostMin=sec.sundayPostMin||{};sec.sundayPostMin[k]=Math.max(0,Math.min(50,Math.floor(+v)||0));render()}
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.spmIn;if(k)setSundayPostMin(k,e.target.value)});
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-spm],#spmReset');if(!t)return;if(t.id==='spmReset'){delete sector().sundayPostMin;render();return}setSundayPostMin(t.dataset.spm,sundayPostMin(t.dataset.spm)+(+t.dataset.d))});
+
+/* ===== adicionar colaboradora (semana) e escalar no domingo (domingo) na prévia ===== */
+function addBars(){
+  const eb=document.getElementById('addEmpBar');
+  if(eb){
+    const opts=hasPosts()?`<label>Posto <select id="addEmpPost">${postKeys().map(k=>`<option value="${k}">${POST_NAMES[k]}</option>`).join('')}</select></label>`:'';
+    eb.innerHTML=`${opts}<button class="button outline" id="addEmpBtn" type="button">+ Adicionar colaboradora</button><small>Entra nas 4 semanas, com folgas, turno${hasPdv()?' e PDV':''} recalculados.</small>`;
+  }
+  const sd=document.getElementById('sundaySchedule');
+  if(sd&&!sd.querySelector('#addSunBar')){
+    const wi=state.selectedWeek,w=week(),list=w.employees.map((e,i)=>({e,i,r:sundayEligible(i)})).filter(x=>!x.e.sundayWork);
+    const ok=list.filter(x=>x.r===''),no=list.filter(x=>x.r!=='');
+    sd.insertAdjacentHTML('beforeend',`<div class="add-bar" id="addSunBar"><label>Colaboradora <select id="addSunSel">${ok.map(x=>`<option value="${x.i}">${escape(x.e.name)}${hasPosts()?' · '+(POST_NAMES[x.e.station]||''):''}</option>`).join('')||'<option value="">Nenhuma disponível</option>'}${no.length?'<optgroup label="Não podem (regras de domingo)">'+no.map(x=>`<option disabled>${escape(x.e.name)} — ${x.r}</option>`).join('')+'</optgroup>':''}</select></label><button class="button outline" id="addSunBtn" type="button" ${ok.length?'':'disabled'}>+ Adicionar ao domingo</button><small>Só colaboradoras já cadastradas, respeitando as regras de domingo.</small></div>`);
+  }
+}
+/* regras de domingo: nunca dois domingos seguidos, no máximo 2 domingos trabalhados no mês (2 de folga), restrita não vai além das 18h */
+function sundayEligible(i){
+  const weeks=sector().weeks,wi=state.selectedWeek,w=weeks[wi],e=w.employees[i];
+  if(closedDay('domingo'))return 'domingo fechado (feriado)';
+  const works=x=>!!(weeks[x]&&weeks[x].employees[i]&&weeks[x].employees[i].sundayWork);
+  if(works(wi-1))return 'trabalhou o domingo anterior';
+  if(works(wi+1))return 'trabalha o próximo domingo';
+  if(weeks.filter((_,x)=>works(x)).length>=2)return 'já tem 2 domingos no mês';
+  if(e.restricted&&sundayPlan(w).en>1080)return 'restrição: domingo termina após as 18h';
+  return '';
+}
+function addSundayWorker(i){
+  const w=week(),r=sundayEligible(i);if(r){toast('Não pode: '+r+'.');return}
+  const sel=state.selectedSector;state.undo={...(state.undo||{}),[sel]:{at:new Date().toISOString(),weeks:clone(sector().weeks),roster:clone(state.roster&&state.roster[sel]||[])}};
+  w.employees[i].sundayWork=true;balanceOffs(w,true);
+  state.notice=w.employees[i].name+' foi escalada no domingo da Semana '+(state.selectedWeek+1)+'. Folgas da semana recalculadas. Você pode desfazer em "Gerar".';
+  render();toast(w.employees[i].name+' adicionada ao domingo.',true);
+}
+function addEmployee(station){
+  const sel=state.selectedSector,weeks=sector().weeks;weeks.forEach(w=>normalizeWeek(w));
+  const n=weeks[0].employees.length;if(n>=50){toast('Limite de 50 colaboradoras por setor.');return}
+  state.undo={...(state.undo||{}),[sel]:{at:new Date().toISOString(),weeks:clone(weeks),roster:clone(state.roster&&state.roster[sel]||[])}};
+  const r=roster();r[n]={name:'Colaboradora '+(n+1),restricted:false,station:hasPosts()?(station||postKeys()[0]):undefined};
+  weeks.forEach(w=>{w.activeCount=n+1;const e=worker(n+1,w.shifts.length);if(hasPosts())e.station=r[n].station;w.employees.push(e);w.rotation=rotation(w.activeCount,w.shifts.length)});
+  normalize();
+  /* turno: o que tiver menos gente do mesmo posto */
+  weeks.forEach(w=>{const e=w.employees[n],c=w.shifts.map((_,i)=>w.employees.filter(x=>x!==e&&x.station===e.station&&x.shift===i).length);e.shift=c.indexOf(Math.min(...c))});
+  weeks.forEach(w=>balanceOffs(w,true));
+  if(hasPdv())weeks.forEach((w,wi)=>assignPdvs(w,wi));
+  state.notice='Colaboradora '+(n+1)+' adicionada'+(hasPosts()?' no posto '+POST_NAMES[r[n].station]:'')+' nas 4 semanas. Turno, folgas'+(hasPdv()?' e PDV':'')+' foram recalculados; o domingo dela fica como "não trabalha" (use o botão do domingo). Você pode desfazer em "Gerar".';
+  render();toast('Colaboradora '+(n+1)+' adicionada.',true);
+}
+(function(){const r0=render;render=function(){const v=r0.apply(this,arguments);try{addBars()}catch(e){}return v}})();
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#addEmpBtn')){const sel=document.getElementById('addEmpPost');addEmployee(sel?sel.value:undefined);return}if(e.target.closest&&e.target.closest('#addSunBtn')){const v=document.getElementById('addSunSel').value;if(v!=='')addSundayWorker(+v)}});
