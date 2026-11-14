@@ -204,3 +204,6 @@ O botão "+ Adicionar colaboradora" tem um campo **Nome**: o nome digitado vale 
 
 ### Edição direto na prévia da escala
 A tabela da prévia é editável: **Turno** (lista), **Posto** (lista; na Operadora Caixa também o **PDV**) e **Folgas** (botões Seg a Sáb; o Dom aparece marcado quando a pessoa não trabalha no domingo). Usa as mesmas regras das fichas: limite de folgas (2 no 5x2, 1 no 6x1), Recepção e Fiscal sem folgar no mesmo dia, domingo sem dois seguidos. Turno, PDV e folgas valem para a semana aberta; posto e nome valem nas 4 semanas. A impressão não mostra os controles, só o texto.
+
+### Configuração da semana no topo
+O painel "Configuração da semana" (abas Equipe, Turnos, Rodízio, Regras e Gerar) agora fica acima da prévia, em largura total, e a prévia ocupa a largura toda da tela. O botão **Recolher configuração** esconde o painel para dar ainda mais espaço à prévia (o app lembra a escolha neste dispositivo).

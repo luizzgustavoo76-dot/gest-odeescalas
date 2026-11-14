@@ -894,3 +894,11 @@ try{render()}catch(e){}
 document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#addEmpBtn')){const sel=document.getElementById('addEmpPost');const nm=document.getElementById('addEmpName');addEmployee(sel?sel.value:undefined,nm?nm.value:'');const n2=document.getElementById('addEmpName');if(n2)n2.value='';return}if(e.target.closest&&e.target.closest('#addSunBtn')){const v=document.getElementById('addSunSel').value;if(v!=='')addSundayWorker(+v)}});
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='addEmpName'){e.preventDefault();document.getElementById('addEmpBtn').click()}});
+
+/* configuração da semana no topo (largura total) com opção de recolher */
+(function(){
+  const aside=document.querySelector('.settings'),btn=document.getElementById('toggleSettings');if(!aside||!btn)return;
+  const set=c=>{aside.classList.toggle('collapsed',c);btn.textContent=c?'Expandir configuração ▾':'Recolher configuração ▴';btn.setAttribute('aria-expanded',String(!c));try{localStorage.setItem('bom-dia-cfg-collapsed',c?'1':'0')}catch(e){}};
+  let c=false;try{c=localStorage.getItem('bom-dia-cfg-collapsed')==='1'}catch(e){}
+  set(c);btn.addEventListener('click',()=>set(!aside.classList.contains('collapsed')));
+})();
