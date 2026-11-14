@@ -34,7 +34,7 @@
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="link-btn" id="refreshBtn">Atualizar da nuvem</button><button type="button" class="link-btn" id="logoutBtn">Sair</button>';
+  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="refreshBtn">Atualizar da nuvem</button><button type="button" class="button" id="logoutBtn">Sair</button>';
   const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
   $('refreshBtn').addEventListener('click',()=>{if(me)puxar(false)});
   $('logoutBtn').addEventListener('click',async()=>{await sb.auth.signOut()});

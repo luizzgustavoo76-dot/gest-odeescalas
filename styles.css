@@ -212,3 +212,10 @@ body.need-login main,body.need-login .topbar .top-actions>*:not(#userBar){visibi
 
 #syncDiag{position:fixed;left:8px;right:8px;bottom:8px;z-index:9000;background:#173766;color:#fff;font-size:11px;line-height:1.35;padding:6px 10px;border-radius:8px;opacity:.92}
 #syncDiag[hidden]{display:none}
+
+/* barra do usuário e botão Sair bem visíveis */
+#userBar{display:flex!important;align-items:center;gap:8px;flex-wrap:wrap;color:var(--ink,#202938)!important;font-size:12px;font-weight:600;width:100%;justify-content:flex-end;border-top:1px solid var(--line,#e5e8ed);padding-top:6px;margin-top:4px}
+#userBar[hidden]{display:none!important}
+#userBar #userWho{color:var(--navy,#173766)}
+#userBar .button{padding:7px 14px;font-size:12px;min-height:0}
+#userBar #logoutBtn{background:var(--red,#ba2025);color:#fff!important;border-color:var(--red,#ba2025)}

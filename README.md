@@ -222,3 +222,4 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Login e banco de dados no Supabase (sync.js, supabase-config.js, supabase/schema.sql e supabase/LEIA-ME.md). Sem configuração, o app funciona só no aparelho.
 - Corrige sincronização quando o navegador bloqueia armazenamento (iPhone); botão Atualizar da nuvem.
 - Faixa de diagnóstico da sincronização (parte de baixo da tela) para conferir o que veio da nuvem.
+- Botão Sair (vermelho) e Atualizar da nuvem visíveis na barra do usuário.
