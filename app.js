@@ -842,7 +842,7 @@ function addBars(){
   if(eb){
     const opts=hasPosts()?`<label>Posto <select id="addEmpPost">${postKeys().map(k=>`<option value="${k}">${POST_NAMES[k]}</option>`).join('')}</select></label>`:'';
     const keep=document.getElementById('addEmpName')?document.getElementById('addEmpName').value:'';
-    eb.innerHTML=`<label>Nome <input id="addEmpName" type="text" maxlength="60" placeholder="Nome da nova colaboradora" value="${escape(keep)}" /></label>${opts}<button class="button outline" id="addEmpBtn" type="button">+ Adicionar colaboradora</button><small>Entra nas 4 semanas, com folgas, turno${hasPdv()?' e PDV':''} recalculados.</small>`;
+    eb.innerHTML=`<label>Nome <input id="addEmpName" type="text" maxlength="60" placeholder="NOME DA NOVA COLABORADORA" style="text-transform:uppercase" value="${escape(keep)}" /></label>${opts}<button class="button outline" id="addEmpBtn" type="button">+ Adicionar colaboradora</button><small>Entra nas 4 semanas, com folgas, turno${hasPdv()?' e PDV':''} recalculados.</small>`;
   }
   const sd=document.getElementById('sundaySchedule');
   if(sd&&!sd.querySelector('#addSunBar')){
@@ -873,7 +873,7 @@ function addEmployee(station,nameIn){
   const sel=state.selectedSector,weeks=sector().weeks;weeks.forEach(w=>normalizeWeek(w));
   const n=weeks[0].employees.length;if(n>=50){toast('Limite de 50 colaboradoras por setor.');return}
   state.undo={...(state.undo||{}),[sel]:{at:new Date().toISOString(),weeks:clone(weeks),roster:clone(state.roster&&state.roster[sel]||[])}};
-  const r=roster();const raw=String(nameIn||'').trim().replace(/\s+/g,' '),nm=(raw&&(raw===raw.toLowerCase()||raw===raw.toUpperCase()))?raw.toLowerCase().split(' ').map((w,i)=>i>0&&/^(de|da|do|das|dos|e)$/.test(w)?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' '):raw;r[n]={name:nm||('Colaboradora '+(n+1)),restricted:false,station:hasPosts()?(station||postKeys()[0]):undefined};
+  const r=roster();const nm=String(nameIn||'').trim().replace(/\s+/g,' ').toUpperCase();r[n]={name:nm||('Colaboradora '+(n+1)),restricted:false,station:hasPosts()?(station||postKeys()[0]):undefined};
   weeks.forEach(w=>{w.activeCount=n+1;const e=worker(n+1,w.shifts.length);if(hasPosts())e.station=r[n].station;w.employees.push(e);w.rotation=rotation(w.activeCount,w.shifts.length)});
   normalize();
   /* turno: o que tiver menos gente do mesmo posto */

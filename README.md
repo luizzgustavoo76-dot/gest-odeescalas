@@ -200,4 +200,4 @@ Em vez de um mínimo geral, cada posto do setor tem o seu mínimo de colaborador
 - **Domingo:** abaixo da escala de domingo, "+ Adicionar ao domingo" escolhe uma colaboradora já cadastrada e marca que ela trabalha naquele domingo (não cria colaboradora nova), recalculando as folgas da semana. Respeita as regras: não trabalhou o domingo anterior nem trabalha o próximo, no máximo 2 domingos no mês, restrita não passa das 18h e domingo fechado por feriado. Quem não pode aparece desabilitada, com o motivo.
 - Ambos podem ser desfeitos em "Gerar".
 
-O botão "+ Adicionar colaboradora" tem um campo **Nome**: o nome digitado vale nas 4 semanas (nomes todo em minúsculas ou MAIÚSCULAS são ajustados, ex.: "maria das graças" vira "Maria das Graças"). Sem nome, usa "Colaboradora N". Enter no campo também adiciona.
+O botão "+ Adicionar colaboradora" tem um campo **Nome**: o nome digitado vale nas 4 semanas e é convertido para MAIÚSCULAS (ex.: "maria das graças" vira "MARIA DAS GRAÇAS"). Sem nome, usa "Colaboradora N". Enter no campo também adiciona.
