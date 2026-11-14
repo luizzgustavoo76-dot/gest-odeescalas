@@ -183,3 +183,7 @@
 /* nomes das colaboradoras centralizados */
 .table-wrap #scheduleTable th:first-child,.table-wrap #scheduleTable td:first-child{text-align:center!important}
 .table-wrap #scheduleTable th:first-child button,.table-wrap #scheduleTable td:first-child button{margin:0 auto;text-align:center;justify-content:center}
+
+/* cadastro da semana recolhível */
+.op-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.operators.collapsed #operatorsList{display:none!important}

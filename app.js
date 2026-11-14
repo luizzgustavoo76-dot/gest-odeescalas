@@ -902,3 +902,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='addEm
   let c=false;try{c=localStorage.getItem('bom-dia-cfg-collapsed')==='1'}catch(e){}
   set(c);btn.addEventListener('click',()=>set(!aside.classList.contains('collapsed')));
 })();
+
+/* cadastro da semana: recolher / expandir */
+(function(){
+  const sec=document.querySelector('.operators'),btn=document.getElementById('toggleOperators');if(!sec||!btn)return;
+  const set=c=>{sec.classList.toggle('collapsed',c);btn.textContent=c?'Expandir configuração ▾':'Recolher configuração ▴';btn.setAttribute('aria-expanded',String(!c));try{localStorage.setItem('bom-dia-op-collapsed',c?'1':'0')}catch(e){}};
+  let c=false;try{c=localStorage.getItem('bom-dia-op-collapsed')==='1'}catch(e){}
+  set(c);btn.addEventListener('click',()=>set(!sec.classList.contains('collapsed')));
+})();
