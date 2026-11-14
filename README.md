@@ -170,3 +170,6 @@ Na aba **Regras** (Frente de Caixa) marque quais PDVs vão funcionar; só eles r
 
 ### Domingo na impressão
 A folha de domingo não mostra mais a coluna "Turno".
+
+### PDVs no domingo (aba Regras)
+Bloco próprio para o domingo: marque quais PDVs funcionam no domingo (no máximo um por operadora de caixa escalada no domingo). Cada operadora de caixa escalada assume um deles, na ordem da numeração, na escala de domingo e na impressão. Sem marcação, usa o PDV da semana.
