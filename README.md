@@ -158,3 +158,6 @@ Se há mais operadoras do que PDVs, o mesmo PDV pode ser marcado em mais de um t
 
 ### Limite de PDVs por turno
 Cada turno só deixa marcar tantos PDVs quanto operadoras tem naquele horário (ex.: 4 operadoras cedo = até 4 PDVs; 8 à tarde = até 8). Os demais ficam bloqueados até desmarcar algum.
+
+### Baixar para imprimir
+O botão **Baixar para imprimir** gera um arquivo .html com a folha da semana e a folha de domingo. Abra o arquivo baixado: a janela de impressão abre sozinha (A4 paisagem, 2 folhas). Útil quando o botão "Imprimir escala" não funciona na prévia do navegador.

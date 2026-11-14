@@ -743,3 +743,23 @@ function pdvSwaps(){
   const list=Object.keys(by).map(Number).sort((a,b)=>a-b).map(p=>{const g=by[p].filter(e=>w.shifts[e.shift]).sort((a,b)=>mins(w.shifts[a.shift].end)-mins(w.shifts[b.shift].end));if(g.length<2||new Set(g.map(e=>e.shift)).size<2)return '';return `<li><b>PDV ${p}</b>: ${g.map((e,i)=>{const f=w.shifts[e.shift];return escape(e.name)+' ('+f.start+'–'+f.end+')'+(i<g.length-1?' → troca às '+f.end+' →':'')}).join(' ')}</li>`}).filter(Boolean);
   return list.length?`<div class="pdv-swaps"><b>Trocas de operadora nesta semana</b><ul>${list.join('')}</ul></div>`:'';
 }
+
+/* ===== baixar a escala (semana + domingo) em arquivo para imprimir ===== */
+async function printFile(){
+  if(issues().length){renderWarning();document.getElementById('scheduleWarning').scrollIntoView({behavior:'smooth',block:'center'});return}
+  const w=week(),name=SECTORS[state.selectedSector],esc=x=>String(x).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  let logo='';try{const r=await fetch('logo.png'),b=await r.blob();logo=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=()=>ok('');f.readAsDataURL(b)})}catch(e){}
+  const cl=document.getElementById('scheduleTable').cloneNode(true);
+  cl.querySelectorAll('tr').forEach(tr=>{const c=[...tr.children];if(c.length>2){c[1].remove();c[c.length-1].remove()}});
+  cl.querySelectorAll('.c-off').forEach(td=>{td.innerHTML=td.innerHTML.replace(/\/\d{2}(?!\d)/g,'')});
+  cl.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
+  cl.removeAttribute('id');
+  const sd=document.querySelector('#sundaySchedule table'),sun=sd?sd.cloneNode(true):null;
+  if(sun)sun.querySelectorAll('button').forEach(b=>{const sp=document.createElement('span');sp.textContent=b.textContent;b.replaceWith(sp)});
+  const dense=w.employees.length>30?'8.5':w.employees.length>22?'9.5':w.employees.length>16?'10.5':'11';
+  const head=t=>`<div class="hd">${logo?`<img src="${logo}" alt="">`:''}<b>${esc(name)}</b><span>${esc(t)}</span></div>`;
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>@page{size:A4 landscape;margin:8mm}body{font:${dense}px Arial,sans-serif;color:#111;margin:0}.hd{display:flex;align-items:center;gap:10px;border-bottom:2px solid #ffd100;padding-bottom:3mm;margin-bottom:3mm}.hd img{height:11mm}.hd b{font-size:15px;color:#1a3a6b}.hd span{margin-left:auto;font-weight:bold;font-size:13px}table{width:100%;border-collapse:collapse;white-space:nowrap}th{text-align:left;font-size:9px;text-transform:uppercase;color:#1a3a6b;background:#f3f5f8;padding:4px 6px}td{padding:${dense<9?1:dense<10?1.6:dense<11?2.4:3.2}px 6px;border-bottom:1px solid #d9dde3}tr{break-inside:avoid}.pg{break-after:page}.pg:last-child{break-after:auto}.shift-pill{display:none}</style></head><body><div class="pg">${head(document.getElementById('weekTitle').textContent)}${cl.outerHTML}</div>${sun?`<div class="pg">${head('Escala de domingo')}${sun.outerHTML.replace(/<table/,'<table style="font-size:12px"')}</div>`:''}<script>addEventListener('load',()=>setTimeout(()=>print(),300))<\/script></body></html>`;
+  try{const d=window.claude&&claude.use?await claude.use('downloads'):null;if(d){await d.save({filename:'escala-'+state.selectedSector+'.html',data:html});toast('Abra o arquivo baixado: ele já abre a impressão.',true);return}}catch(e){if(e&&e.code==='declined')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='escala-'+state.selectedSector+'.html';a.click();
+}
+document.getElementById('printFileButton').addEventListener('click',printFile);
