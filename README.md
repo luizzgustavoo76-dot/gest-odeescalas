@@ -218,3 +218,4 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Cadastro da semana: botão Recolher/Expandir configuração.
 - Disposição de horários: botão Recolher/Expandir.
 - Análise de folgas: botão Recolher/Expandir; Conformidade trabalhista movida para o final da página.
+- Botões Recolher/Expandir configuração com tamanho único (220px).

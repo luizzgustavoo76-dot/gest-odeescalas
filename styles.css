@@ -191,3 +191,5 @@
 .coverage-board.collapsed .table-wrap{display:none!important}
 
 .coverage-board.off-analysis.collapsed>*:not(.section-heading){display:none!important}
+/* botões recolher/expandir com o mesmo tamanho */
+#toggleSettings,#toggleOperators,#toggleBoard,#toggleOff{width:220px!important;min-width:220px!important;text-align:center;justify-content:center;white-space:nowrap}
