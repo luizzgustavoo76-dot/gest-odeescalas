@@ -39,6 +39,15 @@
   $('refreshBtn').addEventListener('click',()=>{if(me)puxar(false)});
   $('logoutBtn').addEventListener('click',async()=>{await sb.auth.signOut()});
 
+  /* ---------- diagnóstico ---------- */
+  const diag=document.createElement('div');diag.id='syncDiag';diag.hidden=true;document.body.appendChild(diag);
+  const mostraDiag=(extra)=>{try{
+    const k=state.selectedSector,w=state.sectors[k].weeks[state.selectedWeek];
+    diag.textContent=(extra?extra+' · ':'')+'Aqui: '+((window.SECTORS&&SECTORS[k])||k)+', semana '+(state.selectedWeek+1)+' → '+w.employees.length+' colaboradoras ('+w.employees.slice(0,2).map(e=>e.name).join(', ')+'…) · setores na nuvem: '+Object.keys(synced).filter(x=>x!=='_config'&&synced[x]).length;
+    diag.hidden=false}catch(e){diag.textContent='diag: '+e.message;diag.hidden=false}};
+  window.addEventListener('error',e=>{status('Erro no app: '+e.message,'err')});
+  window.addEventListener('unhandledrejection',e=>{status('Erro: '+((e.reason&&e.reason.message)||e.reason),'err')});
+
   /* ---------- aplicar dados da nuvem ---------- */
   function aplicar(linhas){
     applying=true;
@@ -104,6 +113,7 @@
     for(const k of SETORES().concat('_config'))if(podeEditar(k)&&!data.some(l=>l.setor===k))synced[k]=undefined;
     await enviar();
     if(primeira)status('Sincronizado com a nuvem · '+hora(),'ok');
+    mostraDiag('Baixou '+data.length+' linhas');
   }
 
   function tempoReal(){

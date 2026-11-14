@@ -209,3 +209,6 @@ body.need-login main,body.need-login .topbar .top-actions>*:not(#userBar){visibi
 #userBar[hidden]{display:none}
 #statusText[data-sync=err]{color:#b91c1c}
 #statusText[data-sync=busy]{color:#b45309}
+
+#syncDiag{position:fixed;left:8px;right:8px;bottom:8px;z-index:9000;background:#173766;color:#fff;font-size:11px;line-height:1.35;padding:6px 10px;border-radius:8px;opacity:.92}
+#syncDiag[hidden]{display:none}

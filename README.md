@@ -221,3 +221,4 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Botões Recolher/Expandir configuração com tamanho único (220px).
 - Login e banco de dados no Supabase (sync.js, supabase-config.js, supabase/schema.sql e supabase/LEIA-ME.md). Sem configuração, o app funciona só no aparelho.
 - Corrige sincronização quando o navegador bloqueia armazenamento (iPhone); botão Atualizar da nuvem.
+- Faixa de diagnóstico da sincronização (parte de baixo da tela) para conferir o que veio da nuvem.
