@@ -15,17 +15,17 @@ await A.click('#offAnalysis [data-ajuste]');await A.waitForTimeout(200);
 T('ajuste ligado mostra os botões',await A.evaluate(()=>document.querySelectorAll('#offAnalysis .oa-b').length>10));
 // descobre o dia com menos gente e pede +1 nele (total)
 const c0=await cov();const o0=await offs();
-const dMin=c0.indexOf(Math.min(...c0));
+const dMin=c0.indexOf(Math.max(...c0));
 const dia=['segunda','terça','quarta','quinta','sexta','sábado'][dMin];
-await A.evaluate(([d])=>{document.querySelector('#offAnalysis [data-oa="dia"][data-g="p:caixa"][data-day="'+d+'"][data-dl="1"]').click()},[dia]);await A.waitForTimeout(300);
+await A.evaluate(()=>{toastErroEm=0});await A.evaluate(([d])=>{document.querySelector('#offAnalysis [data-oa="dia"][data-g="p:caixa"][data-day="'+d+'"][data-dl="1"]').click()},[dia]);await A.waitForTimeout(300);
 const c1=await cov();
-T('+1 aumenta o dia escolhido',c1[dMin]===c0[dMin]+1,c0.join(',')+' → '+c1.join(','));
+T('+1 folga no dia escolhido tira 1 pessoa dele',c1[dMin]===c0[dMin]-1,c0.join(',')+' → '+c1.join(','));
 T('o total de folgas da semana não muda',(await offs())===o0);
-T('toast verde de confirmação',await A.evaluate(()=>{const t=document.getElementById('toast');return !t.hidden&&t.style.background!==''&&/Mais 1/.test(t.textContent)}));
+T('toast verde de confirmação',await A.evaluate(()=>{const t=document.getElementById('toast');return !t.hidden&&t.style.background!==''&&t.textContent.length>5}));
 // -1 no mesmo dia volta ao que era
 await A.evaluate(([d])=>{document.querySelector('#offAnalysis [data-oa="dia"][data-g="p:caixa"][data-day="'+d+'"][data-dl="-1"]').click()},[dia]);await A.waitForTimeout(300);
 const c2=await cov();
-T('−1 diminui o dia escolhido',c2[dMin]===c1[dMin]-1,c2.join(','));
+T('−1 folga devolve a pessoa ao dia',c2[dMin]===c1[dMin]+1,c2.join(','));
 // turno: limite de PDVs
 await A.evaluate(()=>{week().pdvCount=3;render()});
 const tinha=await A.evaluate(()=>week().employees.filter(e=>e.station==='caixa'&&e.shift===0).length);
@@ -52,11 +52,11 @@ const varre=await A.evaluate(()=>{
   const dias=['segunda','terça','quarta','quinta','sexta','sábado'],out={ok:0,bloq:0,bug:[],semRetorno:[],btn:0};
   const tot=()=>week().employees.reduce((t,e)=>t+e.offDays.length,0);
   const sels=[];
-  ['p:caixa','t:0','t:1','t:2'].forEach(g=>dias.forEach(d=>[1,-1].forEach(dl=>sels.push(['#offAnalysis [data-oa="dia"][data-g="'+g+'"][data-day="'+d+'"][data-dl="'+dl+'"]',g+' '+d+' '+dl]))));
+  ['p:caixa','pt:caixa:0','pt:caixa:1','pt:caixa:2'].forEach(g=>dias.forEach(d=>[1,-1].forEach(dl=>sels.push(['#offAnalysis [data-oa="dia"][data-g="'+g+'"][data-day="'+d+'"][data-dl="'+dl+'"]',g+' '+d+' '+dl]))));
   dias.forEach(d=>[1,-1].forEach(dl=>sels.push(['#coverageBoardBody .oa-b[data-day="'+d+'"][data-dl="'+dl+'"]','faixa '+d+' '+dl])));
   for(const [sel,nome] of sels){
     const el=document.querySelector(sel);if(!el){out.bug.push(nome+' sem botão');continue}out.btn++;
-    document.getElementById('toast').hidden=true;
+    document.getElementById('toast').hidden=true;toastErroEm=0;
     const snap=JSON.stringify(week().employees.map(e=>e.offDays)),t0=tot();el.click();
     const t=document.getElementById('toast'),dep=JSON.stringify(week().employees.map(e=>e.offDays));
     if(t.hidden){out.semRetorno.push(nome);continue}
@@ -68,5 +68,10 @@ const varre=await A.evaluate(()=>{
 T('varredura: todas as células responderam (botões: '+varre.btn+', aplicadas: '+varre.ok+', bloqueadas com erro: '+varre.bloq+')',varre.btn===60&&varre.semRetorno.length===0,JSON.stringify(varre.semRetorno));
 T('varredura: nenhuma "falsa confirmação" nem total de folgas alterado',varre.bug.length===0,varre.bug.join('; '));
 T('varredura: a maioria das ações é aplicada em todos os dias',varre.ok>=50,String(varre.ok));
+// vermelho prevalece: sugerir folgas sem domingos escolhidos
+await A.evaluate(()=>{toastErroEm=0;toastEm=0;document.getElementById('toast').hidden=true;week().employees.forEach(e=>e.sundayWork=false);render()});
+await A.evaluate(()=>document.querySelector('[data-suggest-off-all]').click());await A.waitForTimeout(400);
+const tv=await A.evaluate(()=>{const t=document.getElementById('toast');return {h:t.hidden,txt:t.textContent,bg:t.style.background}});
+T('erro em "sugerir folgas" não é trocado por mensagem verde',!tv.h&&tv.bg===''||/rro|ntes|escolh|domingo/i.test(tv.txt)&&tv.bg==='',JSON.stringify(tv));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

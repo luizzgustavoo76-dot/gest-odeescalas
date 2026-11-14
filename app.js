@@ -709,7 +709,7 @@ function activateTab(name) {
   document.querySelectorAll('.tab-panel').forEach((x) => x.classList.toggle('active', x.dataset.panel === name));
 }
 const effOff = (e) => (e.sundayWork ? e.offDays : [...e.offDays, 'domingo']),
-  offLimit = (e, model = week().model) => Math.max(0, 2 - (e.sundayWork ? 0 : 1)),
+  offLimit = (e, model = week().model) => (model === '6x1' ? (e.sundayWork ? 1 : 0) : Math.max(0, 2 - (e.sundayWork ? 0 : 1))),
   sc = () => sundayPlan(week()).en;
 function offText(e) {
   const picked = DAYS.filter((d) => effOff(e).includes(d[0]) || closedDay(d[0]));
@@ -932,16 +932,14 @@ function renderOperators() {
   document.getElementById('operatorsList').innerHTML = w.employees
     .map(
       (e, i) =>
-        `<article class="operator-card" id="operator-${e.id}"><h3>Colaboradora ${e.id} <button type="button" class="remove-btn" data-remove="${i}">Excluir</button></h3><div class="operator-fields"><label>Nome<input data-employee="${i}" data-field="name" value="${escape(e.name)}" /></label><label>Turno<select data-employee="${i}" data-field="shift">${options}</select></label>${hasPosts() ? `<label>Posto<select data-employee="${i}" data-field="station">${stations}</select></label>` : ''}${hasPdv() && e.station === 'caixa' ? `<label class="pdv-pick">PDV da semana<select data-employee="${i}" data-field="pdv">${pdv}</select></label>` : ''}<fieldset class="off-days"><legend>Dias de folga <small>(${week().model === '6x1' ? 'até ' : 'marcar '}${offLimit(e)}${e.sundayWork ? '' : ' + domingo'})</small></legend><div class="days-list">${DAYS.filter(
+        `<article class="operator-card" id="operator-${e.id}"><h3>Colaboradora ${e.id} <button type="button" class="remove-btn" data-remove="${i}">Excluir</button></h3><div class="operator-fields"><label>Nome<input data-employee="${i}" data-field="name" value="${escape(e.name)}" /></label><label>Turno<select data-employee="${i}" data-field="shift">${options}</select></label>${hasPosts() ? `<label>Posto<select data-employee="${i}" data-field="station">${stations}</select></label>` : ''}${hasPdv() && e.station === 'caixa' ? `<label class="pdv-pick">PDV da semana<select data-employee="${i}" data-field="pdv">${pdv}</select></label>` : ''}<fieldset class="off-days"><legend>Dias de folga <small>(${week().model === '6x1' ? 'até ' : 'marcar '}${offLimit(e)}${e.sundayWork ? '' : ' + domingo'})</small></legend><div class="days-list">${e.sundayWork ? '' : `<label><input type="checkbox" checked disabled />domingo <small>${short(date('domingo')).slice(0, 5)}</small> (folga)</label>`}${DAYS.filter(
           (d) => d[0] !== 'domingo',
         )
           .map(
             (d) =>
-              `<label><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} />${d[0]}</label>`,
+              `<label><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} />${d[0]} <small>${short(date(d[0])).slice(0, 5)}</small></label>`,
           )
-          .join(
-            '',
-          )}${e.sundayWork ? '' : '<label><input type="checkbox" checked disabled />domingo (folga)</label>'}</div></fieldset><label>Trabalha no domingo <small>(${short(date('domingo'))})</small><select data-employee="${i}" data-field="sundayWork"><option value="false">Não</option><option value="true">Sim</option></select></label><label class="check-row restricted"><input type="checkbox" data-employee="${i}" data-field="restricted" ${e.restricted ? 'checked' : ''} /> Estudante/mãe: sem escala após 18h <small>(CCT)</small></label></div></article>`,
+          .join('')}</div></fieldset><label>Trabalha no domingo <small>(${short(date('domingo'))})</small><select data-employee="${i}" data-field="sundayWork"><option value="false">Não</option><option value="true">Sim</option></select></label><label class="check-row restricted"><input type="checkbox" data-employee="${i}" data-field="restricted" ${e.restricted ? 'checked' : ''} /> Estudante/mãe: sem escala após 18h <small>(CCT)</small></label></div></article>`,
     )
     .join('');
   document.querySelectorAll('[data-employee]:not([data-off])').forEach((el) => {
@@ -980,8 +978,8 @@ function cobreFaixa(e, start, end) {
   }
   return true;
 }
-const ctlBtns = (attrs) =>
-  `<span class="oa-ctl"><button type="button" class="oa-b" ${attrs} data-dl="-1" aria-label="menos 1" title="Tirar 1 pessoa deste dia">−</button><button type="button" class="oa-b" ${attrs} data-dl="1" aria-label="mais 1" title="Colocar mais 1 pessoa neste dia">+</button></span>`;
+const ctlBtns = (attrs, folga) =>
+  `<span class="oa-ctl"><button type="button" class="oa-b" ${attrs} data-dl="-1" aria-label="menos 1" title="${folga ? 'Tirar 1 folga deste dia' : 'Tirar 1 pessoa deste dia'}">−</button><button type="button" class="oa-b" ${attrs} data-dl="1" aria-label="mais 1" title="${folga ? 'Colocar mais 1 folga neste dia' : 'Colocar mais 1 pessoa neste dia'}">+</button></span>`;
 function renderBoard() {
   const bands = [],
     close = mins(state.settings.weekClose);
@@ -2222,20 +2220,17 @@ function renderOffAnalysis() {
   const works = (e, d) => worksOn(e, d[0], wi),
     closed = (d) => closedDay(d[0], wi);
   const cls = (n) => (n <= 1 ? 'crit' : n === 2 ? 'warn' : 'ok');
-  const cell = (n, closedDay_, attrs) =>
-    closedDay_
-      ? '<td class="oa-closed">Fechado</td>'
-      : `<td class="oa-${cls(n)}"><b>${n}</b><small>${n > 0 ? '−1 → ' + (n - 1) : 'sem cobertura'}</small>${modoAjuste && attrs ? ctlBtns(attrs) : ''}</td>`;
+  /* a célula mostra a QUANTIDADE DE FOLGAS do grupo naquele dia (e quantas trabalham); a cor segue quem trabalha */
+  const cell = (mem, d, attrs) => {
+    if (closed(d)) return '<td class="oa-closed">Fechado</td>';
+    if (!mem.length) return '<td class="oa-closed">—</td>';
+    const trab = mem.filter((e) => works(e, d)).length,
+      off = mem.length - trab;
+    return `<td class="oa-${cls(trab)}"><b>${off}</b><small>${trab} trabalhando</small>${modoAjuste && attrs && d[0] !== 'domingo' ? ctlBtns(attrs, true) : ''}</td>`;
+  };
   const dayHead = '<th></th>' + DAYS.map((d) => `<th>${d[1]}<small>${short(date(d[0]))}</small></th>`).join('');
   const total = DAYS.map((d) => (closed(d) ? null : emps.filter((e) => works(e, d)).length));
   const offN = DAYS.map((d, i) => (total[i] === null ? null : N - total[i]));
-  // por turno
-  const shiftRows = w.shifts
-    .map((s, i) => {
-      const mem = emps.filter((e) => e.shift === i);
-      return `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}<small>${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map((d) => (d[0] === 'domingo' ? '<td class="oa-closed" title="Veja o quadro de domingo">—</td>' : cell(mem.filter((e) => works(e, d)).length, closed(d), `data-oa="dia" data-g="t:${i}" data-day="${d[0]}"`))).join('')}</tr>`;
-    })
-    .join('');
   const movRow = `<tr><th class="oa-row">Movimento esperado<small>editável em Gerar</small></th>${DAYS.map((d) => `<td class="oa-mov oa-mov-${movement()[d[0]]}">${movLabel(d[0])}</td>`).join('')}</tr>`;
   const totalRow = `<tr class="oa-total"><th class="oa-row">Total<small>${N} colab.</small></th>${DAYS.map((d, i) => (closed(d) ? '<td class="oa-closed">Fechado</td>' : `<td class="oa-${total[i] < Math.ceil(N * 0.5) ? 'warn' : 'ok'}"><b>${total[i]}</b><small>${offN[i]} de folga</small></td>`)).join('')}</tr>`;
   // por posto
@@ -2244,12 +2239,18 @@ function renderOffAnalysis() {
         .map((k) => ({ k, mem: emps.filter((e) => e.station === k) }))
         .filter((p) => p.mem.length)
     : [];
-  const postRows = posts
-    .map(
-      (p) =>
-        `<tr><th class="oa-row">${POST_NAMES[p.k]}<small>${p.mem.length} colab.</small></th>${DAYS.map((d) => cell(p.mem.filter((e) => works(e, d)).length, closed(d), d[0] === 'domingo' ? '' : `data-oa="dia" data-g="p:${p.k}" data-day="${d[0]}"`)).join('')}</tr>`,
-    )
-    .join('');
+  const grpAttrs = (g, d) => `data-oa="dia" data-g="${g}" data-day="${d[0]}"`;
+  const linhaTurno = (mem, s, i, rotulo, g) =>
+    `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${rotulo}<small>${s.name} · ${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map((d) => cell(mem, d, grpAttrs(g, d))).join('')}</tr>`;
+  const unified = posts.length
+    ? posts
+        .map((q) => {
+          const rows = w.shifts.map((s, i) => linhaTurno(q.mem.filter((e) => e.shift === i), s, i, escape(POST_NAMES[q.k]), 'pt:' + q.k + ':' + i)).join('');
+          const tot = `<tr class="oa-subtotal"><th class="oa-row">${escape(POST_NAMES[q.k])} · todos os turnos<small>${q.mem.length} colab.</small></th>${DAYS.map((d) => cell(q.mem, d, grpAttrs('p:' + q.k, d))).join('')}</tr>`;
+          return `<tr class="oa-grp"><th colspan="8">${escape(POST_NAMES[q.k])}</th></tr>` + rows + tot;
+        })
+        .join('')
+    : w.shifts.map((s, i) => linhaTurno(emps.filter((e) => e.shift === i), s, i, escape(s.name), 't:' + i)).join('');
   // quem folga
   const whoRows = DAYS.map((d, i) => {
     if (closed(d)) return `<tr><th class="oa-row">${d[1]} ${short(date(d[0]))}</th><td>Fechado (feriado)</td></tr>`;
@@ -2335,12 +2336,11 @@ function renderOffAnalysis() {
       '6x1 com a semana de domingo a sábado: cada semana tem 1 folga. Quem trabalha o domingo folga 1 dia útil; quem não trabalha, o domingo já é a folga. Na emenda entre semanas pode passar de 6 dias seguidos de trabalho; quando acontecer, o aviso aparece em Conformidade.',
     );
   if (!obs.length) obs.push('Sem pontos de atenção nesta semana.');
-  el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi + 1}</p><h2>Quantidade de folgas por turno e posto</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div><div class="op-head-actions"><button type="button" class="button ${modoAjuste ? 'secondary' : 'outline'} adj-toggle" data-ajuste>${modoAjuste ? 'Ajuste ligado: use + e − nas células' : 'Ajustar escala por aqui'}</button><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
-  ${modoAjuste ? '<p class="oa-dica">Modo ajuste: <b>+</b> coloca mais 1 pessoa para trabalhar naquele dia (a folga dela vai para o dia com mais gente) e <b>−</b> tira 1 (a pessoa folga nesse dia e passa a trabalhar no dia mais vazio). Em "Pessoas por posto e turno" o mesmo vale para os turnos e refaz o rodízio das 4 semanas. Se a mudança quebrar uma regra, ela não é aplicada e aparece um erro em vermelho.</p>' : ''}
+  el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi + 1}</p><h2>Quantidade de folgas por turno e posto</h2><p>Cada linha é um posto em um turno e mostra quantas colaboradoras estão de <b>folga</b> em cada dia (embaixo, quantas trabalham). Verde: 3 ou mais trabalhando; amarelo: 2; vermelho: 0 ou 1.</p></div><div class="op-head-actions"><button type="button" class="button ${modoAjuste ? 'secondary' : 'outline'} adj-toggle" data-ajuste>${modoAjuste ? 'Ajuste ligado: use + e − nas células' : 'Ajustar escala por aqui'}</button><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
+  ${modoAjuste ? '<p class="oa-dica">Modo ajuste: <b>+</b> coloca mais 1 folga naquele dia (uma pessoa que trabalhava passa a folgar e vai trabalhar no dia mais vazio) e <b>−</b> tira 1 folga (uma pessoa que folgava passa a trabalhar e a folga dela vai para o dia com mais gente). Em "Pessoas por posto e turno" o mesmo vale para os turnos e refaz o rodízio das 4 semanas. Se a mudança quebrar uma regra, ela não é aplicada e aparece um erro em vermelho.</p>' : ''}
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map((o) => '<li>' + o + '</li>').join('')}</ul></div>
-  <h3 class="oa-title">Por turno</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${shiftRows}${totalRow}</tbody></table></div>
+  <h3 class="oa-title">Folgas por dia, posto e turno</h3><div class="table-wrap"><table class="oa-table oa-unif"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${unified}${totalRow}</tbody></table></div>
   ${posts.length ? `<h3 class="oa-title">Pessoas por posto e turno</h3><div class="table-wrap"><table class="oa-table oa-turnos"><thead><tr><th></th>${w.shifts.map((s) => `<th>${escape(s.name)}<small>${s.start}</small></th>`).join('')}<th>Total</th></tr></thead><tbody>${posts.map((q) => `<tr><th class="oa-row">${POST_NAMES[q.k]}<small>${q.mem.length} colab.</small></th>${w.shifts.map((s, i) => { const n = q.mem.filter((e) => e.shift === i).length; return `<td class="oa-${n ? 'ok' : 'warn'}"><b>${n}</b>${q.k === 'caixa' && hasPdv() ? `<small>máx. ${activePdvs(w).length} (PDVs)</small>` : ''}${modoAjuste ? ctlBtns(`data-oa="turno" data-post="${q.k}" data-turno="${i}"`) : ''}</td>`; }).join('')}<td><b>${q.mem.length}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
-  ${posts.length ? `<h3 class="oa-title">Por posto</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${postRows}</tbody></table></div>` : ''}
   <h3 class="oa-title">Quem está de folga em cada dia</h3><div class="table-wrap"><table class="oa-table oa-who"><tbody>${whoRows}</tbody></table></div>`;
 }
 function loadInfo() {
@@ -2358,17 +2358,24 @@ function sundayConflict(e) {
   return -1;
 }
 let toastTimer,
-  toastEm = 0;
+  toastEm = 0,
+  toastErroEm = 0;
 function toast(msg, ok) {
+  /* o balão vermelho de erro prevalece: uma confirmação verde que chegue logo depois não o substitui */
+  if (ok && Date.now() - toastErroEm < 1500) return;
   toastEm = Date.now();
+  if (!ok) toastErroEm = toastEm;
   const t = document.getElementById('toast');
   t.style.background = ok ? '#14845a' : '';
   t.textContent = msg;
   t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    t.hidden = true;
-  }, 7000);
+  toastTimer = setTimeout(
+    () => {
+      t.hidden = true;
+    },
+    ok ? 7000 : 10000,
+  );
 }
 /* ===== v9: conformidade CLT, EC 141/2026 e CCT dos mercados de Campo Mourão ===== */
 const HOL = {};
@@ -3861,8 +3868,9 @@ try {
     ['[data-suggest-sundays]', 'Domingos alternados sugeridos nas 4 semanas.'],
     ['#applyPdvActive', 'PDVs em uso aplicados nas 4 semanas.'],
   ];
+  let t0 = 0;
+  document.addEventListener('click', () => (t0 = Date.now()), true); /* antes dos tratadores: se algum mostrar erro, não entra a confirmação verde */
   document.addEventListener('click', (e) => {
-    const t0 = Date.now();
     const hit = MSG.find(([sel]) => e.target.closest && e.target.closest(sel));
     if (!hit) return;
     setTimeout(() => {
@@ -4022,9 +4030,12 @@ document.addEventListener('click', (e) => {
     w = week();
   if (t.dataset.oa === 'turno') return moveTurno(t.dataset.post, +t.dataset.turno, dl);
   if (t.dataset.oa === 'dia') {
-    const [tp, id] = t.dataset.g.split(':');
-    if (tp === 'p') return moveFolga(w.employees.filter((x) => x.station === id), POST_NAMES[id] || 'colaboradoras', t.dataset.day, dl);
-    return moveFolga(w.employees.filter((x) => x.shift === +id), w.shifts[+id].name, t.dataset.day, dl);
+    /* nas células de folga, + = mais 1 folga = menos 1 pessoa trabalhando */
+    const [tp, id, tn] = t.dataset.g.split(':');
+    if (tp === 'pt')
+      return moveFolga(w.employees.filter((x) => x.station === id && x.shift === +tn), (POST_NAMES[id] || id) + ' · ' + w.shifts[+tn].name, t.dataset.day, -dl);
+    if (tp === 'p') return moveFolga(w.employees.filter((x) => x.station === id), POST_NAMES[id] || 'colaboradoras', t.dataset.day, -dl);
+    return moveFolga(w.employees.filter((x) => x.shift === +id), w.shifts[+id].name, t.dataset.day, -dl);
   }
   if (t.dataset.oa === 'faixa') {
     const G = w.employees.filter((x) => (!t.dataset.post || x.station === t.dataset.post) && cobreFaixa(x, t.dataset.ini, t.dataset.fim));

@@ -26,7 +26,7 @@ await A.evaluate(()=>document.querySelector('.tab[data-tab=gen]').click());
 await A.click('[data-ciclo]');await A.waitForSelector('.ask-box');await A.click('.ask-box [data-a="1"]');await A.waitForTimeout(400);
 T('voltar ao ciclo anterior restaura data e domingos',await A.evaluate(a=>state.baseMonday===a.base&&JSON.stringify(sector().weeks.map(w=>w.employees.map((e,i)=>e.sundayWork?i:-1).filter(x=>x>=0)))===JSON.stringify(a.dom),antes));
 // ---- botões dão retorno
-await A.evaluate(()=>{document.getElementById('toast').hidden=true;toastEm=0});
+await A.evaluate(()=>{document.getElementById('toast').hidden=true;toastEm=0;toastErroEm=0});
 await A.evaluate(()=>document.querySelector('.tab[data-tab=shifts]').click());
 await A.click('[data-replicate="shifts"]');await A.waitForTimeout(250);
 T('botão de replicar mostra retorno',await A.evaluate(()=>{const t=document.getElementById('toast');return !t.hidden&&t.textContent.length>5}));
