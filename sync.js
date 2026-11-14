@@ -43,7 +43,7 @@
   const diag=document.createElement('div');diag.id='syncDiag';diag.hidden=true;document.body.appendChild(diag);
   const mostraDiag=(extra)=>{try{
     const k=state.selectedSector,w=state.sectors[k].weeks[state.selectedWeek];
-    diag.textContent=(extra?extra+' · ':'')+'Aqui: '+((window.SECTORS&&SECTORS[k])||k)+', semana '+(state.selectedWeek+1)+' → '+w.employees.length+' colaboradoras ('+w.employees.slice(0,2).map(e=>e.name).join(', ')+'…) · setores na nuvem: '+Object.keys(synced).filter(x=>x!=='_config'&&synced[x]).length;
+    diag.textContent='[build 66] '+(extra?extra+' · ':'')+'Aqui: '+((window.SECTORS&&SECTORS[k])||k)+', semana '+(state.selectedWeek+1)+' → '+w.employees.length+' colaboradoras ('+w.employees.slice(0,2).map(e=>e.name).join(', ')+'…) · setores na nuvem: '+Object.keys(synced).filter(x=>x!=='_config'&&synced[x]).length;
     diag.hidden=false}catch(e){diag.textContent='diag: '+e.message;diag.hidden=false}};
   window.addEventListener('error',e=>{status('Erro no app: '+e.message,'err')});
   window.addEventListener('unhandledrejection',e=>{status('Erro: '+((e.reason&&e.reason.message)||e.reason),'err')});
@@ -126,6 +126,7 @@
     }).subscribe();
   }
 
+  const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me)mostraDiag()}catch(e){}return v};
   /* ---------- ligar o salvar do app ---------- */
   const save0=save;
   save=function(){const r=save0.apply(this,arguments);agendar();return r};
