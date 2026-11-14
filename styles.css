@@ -322,3 +322,41 @@ body.adm-aberto{overflow:hidden}
 .ordem-aviso{margin:6px 0 0;font-size:12px;color:#7a4b00;background:#fff7e6;border:1px solid #f3d9a4;border-radius:8px;padding:6px 10px}
 @media print{.ordem-aviso,.mob-view{display:none!important}}
 @media(max-width:760px){.rule-head,.rule-row{grid-template-columns:1fr 54px 96px}}
+
+/* ===== Abas Turnos e Regras: espaçamento e alinhamento ===== */
+.settings .tab-panel.active[data-panel="shifts"]{display:block}
+.settings [data-panel="shifts"]>.setting-block{max-width:340px;margin:0 0 4px}
+.settings [data-panel="shifts"] .shifts-editor{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;padding-top:10px;align-items:stretch}
+.settings [data-panel="shifts"] .load-info,.settings [data-panel="shifts"] .shift-card{margin:0}
+.settings [data-panel="shifts"] .load-info{grid-column:1/-1}
+.settings [data-panel="shifts"] .shift-card{padding:14px;display:flex;flex-direction:column;gap:8px}
+.settings [data-panel="shifts"] .shift-card h3{margin:0}
+.settings [data-panel="shifts"] .shift-card .time-grid{gap:10px 12px}
+.settings [data-panel="shifts"]>.button{margin-top:16px}
+
+.settings .tab-panel.active[data-panel="rules"]{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:stretch}
+.settings [data-panel="rules"]>div:empty{display:none}
+.settings [data-panel="rules"]>.setting-block,.settings [data-panel="rules"]>#pdvPlanPanel,.settings [data-panel="rules"]>#pdvSundayPanel,.settings [data-panel="rules"]>#sundayMinPanel,.settings [data-panel="rules"]>#pdvActivePanel{border:1px solid var(--line);border-radius:10px;background:#fff;padding:16px;margin:0;align-self:stretch;min-width:0}
+.settings [data-panel="rules"]>#pdvPlanPanel{grid-column:1/-1}
+.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 24px}
+.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>label,.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>.helper,.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>.button,.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>button{grid-column:1/-1}
+.settings [data-panel="rules"]>#offRulesPanel{grid-column:span 1}
+.settings [data-panel="rules"] .setting-block>label:first-child,.settings [data-panel="rules"] #pdvSundayPanel>label:first-child{display:block;font-weight:700;margin:0 0 8px}
+.settings [data-panel="rules"] .setting-block .helper{margin:8px 0 0}
+.settings [data-panel="rules"] input[type=time]{width:100%;max-width:220px}
+.settings [data-panel="rules"] textarea{width:100%;min-height:96px}
+.rule-head,.rule-row{grid-template-columns:minmax(0,1fr) 64px 96px}
+.rule-head span:not(:first-child){text-align:center;line-height:1.2}
+@media(max-width:760px){.settings .tab-panel.active[data-panel="rules"],.settings [data-panel="shifts"] .shifts-editor{grid-template-columns:1fr}.settings [data-panel="rules"]>div{padding:12px}}
+.settings .tab-panel.active[data-panel="shifts"]:not([data-panel="team"])>.button{margin:18px 0 4px}
+.settings [data-panel="rules"]>div>.pdv-plan,.settings [data-panel="rules"] .pdv-plan{border:0;margin:0;padding:0}
+.settings [data-panel="rules"]>div>*:first-child{margin-top:0}
+.settings [data-panel="rules"]>div>hr,.settings [data-panel="rules"]>div>*:last-child{margin-bottom:0}
+.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>.button,.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>button{width:100%;margin:10px 0 0}
+.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>button:not(.button){padding:10px;border:1px solid #cfd5de;border-radius:8px;background:#fff;color:var(--navy);font:inherit;font-weight:700;cursor:pointer;min-height:44px}
+.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>.button,.settings [data-panel="rules"]>#pdvPlanPanel .pdv-plan>button{width:100%;max-width:none;min-width:0;box-sizing:border-box;font-size:13px;font-weight:700;min-height:44px}
+.settings [data-panel="rules"]>#sundayMinPanel,.settings [data-panel="rules"]>#pdvSundayPanel{padding-top:16px}
+.settings [data-panel="rules"]>#sundayMinPanel>*:first-child,.settings [data-panel="rules"]>#sundayMinPanel .setting-block,.settings [data-panel="rules"]>#sundayMinPanel .post-plan{margin-top:0;padding-top:0;border-top:0;border-bottom:0}
+.settings [data-panel="rules"]>#sundayMinPanel .post-plan{padding:0;margin:0;border:0}
+.settings [data-panel="rules"]>#sundayMinPanel .post-plan>.button{width:100%;max-width:none}
+.settings [data-panel="rules"] .post-grid{max-width:none}
