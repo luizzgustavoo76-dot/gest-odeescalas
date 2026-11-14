@@ -360,3 +360,17 @@ body.adm-aberto{overflow:hidden}
 .settings [data-panel="rules"]>#sundayMinPanel .post-plan{padding:0;margin:0;border:0}
 .settings [data-panel="rules"]>#sundayMinPanel .post-plan>.button{width:100%;max-width:none}
 .settings [data-panel="rules"] .post-grid{max-width:none}
+
+/* Rodízio por turno dos postos */
+.post-shift-wrap{overflow-x:auto;margin-top:10px}
+.post-shift-grid{display:grid;grid-template-columns:minmax(110px,1.2fr) repeat(var(--cols,3),minmax(78px,1fr));gap:8px 10px;align-items:center;font-size:13px;min-width:max-content;width:100%}
+.post-shift-grid .post-col{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.2}
+.post-shift-grid .post-col b{font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+.post-shift-grid .post-col small{font-size:10px;color:var(--muted);margin-top:2px}
+.post-shift-grid .post-col small.post-warn{color:var(--red);font-weight:700}
+.post-shift-grid .post-name{display:flex;flex-direction:column;font-weight:700;color:var(--navy)}
+.post-shift-grid .post-name small{font-weight:400;font-size:11px;color:var(--muted)}
+.post-shift-grid input[type=number]{width:100%;min-width:0;text-align:center;padding:8px 4px;border:1px solid #cfd5de;border-radius:8px;font:inherit}
+.post-plan>.button+.button{margin-top:8px}
+.settings [data-panel="rotation"] .post-plan>.button{display:block;width:100%;max-width:460px;margin:12px 0 0}
+.settings [data-panel="rotation"] .post-plan>.button+.button{margin-top:8px}

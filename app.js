@@ -1411,6 +1411,54 @@ const postSlots = (k) => {
   for (let i = 0; i < c.tarde; i++) a.push('tarde');
   return a;
 };
+/* Rodízio por turno: s.postShifts[posto] = [quantas pessoas do posto em cada turno]. Sem isso, vale o cedo/tarde automático. */
+function postShiftsCustom(k) {
+  const a = (sector().postShifts || {})[k];
+  return Array.isArray(a) && a.some((n) => n > 0) ? a : null;
+}
+function autoShiftCounts(k, w) {
+  /* o cedo/tarde automático distribuído pelos turnos (1º, 2º…) em sequência */
+  const c = postCfg()[k],
+    ix = periodIdx(w),
+    out = w.shifts.map(() => 0);
+  [
+    ['cedo', c.cedo],
+    ['tarde', c.tarde],
+  ].forEach(([p, n]) => {
+    for (let i = 0; i < n && ix[p].length; i++) out[ix[p][i % ix[p].length]]++;
+  });
+  return out;
+}
+function shiftCounts(k, w) {
+  const cu = postShiftsCustom(k);
+  return w.shifts.map((_, i) => (cu ? Math.max(0, Math.floor(+cu[i]) || 0) : autoShiftCounts(k, w)[i]));
+}
+function setPostShift(k, i, v) {
+  const s = sector(),
+    w = week();
+  s.postShifts = s.postShifts || {};
+  const cur = postShiftsCustom(k) ? shiftCounts(k, w) : autoShiftCounts(k, w);
+  cur[i] = Math.min(30, Math.max(0, Math.floor(+v) || 0));
+  s.postShifts[k] = cur;
+}
+/* reparte as vagas escolhidas entre as M pessoas do posto (maior resto), mantendo a proporção entre os turnos */
+function scaleCounts(counts, M) {
+  const S = counts.reduce((a, b) => a + b, 0);
+  if (!S || S === M) return counts.slice();
+  const raw = counts.map((n) => (n * M) / S),
+    out = raw.map(Math.floor);
+  let left = M - out.reduce((a, b) => a + b, 0);
+  raw
+    .map((r, i) => [r - Math.floor(r), i])
+    .sort((a, b) => b[0] - a[0] || a[1] - b[1])
+    .forEach(([, i]) => {
+      if (left > 0 && counts[i] > 0) {
+        out[i]++;
+        left--;
+      }
+    });
+  return out;
+}
 function periodIdx(w) {
   const early = mins(state.settings.earlyBefore || '09:00'),
     all = w.shifts.map((s, i) => i);
@@ -1429,16 +1477,16 @@ function applyPostPlan(silent) {
       toast(m);
       return false;
     },
-    total = postKeys().reduce((t, k) => t + postSlots(k).length, 0);
-  if (!total) return fail('Defina em "Rodízio" quantas colaboradoras de cada posto ficam cedo e à tarde.');
+    total = postKeys().reduce((t, k) => t + (postShiftsCustom(k) ? 1 : postSlots(k).length), 0);
+  if (!total) return fail('Defina em "Rodízio" quantas colaboradoras de cada posto ficam em cada turno.');
   const ix0 = periodIdx(weeks[0]);
-  if (postKeys().some((k) => cfg[k].cedo > 0) && !ix0.cedo.length)
+  if (postKeys().some((k) => !postShiftsCustom(k) && cfg[k].cedo > 0) && !ix0.cedo.length)
     return fail(
       'Nenhum turno entra antes de ' +
         state.settings.earlyBefore +
         ': não há horário "cedo". Ajuste os turnos ou o horário limite de "cedo".',
     );
-  if (postKeys().some((k) => cfg[k].tarde > 0) && !ix0.tarde.length)
+  if (postKeys().some((k) => !postShiftsCustom(k) && cfg[k].tarde > 0) && !ix0.tarde.length)
     return fail(
       'Todos os turnos entram antes de ' +
         state.settings.earlyBefore +
@@ -1449,6 +1497,35 @@ function applyPostPlan(silent) {
     const ix = periodIdx(w),
       cnt = { cedo: 0, tarde: 0 };
     postKeys().forEach((k) => {
+      if (postShiftsCustom(k)) {
+        const all = w.employees.filter((e) => e.station === k).sort((a, b) => a.id - b.id),
+          M = all.length;
+        if (!M) return;
+        const raw = shiftCounts(k, w),
+          S = raw.reduce((a, b) => a + b, 0),
+          counts = scaleCounts(raw, M);
+        if (wi === 0 && S !== M)
+          notes.push(
+            POST_NAMES[k] + ': ' + M + ' colaboradora(s) para ' + S + ' vaga(s) (mantive a proporção entre os turnos para todas entrarem)',
+          );
+        const slots = [];
+        counts.forEach((n, i) => {
+          for (let q = 0; q < n; q++) slots.push(i);
+        });
+        const first = counts.find((n) => n > 0) || 0,
+          step = M === 1 ? 0 : first > 0 && first < M ? first : 1,
+          early = mins(state.settings.earlyBefore || '09:00'),
+          isLate = (i) => mins(w.shifts[i].start) >= early,
+          assign = all.map((e, j) => ({ e, sh: slots[(j + wi * step) % M] }));
+        assign.forEach((a) => {
+          if (a.e.restricted && isLate(a.sh)) {
+            const o = assign.find((b) => !b.e.restricted && !isLate(b.sh));
+            if (o) [a.sh, o.sh] = [o.sh, a.sh];
+          }
+        });
+        assign.forEach((a) => (a.e.shift = a.sh));
+        return;
+      }
       const slots = postSlots(k);
       if (!slots.length) return;
       const all = w.employees.filter((e) => e.station === k).sort((a, b) => a.id - b.id);
@@ -1504,10 +1581,19 @@ function applyPostPlan(silent) {
     state.notice =
       'Rodízio de turnos aplicado nas 4 semanas: ' +
       postKeys()
-        .filter((k) => cfg[k].cedo + cfg[k].tarde > 0)
-        .map((k) => POST_NAMES[k] + ' ' + cfg[k].cedo + ' cedo / ' + cfg[k].tarde + ' tarde')
+        .filter((k) => postShiftsCustom(k) || cfg[k].cedo + cfg[k].tarde > 0)
+        .map((k) =>
+          postShiftsCustom(k)
+            ? POST_NAMES[k] +
+              ' ' +
+              shiftCounts(k, weeks[0])
+                .map((n, i) => (n ? n + ' no ' + (i + 1) + 'º' : ''))
+                .filter(Boolean)
+                .join(', ')
+            : POST_NAMES[k] + ' ' + cfg[k].cedo + ' cedo / ' + cfg[k].tarde + ' tarde',
+        )
         .join('; ') +
-      '. O posto de cada colaboradora não muda: ela alterna entre cedo e tarde a cada semana.' +
+      '. O posto de cada colaboradora não muda: ela passa para outro turno a cada semana.' +
       (notes.length ? ' Atenção: ' + notes.join('; ') + '.' : '');
     render();
     toast('Rodízio de turnos dos postos aplicado.', true);
@@ -1516,23 +1602,35 @@ function applyPostPlan(silent) {
 }
 function postsPanel() {
   if (!hasPosts()) return '';
-  const c = postCfg(),
-    w = week();
-  const row = (k) => {
-    const n = w.employees.filter((e) => e.station === k).length,
-      s = postSlots(k).length;
-    return `<span class="post-name">${POST_NAMES[k]}<small class="${n === s || !s ? '' : 'post-warn'}">${n} colaboradora${n === 1 ? '' : 's'}</small></span><input type="number" min="0" max="20" data-post="${k}" data-per="cedo" value="${c[k].cedo}" aria-label="${POST_NAMES[k]} cedo" /><input type="number" min="0" max="20" data-post="${k}" data-per="tarde" value="${c[k].tarde}" aria-label="${POST_NAMES[k]} tarde" />`;
-  };
-  return `<div class="setting-block rotation-block post-plan"><label>Rodízio de turnos dos postos (${postKeys()
-    .map((k) => POST_NAMES[k])
-    .join(
-      ', ',
-    )})</label><p class="helper">O posto de cada colaboradora é o da ficha e não muda; no posto Operadora Caixa, o PDV é escolhido na ficha, semana a semana. Aqui você define, para cada posto, quantas ficam no turno cedo e quantas no turno tarde; elas alternam entre cedo e tarde a cada semana.</p>
-  <div class="post-grid"><span></span><b>Cedo</b><b>Tarde</b>${postKeys().map(row).join('')}</div>
+  const w = week(),
+    keys = postKeys(),
+    cnt = Object.fromEntries(keys.map((k) => [k, shiftCounts(k, w)])),
+    head = keys
+      .map((k) => {
+        const n = w.employees.filter((e) => e.station === k).length,
+          s = cnt[k].reduce((a, b) => a + b, 0);
+        return `<span class="post-col"><b>${POST_NAMES[k]}</b><small class="${n === s || !s ? '' : 'post-warn'}">${n} colaboradora${n === 1 ? '' : 's'}${n !== s && s ? ' · ' + s + ' vaga' + (s === 1 ? '' : 's') : ''}</small></span>`;
+      })
+      .join(''),
+    rows = w.shifts
+      .map(
+        (sh, i) =>
+          `<span class="post-name">${escape(sh.name)}<small>${sh.start}</small></span>` +
+          keys
+            .map(
+              (k) =>
+                `<input type="number" min="0" max="30" data-pshift="${i}" data-ppost="${k}" value="${cnt[k][i]}" aria-label="${POST_NAMES[k]} no ${escape(sh.name)}" />`,
+            )
+            .join(''),
+      )
+      .join('');
+  return `<div class="setting-block rotation-block post-plan"><label>Rodízio de turnos dos postos</label><p class="helper">O posto de cada colaboradora é o da ficha e não muda; no posto Operadora Caixa, o PDV é escolhido no painel "PDVs de cada turno" (aba Regras). Em cada turno, informe quantas colaboradoras de cada posto trabalham nele; elas passam para outro turno a cada semana. Sem alteração, o sistema divide automaticamente entre cedo e tarde.</p>
+  <div class="post-shift-wrap"><div class="post-shift-grid" style="--cols:${keys.length}"><span></span>${head}${rows}</div></div>
   <label class="early-row">Cedo = entrada antes de <input type="time" id="postEarly" value="${state.settings.earlyBefore || '09:00'}" /></label>
-  <p class="helper">Dica: a soma de cedo + tarde de cada posto deve ser igual ao número de colaboradoras daquele posto nesta semana.</p>
+  <p class="helper">Dica: a soma de cada coluna deve ser igual ao número de colaboradoras daquele posto nesta semana. Quem tem restrição de horário fica nos turnos cedo.</p>
   <button class="button secondary full" id="applyPosts" type="button">Aplicar rodízio de turnos dos postos nas 4 semanas</button>
-  <p class="helper">Só muda o turno de quem está em Pacote, Fiscal ou Recepção; PDVs e demais colaboradoras não são alterados.</p></div>`;
+  <button class="button outline full" id="clearPosts" type="button">Limpar escolha (automático)</button>
+  <p class="helper">Muda o turno de todas as colaboradoras que estão em algum posto; as demais não são alteradas.</p></div>`;
 }
 /* ===== excluir colaboradora (recalcula numeração, rodízio, folgas e PDVs) ===== */
 async function removeEmployee(i) {
@@ -2510,6 +2608,11 @@ document.addEventListener('change', (event) => {
     render();
     return;
   }
+  if (t.dataset.pshift !== undefined) {
+    setPostShift(t.dataset.ppost, +t.dataset.pshift, t.value);
+    setTimeout(render, 0);
+    return;
+  }
   if (t.id === 'postEarly') {
     if (t.value) state.settings.earlyBefore = t.value;
     render();
@@ -2719,6 +2822,7 @@ document.addEventListener('click', (event) => {
     sun = event.target.closest('[data-suggest-sundays]'),
     allOff = event.target.closest('[data-suggest-off-all]'),
     posts = event.target.closest('#applyPosts'),
+    clearPosts = event.target.closest('#clearPosts'),
     gen = event.target.closest('#genRun'),
     und = event.target.closest('#genUndo');
   if (wb) {
@@ -2754,6 +2858,13 @@ document.addEventListener('click', (event) => {
   if (sun) suggestSundays();
   if (allOff) suggestOffAll();
   if (posts) applyPostPlan(false);
+  if (clearPosts) {
+    const sec = sector();
+    delete sec.postShifts;
+    delete sec.posts;
+    render();
+    toast('Rodízio dos postos voltou ao automático.');
+  }
   if (gen) generateAll();
   if (und) undoGenerate();
 });
