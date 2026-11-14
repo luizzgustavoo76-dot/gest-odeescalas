@@ -7,7 +7,7 @@ create table if not exists public.perfis (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   nome text,
-  papel text not null default 'gerente' check (papel in ('admin','gerente')),
+  papel text not null default 'leitor' check (papel in ('admin','gerente','leitor')),
   setores text[] not null default '{}',
   criado_em timestamptz not null default now()
 );
@@ -55,12 +55,21 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.perfis where id = auth.uid() and papel = 'admin');
 $$;
 
+create or replace function public.posso_ver(s text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.perfis p
+    where p.id = auth.uid()
+      and (p.papel = 'admin' or s = '_config' or s = any (p.setores))
+  );
+$$;
+
 create or replace function public.posso_editar(s text) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.perfis p
     where p.id = auth.uid()
-      and (p.papel = 'admin' or s = any (p.setores) or s = '_config')
+      and (p.papel = 'admin' or (p.papel = 'gerente' and (s = '_config' or s = any (p.setores))))
   );
 $$;
 
@@ -80,7 +89,7 @@ create policy perfis_ler   on public.perfis for select to authenticated
 create policy perfis_admin on public.perfis for all to authenticated
   using (public.sou_admin()) with check (public.sou_admin());
 
-create policy escalas_ler     on public.escalas for select to authenticated using (true);
+create policy escalas_ler     on public.escalas for select to authenticated using (public.posso_ver(setor));
 create policy escalas_inserir on public.escalas for insert to authenticated
   with check (public.posso_editar(setor));
 create policy escalas_alterar on public.escalas for update to authenticated
@@ -96,8 +105,10 @@ exception when duplicate_object then null; end $$;
 -- 5b) Endurecimento: só o necessário fica executável
 revoke execute on function public.novo_perfil() from public, anon, authenticated;
 revoke execute on function public.sou_admin() from public, anon;
+revoke execute on function public.posso_ver(text) from public, anon;
 revoke execute on function public.posso_editar(text) from public, anon;
 grant execute on function public.sou_admin() to authenticated;
+grant execute on function public.posso_ver(text) to authenticated;
 grant execute on function public.posso_editar(text) to authenticated;
 
 -- 6) DEPOIS de criar seu usuário em Authentication → Users, rode UMA vez
@@ -105,6 +116,7 @@ grant execute on function public.posso_editar(text) to authenticated;
 --
 --   update public.perfis set papel = 'admin' where email = 'SEU_EMAIL_AQUI';
 --
+--    (Depois, usuários e acessos são gerenciados pelo botão "Administração" do app.)
 --    Para liberar setores a um gerente (ids: frente-caixa, acougue-frios,
 --    loja-deposito, padaria, horti-fruit):
 --

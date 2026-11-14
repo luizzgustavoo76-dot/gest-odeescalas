@@ -4,7 +4,7 @@
    - Sem conexão com a nuvem o app NÃO abre.
    - Antes de salvar, confere a versão: se outra pessoa alterou o setor, recarrega a versão nova em vez de sobrescrever. */
 (function(){
-  const BUILD='build 68';
+  const BUILD='build 69';
   const cfg=window.SUPABASE_CONFIG||{};
   const $=id=>document.getElementById(id);
   const SETORES=()=>Object.keys(state.sectors);
@@ -38,7 +38,10 @@
   const synced={};           // JSON de cada setor, como está na nuvem
   const sent=[];
   let me=null,perfil=null,timer=null,pushing=false,again=false,applying=false,channel=null,pronto=false,uiOk=false;
-  const podeEditar=s=>!!perfil&&(perfil.papel==='admin'||s==='_config'||(perfil.setores||[]).includes(s));
+  const ehAdmin=()=>!!perfil&&perfil.papel==='admin';
+  const visivel=s=>!!perfil&&(ehAdmin()||s==='_config'||(perfil.setores||[]).includes(s));
+  const podeEditar=s=>!!perfil&&(ehAdmin()||(perfil.papel==='gerente'&&(s==='_config'||(perfil.setores||[]).includes(s))));
+  const NIVEL={admin:'administrador',gerente:'gerente',leitor:'somente leitura'};
 
   const traduz=m=>/invalid login/i.test(m)?'E-mail ou senha incorretos.':/email not confirmed/i.test(m)?'E-mail ainda não confirmado.':/rate limit|too many/i.test(m)?'Muitas tentativas. Aguarde um pouco.':'Não foi possível entrar: '+m;
   $('loginForm').addEventListener('submit',async ev=>{
@@ -54,11 +57,18 @@
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="refreshBtn">Atualizar da nuvem</button><button type="button" class="button" id="logoutBtn">Sair</button>';
+  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Administração</button><button type="button" class="button" id="logoutBtn">Sair</button>';
   const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
-  const sair=async()=>{clearTimeout(timer);await sb.auth.signOut()};
+  // Sair: encerra a sessão, apaga o login guardado no aparelho e recarrega a página (funciona mesmo com sessão antiga/inválida)
+  const sair=async()=>{
+    clearTimeout(timer);timer=null;pronto=false;
+    try{await Promise.race([sb.auth.signOut({scope:'local'}),new Promise(r=>setTimeout(r,2500))])}catch(e){}
+    try{Object.keys(localStorage).filter(k=>/^sb-/.test(k)||k.indexOf('supabase')>=0).forEach(k=>localStorage.removeItem(k))}catch(e){}
+    try{Object.keys(sessionStorage).filter(k=>/^sb-/.test(k)).forEach(k=>sessionStorage.removeItem(k))}catch(e){}
+    location.reload();
+  };
   $('logoutBtn').addEventListener('click',sair);$('errOut').addEventListener('click',sair);
-  $('refreshBtn').addEventListener('click',async()=>{if(!me)return;await enviar();await carregar(false)});
+  $('adminBtn').addEventListener('click',()=>{if(window.abrirAdmin)window.abrirAdmin({sb,eu:me})});
 
   /* ---------- faixa de diagnóstico ---------- */
   const diag=document.createElement('div');diag.id='syncDiag';diag.hidden=true;document.body.appendChild(diag);
@@ -98,8 +108,8 @@
   }
   function pendentes(){
     const out=[];
-    for(const k of SETORES()){const c=carga(k),j=JSON.stringify(c);if(j!==synced[k])out.push({setor:k,dados:c,j})}
-    const c=cfgDados(),cj=JSON.stringify(c);if(cj!==synced._config)out.push({setor:'_config',dados:c,j:cj});
+    for(const k of SETORES()){if(!podeEditar(k))continue;const c=carga(k),j=JSON.stringify(c);if(j!==synced[k])out.push({setor:k,dados:c,j})}
+    if(podeEditar('_config')){const c=cfgDados(),cj=JSON.stringify(c);if(cj!==synced._config)out.push({setor:'_config',dados:c,j:cj})}
     return out;
   }
   const rls=e=>e&&/row-level security|permission/i.test(e.message||'');
@@ -150,6 +160,30 @@
   const guardaUi=()=>{if(!uiOk)return;try{localStorage.setItem(UIK,JSON.stringify({sector:state.selectedSector,week:state.selectedWeek}))}catch(e){}};
   const restauraUi=()=>{try{const u=JSON.parse(localStorage.getItem(UIK)||'null');if(u&&state.sectors[u.sector]){state.selectedSector=u.sector;state.selectedWeek=Math.min(3,Math.max(0,+u.week||0))}}catch(e){}uiOk=true};
 
+  /* ---------- setores liberados e modo somente leitura ---------- */
+  function ajustaSetores(){
+    const sel=$('sectorSelect');
+    if(sel)[...sel.options].forEach(o=>{if(!visivel(o.value))o.remove()});
+    if(!SETORES().some(visivel)){
+      pronto=false;erro('Nenhum setor liberado','Seu acesso ainda não tem nenhum setor liberado. Peça ao administrador para liberar.',()=>location.reload());return false;
+    }
+    if(sel&&!visivel(sel.value))sel.value=SETORES().find(visivel);
+    return true;
+  }
+  const LIVRES='.period-tabs button,.tab,#toggleSettings,#toggleOperators,#toggleBoard,#toggleOff,#printFileButton,#scheduleTable thead button,#sectorSelect,#logoutBtn,#adminBtn,#syncDiag';
+  const bloqueado=t=>{if(!document.body.classList.contains('somente-leitura')||!t||!t.closest)return false;
+    return !!(t.closest('main,#weekStart,.import-label,#modelButton,#xlsxFile'))&&!t.closest(LIVRES)};
+  ['click','change','input','keydown'].forEach(tp=>document.addEventListener(tp,e=>{
+    if(!bloqueado(e.target))return;if(tp==='keydown'&&e.key!=='Enter'&&e.key!==' ')return;
+    e.stopImmediatePropagation();if(tp==='click'||tp==='keydown')e.preventDefault();
+  },true));
+  const ro=document.createElement('div');ro.id='roBanner';ro.hidden=true;ro.textContent='Somente leitura: você pode ver este setor, mas não editar.';
+  const mainEl=document.querySelector('main');if(mainEl)mainEl.insertBefore(ro,mainEl.firstChild);
+  function aplicaLeitura(){
+    const so=!!perfil&&!podeEditar(state.selectedSector);
+    document.body.classList.toggle('somente-leitura',so);ro.hidden=!so;
+  }
+
   /* ---------- buscar da nuvem ---------- */
   async function carregar(primeira){
     painel('load','Buscando as escalas na nuvem.');
@@ -158,9 +192,11 @@
     clearTimeout(timer);timer=null;
     for(const k of Object.keys(ver))delete ver[k];
     aplicar(data);
+    if(!ajustaSetores())return false;
     if(primeira!==false||!uiOk)restauraUi();
+    if(!visivel(state.selectedSector))state.selectedSector=SETORES().find(visivel);
     try{normalize();render()}catch(e){console.warn(e)}
-    pronto=true;
+    pronto=true;aplicaLeitura();
     // setores que ainda não existem na nuvem são criados (só por quem pode editar)
     for(const k of SETORES().concat('_config'))if(podeEditar(k)&&!data.some(l=>l.setor===k))synced[k]=undefined;
     painel(null);
@@ -184,7 +220,7 @@
 
   /* ---------- salvar do app → nuvem (nada vai para o aparelho) ---------- */
   save=function(){agendar()};
-  const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me&&pronto){mostraDiag();guardaUi()}}catch(e){}return v};
+  const r0=render;render=function(){const v=r0.apply(this,arguments);try{if(me&&pronto){mostraDiag();guardaUi();aplicaLeitura()}}catch(e){}return v};
 
   /* ---------- sessão ---------- */
   async function entrou(user){
@@ -193,8 +229,8 @@
     if(error){me=null;erro('Sem conexão','Não foi possível verificar seu acesso. Verifique a internet e tente de novo.',()=>entrou(user));return}
     if(!p){me=null;await sb.auth.signOut();painel('login');loginErr('Esta sessão não é mais válida. Entre novamente com seu e-mail e senha.');return}
     perfil=p;
-    $('userWho').textContent=(perfil.nome||user.email)+' · '+(perfil.papel==='admin'?'administrador':(perfil.setores&&perfil.setores.length?perfil.setores.map(nomeSetor).join(', '):'somente leitura'));
-    bar.hidden=false;
+    $('userWho').textContent=(perfil.nome||user.email)+' · '+NIVEL[perfil.papel]+(perfil.papel!=='admin'&&perfil.setores&&perfil.setores.length?' ('+perfil.setores.map(nomeSetor).join(', ')+')':'');
+    $('adminBtn').hidden=!ehAdmin();bar.hidden=false;
     if(await carregar(true))tempoReal();
   }
   function saiu(){

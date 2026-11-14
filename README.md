@@ -226,3 +226,4 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Removido o botão Imprimir escala; fica só Baixar para imprimir.
 - Corrige sincronização dos nomes: a lista de nomes (roster) agora vai junto com cada setor na nuvem; dados antigos recuperam os nomes da semana 1.
 - Dados 100% na nuvem: o app só abre com login e conexão; nenhuma escala, nome ou folga é lida/gravada no aparelho (só preferências visuais e o login). Antes de salvar confere a versão do setor: se outra pessoa alterou, recarrega a versão nova e avisa. Perda de conexão bloqueia o app até recarregar da nuvem.
+- Painel de administração (admin.js + função admin-usuarios): criar usuário, senha, nível (admin/gerente/somente leitura), setores liberados, bloquear, excluir. Cada pessoa vê só os setores liberados; somente leitura não edita. Botão Sair refeito; removido Atualizar da nuvem.

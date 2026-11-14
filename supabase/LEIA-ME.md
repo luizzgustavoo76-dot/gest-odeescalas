@@ -34,3 +34,10 @@ Ids dos setores: `frente-caixa`, `acougue-frios`, `loja-deposito`, `padaria`, `h
 - Outros aparelhos recebem a mudança na hora (tempo real).
 - Na primeira entrada, se a nuvem já tiver escalas, elas substituem as do aparelho (uma cópia fica em `localStorage` na chave `bom-dia-antes-da-nuvem`). Setores que ainda não existem na nuvem sobem do aparelho.
 - Duas pessoas editando o **mesmo setor ao mesmo tempo**: vale a última gravação.
+
+## Painel de administração (usuários e acessos)
+O botão **Administração** (só para administradores) cria usuários, define a senha, o nível (Administrador, Gerente ou Somente leitura) e os setores liberados, além de redefinir senha, bloquear e excluir.
+Ele usa a Edge Function `admin-usuarios` (código em `supabase/functions/admin-usuarios/index.ts`), publicada no Supabase com a chave de serviço guardada no servidor. Se precisar publicar de novo: Supabase → Edge Functions → Deploy a new function, nome `admin-usuarios`, cole o arquivo e desligue "Verify JWT" (a função confere o administrador sozinha).
+- **Administrador**: vê e edita tudo e gerencia usuários.
+- **Gerente**: vê e edita só os setores marcados.
+- **Somente leitura**: vê só os setores marcados.
