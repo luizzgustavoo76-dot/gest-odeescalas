@@ -133,13 +133,17 @@
     const box=ov.querySelector('#admConteudo');
     const dias=ultimoBackup?Math.floor((Date.now()-new Date(ultimoBackup))/864e5):null;
     box.innerHTML=`<div class="adm-cards"><div class="${dias===null||dias>7?'red':''}"><b>${dias===null?'—':dias}</b><span>${dias===null?'nenhum backup baixado':'dia(s) desde o último backup ('+fmt(ultimoBackup)+')'}</span></div></div>
-      <section class="adm-novo"><h3>Baixar backup completo</h3>
-        <p class="adm-ajuda">Gera um arquivo com as escalas de <b>todas as contas</b> e a lista de contas, e salva no seu computador (pasta Downloads). Guarde-o em local seguro (pen drive, nuvem pessoal). Faça isso toda semana ou antes de mudanças grandes. Senhas não entram no backup.</p>
-        <div class="adm-btns"><button type="button" class="button" id="bkBaixar">Baixar backup agora</button></div></section>
+      <section class="adm-novo"><h3>Baixar backup</h3>
+        <p class="adm-ajuda">Os arquivos são salvos no seu computador (pasta Downloads). Guarde-os em local seguro (pen drive, nuvem pessoal) e baixe toda semana ou antes de mudanças grandes. Senhas não entram no backup.</p>
+        <div class="adm-opcoes">
+          <div><b>Completo (todas as contas)</b><span>Escalas de todas as contas e a lista de contas. É o que protege tudo se algo der errado no banco.</span><button type="button" class="button" id="bkBaixar">Baixar backup completo</button></div>
+          <div><b>Só a conta aberta${typeof alvoNome==='function'&&alvoNome()?' ('+esc(alvoNome())+')':''}</b><span>Só os dados que estão na tela agora (todos os setores e semanas desta conta), em arquivo único.</span><button type="button" class="button outline" id="bkConta">Baixar só esta conta</button></div>
+        </div></section>
       <section class="adm-novo"><h3>Restaurar de um backup</h3>
-        <p class="adm-ajuda">Escolha um arquivo de backup. As escalas dele voltam para as contas de mesmo e-mail e <b>substituem</b> as atuais (a versão atual é guardada antes no histórico, então dá para desfazer). Contas que não existem mais são ignoradas: crie-as de novo antes, com o mesmo e-mail.</p>
+        <p class="adm-ajuda">Escolha um arquivo: o app reconhece sozinho se é o <b>completo</b> (volta para as contas de mesmo e-mail) ou o de <b>uma conta</b> (volta para a conta aberta agora). Em ambos os casos os dados atuais são <b>substituídos</b> (a versão atual fica guardada no histórico, então dá para desfazer). No completo, contas que não existem mais são ignoradas: crie-as de novo antes, com o mesmo e-mail.</p>
         <div class="adm-btns"><label class="button outline import-label">Escolher arquivo de backup…<input type="file" id="bkArq" accept=".json,application/json" hidden></label></div>
         <div id="bkInfo"></div></section>`;
+    box.querySelector('#bkConta').onclick=()=>{try{exportBackup();aviso('Backup desta conta gerado (pasta Downloads). Guarde o arquivo em local seguro.',true)}catch(er){aviso('Não consegui gerar o backup desta conta: '+er.message)}};
     box.querySelector('#bkBaixar').onclick=async ev=>{
       const b=ev.currentTarget;b.disabled=true;b.textContent='Gerando…';aviso('');
       try{
@@ -155,6 +159,8 @@
     box.querySelector('#bkArq').onchange=async e=>{
       const f=e.target.files[0];if(!f)return;const info=box.querySelector('#bkInfo');aviso('');
       let bk;try{bk=JSON.parse(await f.text())}catch(er){aviso('Não consegui ler esse arquivo: não é um JSON válido.');return}
+      if(bk&&(bk.app==='bom-dia-escalas'||(bk.state&&bk.state.sectors)||bk.sectors)){ // backup de uma conta só
+        e.target.value='';const ok=await importBackup(f);return}
       if(!bk||bk.sistema!=='bom-dia-gestao-escalas'||!Array.isArray(bk.escalas)){aviso('Este arquivo não é um backup válido do app.');return}
       const contas=new Set(bk.escalas.map(x=>x.dono_email||x.dono));
       info.innerHTML=`<p class="adm-aviso">Backup de ${esc(fmt(bk.gerado_em))}: ${bk.escalas.length} linhas de ${contas.size} conta(s). Restaurar agora vai substituir as escalas atuais dessas contas.</p><div class="adm-btns"><button type="button" class="button perigo-solid" id="bkOk">Sim, restaurar</button><button type="button" class="button outline" id="bkNao">Cancelar</button></div>`;

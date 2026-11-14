@@ -182,7 +182,16 @@
   function agendar(){if(!me||!pronto||applying)return;clearTimeout(timer);status('Alterações pendentes…','busy');timer=setTimeout(enviar,800)}
   /* atualização automática: confere se saiu versão nova e recarrega sozinho */
   const meuBuild=(document.querySelector('meta[name=build]')||{}).content;
-  let verificando=false;
+  let verificando=false,novaVersao=null;
+  function mostraNovaVersao(){
+    let b=document.getElementById('novaVersao');
+    if(!b){b=document.createElement('button');b.id='novaVersao';b.type='button';b.className='nova-versao';b.textContent='Nova versão! Atualizar?';
+      b.addEventListener('click',()=>{
+        if(pronto&&(timer||pendentes().length)){warn('Aguarde: suas alterações estão sendo salvas. Tente de novo em instantes.');return}
+        b.disabled=true;b.textContent='Atualizando…';location.replace(novaVersao||location.href);
+      });document.body.appendChild(b)}
+    b.hidden=false;
+  }
   async function checaVersao(){
     if(verificando||!meuBuild)return;verificando=true;
     try{
@@ -190,8 +199,7 @@
       const r=await fetch(u+'?_='+Date.now(),{cache:'no-store'});if(!r.ok)return;
       const m=(await r.text()).match(/<meta name="build" content="([^"]+)"/);
       if(!m||m[1]===meuBuild)return;
-      if(pronto&&(timer||pendentes().length)){warn('Há uma versão nova do app. Ela será aplicada assim que suas alterações forem salvas.');return}
-      location.replace(u+'?v='+m[1]);
+      novaVersao=u+'?v='+m[1];mostraNovaVersao();
     }catch(e){}finally{verificando=false}
   }
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checaVersao()});
@@ -272,6 +280,7 @@
       if(!state.sectors[state.selectedSector])state.selectedSector=Object.keys(state.sectors)[0];
       normalize();render()}finally{desfazendo=false}
     ultimo=retrato();ultimaTela=tela();botoesDesfazer();agendar();
+    try{toast(de===pilha?'Alteração desfeita.':'Alteração refeita.',true)}catch(e){}
   }
   const desfazer=()=>volta(pilha,refaz,'Nada para desfazer.');
   const refazer=()=>volta(refaz,pilha,'Nada para refazer.');

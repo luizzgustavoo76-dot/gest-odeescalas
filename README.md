@@ -68,7 +68,9 @@ Login, banco de dados na nuvem, acesso simultâneo por gerentes, sincronização
 
 ## Backup e cadastro (v9)
 
-- **Exportar backup / Importar backup…** (rodapé do painel de configuração): salva e restaura todos os setores, semanas, cadastro e regras em um arquivo `.json`. A importação pede confirmação e rejeita arquivos que não sejam do app, sem alterar os dados atuais. O aviso no topo fica amarelo quando nunca houve backup ou o último tem 7 dias ou mais.
+- **Backup** (Painel ADM → Backup): baixa o backup completo (todas as contas) ou só a conta aberta, em arquivo `.json`; ao restaurar, o app reconhece sozinho o tipo do arquivo e pede confirmação antes de substituir.
+- **Ciclo de 4 semanas** (aba Gerar): "Avançar para o próximo ciclo" move as datas 28 dias, mantém equipe/turnos/postos, continua a sequência dos domingos e guarda o ciclo anterior (até 6 por setor).
+- **Ajuste direto nas tabelas** (Análise de folgas e Cobertura por hora): "Ajustar escala por aqui" liga os botões + e −, que movem folgas entre dias ou pessoas entre turnos sem quebrar as regras.
 - **Nome e restrição de estudante/mãe** são editados na ficha de "Colaboradoras ativas" e valem para as 4 semanas do setor; não são apagados ao restaurar semanas.
 
 ## Geração automática (opcional)

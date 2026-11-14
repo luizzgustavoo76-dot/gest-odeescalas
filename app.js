@@ -518,8 +518,121 @@ function renderGen() {
   <div class="mov-grid">${DAYS.map((d) => `<label>${d[1]}<select data-mov="${d[0]}">${MOV_LEVELS.map((l) => `<option value="${l[0]}" ${movement()[d[0]] === l[0] ? 'selected' : ''}>${l[1]}</option>`).join('')}</select></label>`).join('')}</div></div>
   <button class="button full" id="genRun" type="button">Gerar escala do setor</button>
   <button class="button outline full" id="genUndo" type="button" ${u ? '' : 'disabled'}>Desfazer última geração${u ? ' (' + short(new Date(u.at)) + ' ' + pad(new Date(u.at).getHours()) + ':' + pad(new Date(u.at).getMinutes()) + ')' : ''}</button>
-  <p class="helper">Substitui as folgas${g.posts ? ', os turnos dos postos' : ''}${hasPdv() ? ' e os números de PDV' : ''}. Mantém nomes e os domingos de semanas que você já preencheu.</p>`;
+  <p class="helper">Substitui as folgas${g.posts ? ', os turnos dos postos' : ''}${hasPdv() ? ' e os números de PDV' : ''}. Mantém nomes e os domingos de semanas que você já preencheu.</p>
+  ${ciclosPanel()}`;
 }
+/* ===== continuidade: avançar para o próximo ciclo de 4 semanas (vale para todos os setores, que usam a mesma data) ===== */
+const addDias = (isoStr, n) => {
+  const d = new Date(isoStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return iso(d);
+};
+const brData = (isoStr) => short(new Date(isoStr + 'T12:00:00'));
+const cicloTxt = (ini) => brData(ini) + ' a ' + brData(addDias(ini, 27));
+function ciclosPanel() {
+  const cs = sector().ciclos || [];
+  return `<div class="setting-block ciclos-block"><label>Ciclo de 4 semanas</label><p class="helper">Ciclo atual: <b>${cicloTxt(state.baseMonday)}</b>. Ao chegar na Semana 4, avance para o próximo ciclo: equipe, turnos, postos e rodízio continuam, os domingos seguem a sequência (quem trabalhou no último domingo folga no primeiro do novo ciclo) e o ciclo atual fica guardado. Vale para todos os setores.</p>
+  <button class="button secondary full" id="cicloAvancar" type="button">Avançar para o próximo ciclo (${cicloTxt(addDias(state.baseMonday, 28))})</button>
+  ${cs.length ? `<p class="helper"><b>Ciclos anteriores</b> (${SECTORS[state.selectedSector]})</p><ul class="ciclos-lista">${cs.map((c) => `<li><span>${cicloTxt(c.inicio)}</span><button type="button" class="button outline" data-ciclo="${c.inicio}">Voltar a este ciclo</button></li>`).join('')}</ul>` : '<p class="helper">Nenhum ciclo anterior guardado ainda.</p>'}</div>`;
+}
+function avancaDomingos(velhas, novas) {
+  /* continua a sequência: quem trabalhou no último domingo do ciclo anterior não trabalha no primeiro do novo; mantém a quantidade de cada semana */
+  const works = (w, i) => !!(w && w.employees[i] && w.employees[i].sundayWork),
+    feitos = {},
+    curtas = [];
+  const count = (i) => velhas.reduce((t, w) => t + (works(w, i) ? 1 : 0), 0) + (feitos[i] || 0);
+  novas.forEach((w, wi) => {
+    const k = velhas[wi].employees.filter((e) => e.sundayWork).length,
+      ant = wi === 0 ? velhas[velhas.length - 1] : novas[wi - 1];
+    w.employees.forEach((e) => (e.sundayWork = false));
+    const cand = w.employees
+        .map((e, i) => i)
+        .filter((i) => !works(ant, i))
+        .sort((a, b) => count(a) - count(b) || a - b),
+      pick = [],
+      take = (i) => {
+        if (i !== undefined && !pick.includes(i) && pick.length < k) pick.push(i);
+      };
+    if (hasPosts())
+      sundayPosts().forEach((p) => {
+        for (let n = 0; n < sundayPostMin(p); n++) take(cand.find((i) => w.employees[i].station === p && !pick.includes(i)));
+      });
+    cand.forEach(take);
+    pick.forEach((i) => {
+      w.employees[i].sundayWork = true;
+      feitos[i] = (feitos[i] || 0) + 1;
+    });
+    if (pick.length < k) curtas.push(wi + 1);
+  });
+  return curtas;
+}
+function avancaCiclo() {
+  const velho = state.baseMonday,
+    sel = state.selectedSector,
+    avisos = [];
+  Object.keys(state.sectors).forEach((sk) => {
+    const sec = state.sectors[sk];
+    if (!sec || !sec.weeks) return;
+    state.selectedSector = sk;
+    sec.weeks.forEach(normalizeWeek);
+    const velhas = JSON.parse(JSON.stringify(sec.weeks));
+    sec.ciclos = [{ inicio: velho, guardado: new Date().toISOString(), semanas: velhas }, ...(sec.ciclos || [])].slice(0, 6);
+    const novas = JSON.parse(JSON.stringify(sec.weeks));
+    const curtas = avancaDomingos(velhas, novas);
+    novas.forEach((w, wi) =>
+      w.employees.forEach((e, i) => {
+        const antes = (velhas[wi].employees[i] || {}).sundayWork;
+        if (!!antes !== !!e.sundayWork) e.offDays = offForEmp(w, e, i);
+      }),
+    );
+    sec.weeks = novas;
+    if (curtas.length) avisos.push(SECTORS[sk] + ' (semanas ' + curtas.join(', ') + ')');
+  });
+  state.selectedSector = sel;
+  state.baseMonday = addDias(velho, 28);
+  state.selectedWeek = 0;
+  state.notice = 'Novo ciclo: ' + cicloTxt(state.baseMonday) + '. O ciclo anterior ficou guardado em Gerar → Ciclo de 4 semanas.';
+  render();
+  toast(
+    avisos.length
+      ? 'Ciclo avançado, mas faltam colaboradoras sem domingo na semana vizinha em: ' + avisos.join('; ') + '. Confira os domingos.'
+      : 'Novo ciclo ' + cicloTxt(state.baseMonday) + ' criado. O anterior ficou guardado.',
+    !avisos.length,
+  );
+}
+function voltaCiclo(ini) {
+  const atual = state.baseMonday;
+  Object.keys(state.sectors).forEach((sk) => {
+    const sec = state.sectors[sk],
+      lista = (sec && sec.ciclos) || [],
+      i = lista.findIndex((c) => c.inicio === ini);
+    if (i < 0) return;
+    const alvo = lista[i];
+    lista.splice(i, 1);
+    lista.unshift({ inicio: atual, guardado: new Date().toISOString(), semanas: JSON.parse(JSON.stringify(sec.weeks)) });
+    sec.weeks = alvo.semanas;
+    sec.ciclos = lista.slice(0, 6);
+  });
+  state.baseMonday = ini;
+  state.selectedWeek = 0;
+  state.notice = 'Ciclo ' + cicloTxt(ini) + ' aberto. O ciclo que estava na tela ficou guardado.';
+  render();
+  toast('Ciclo ' + cicloTxt(ini) + ' aberto.', true);
+}
+document.addEventListener('click', async (e) => {
+  const av = e.target.closest && e.target.closest('#cicloAvancar'),
+    vo = e.target.closest && e.target.closest('[data-ciclo]');
+  if (av) {
+    if (
+      await askConfirm(
+        'Avançar para o ciclo ' + cicloTxt(addDias(state.baseMonday, 28)) + '? O ciclo atual (' + cicloTxt(state.baseMonday) + ') fica guardado em todos os setores e os domingos seguem a sequência.',
+      )
+    )
+      avancaCiclo();
+  } else if (vo) {
+    if (await askConfirm('Voltar ao ciclo ' + cicloTxt(vo.dataset.ciclo) + '? O ciclo que está na tela fica guardado.')) voltaCiclo(vo.dataset.ciclo);
+  }
+});
 /* backup em arquivo */
 function exportBackup() {
   state.lastBackup = new Date().toISOString();
@@ -846,12 +959,25 @@ function active(e, d, at) {
   const brk = [mins(s.lunchStart), Math.min(mins(s.lunchEnd), end)];
   return point >= mins(s.start) && point < end && !(brk && point >= brk[0] && point < brk[1]);
 }
-function cover(d, start, end) {
-  const values = [];
-  for (let n = mins(start); n < mins(end); n += 30)
-    values.push(week().employees.filter((e) => active(e, d, time(n))).length);
+function cover(d, start, end, emps) {
+  const values = [],
+    list = emps || week().employees;
+  for (let n = mins(start); n < mins(end); n += 30) values.push(list.filter((e) => active(e, d, time(n))).length);
   return values.length ? Math.min(...values) : 0;
 }
+let modoAjuste = false,
+  boardPosto = '';
+/* a colaboradora cobre a faixa se o turno dela cobre todos os horários dela (fora do almoço), independente de folga */
+function cobreFaixa(e, start, end) {
+  const s = week().shifts[e.shift],
+    fim = Math.min(mins(s.end), mins(state.settings.weekClose));
+  for (let n = mins(start); n < mins(end); n += 30) {
+    if (n < mins(s.start) || n >= fim || (n >= mins(s.lunchStart) && n < Math.min(mins(s.lunchEnd), fim))) return false;
+  }
+  return true;
+}
+const ctlBtns = (attrs) =>
+  `<span class="oa-ctl"><button type="button" class="oa-b" ${attrs} data-dl="-1" aria-label="menos 1" title="Tirar 1 pessoa deste dia">−</button><button type="button" class="oa-b" ${attrs} data-dl="1" aria-label="mais 1" title="Colocar mais 1 pessoa neste dia">+</button></span>`;
 function renderBoard() {
   const bands = [],
     close = mins(state.settings.weekClose);
@@ -859,18 +985,38 @@ function renderBoard() {
     const stop = Math.min(start + 60, close);
     bands.push([time(start) + '–' + time(stop), time(start), time(stop)]);
   }
+  const keys = hasPosts() ? postKeys().filter((k) => week().employees.some((e) => e.station === k)) : [];
+  if (boardPosto && !keys.includes(boardPosto)) boardPosto = '';
+  const emps = week().employees.filter((e) => !boardPosto || e.station === boardPosto);
   document.getElementById('boardNote').textContent =
     'Segunda a sábado até ' +
     state.settings.weekClose +
     '; domingo até ' +
     state.settings.sundayClose +
-    '. Verde indica maior cobertura e vermelho a menor.';
+    '. Verde indica maior cobertura e vermelho a menor.' +
+    (boardPosto ? ' Mostrando só: ' + POST_NAMES[boardPosto] + '.' : '');
+  const table = document.getElementById('coverageBoard'),
+    wrap = table.closest('.table-wrap');
+  let bar = document.getElementById('boardBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'boardBar';
+    bar.className = 'board-bar';
+    wrap.parentNode.insertBefore(bar, wrap);
+  }
+  bar.innerHTML =
+    (keys.length
+      ? `<div class="board-chips" role="group" aria-label="Posto"><button type="button" class="chip${boardPosto ? '' : ' on'}" data-bpost="">Todos</button>${keys.map((k) => `<button type="button" class="chip${boardPosto === k ? ' on' : ''}" data-bpost="${k}">${POST_NAMES[k]}</button>`).join('')}</div>`
+      : '') +
+    `<button type="button" class="button ${modoAjuste ? 'secondary' : 'outline'} adj-toggle" data-ajuste>${modoAjuste ? 'Ajuste ligado: use + e − nas células' : 'Ajustar escala por aqui'}</button>`;
   const rows = bands.map(([label, start, end]) => ({
       label,
+      start,
+      end,
       counts: DAYS.map((d) =>
         closedDay(d[0]) || (d[0] === 'domingo' && mins(start) >= sc())
           ? null
-          : cover(d, start, d[0] === 'domingo' && mins(end) > sc() ? state.settings.sundayClose : end),
+          : cover(d, start, d[0] === 'domingo' && mins(end) > sc() ? state.settings.sundayClose : end, emps),
       ),
     })),
     all = rows.flatMap((r) => r.counts.filter(Number.isFinite)),
@@ -891,7 +1037,12 @@ function renderBoard() {
   document.getElementById('coverageBoardBody').innerHTML = rows
     .map(
       (r) =>
-        `<tr><td>${r.label}</td>${r.counts.map((n) => `<td class="${cls(n)}">${n === null ? '—' : n}</td>`).join('')}</tr>`,
+        `<tr><td>${r.label}</td>${r.counts
+          .map((n, i) => {
+            const d = DAYS[i];
+            return `<td class="${cls(n)}">${n === null ? '—' : n}${modoAjuste && n !== null && d[0] !== 'domingo' ? ctlBtns(`data-oa="faixa" data-day="${d[0]}" data-ini="${r.start}" data-fim="${r.end}" data-post="${boardPosto}"`) : ''}</td>`;
+          })
+          .join('')}</tr>`,
     )
     .join('');
 }
@@ -2074,10 +2225,10 @@ function renderOffAnalysis() {
   const works = (e, d) => worksOn(e, d[0], wi),
     closed = (d) => closedDay(d[0], wi);
   const cls = (n) => (n <= 1 ? 'crit' : n === 2 ? 'warn' : 'ok');
-  const cell = (n, closedDay_) =>
+  const cell = (n, closedDay_, attrs) =>
     closedDay_
       ? '<td class="oa-closed">Fechado</td>'
-      : `<td class="oa-${cls(n)}"><b>${n}</b><small>${n > 0 ? '−1 → ' + (n - 1) : 'sem cobertura'}</small></td>`;
+      : `<td class="oa-${cls(n)}"><b>${n}</b><small>${n > 0 ? '−1 → ' + (n - 1) : 'sem cobertura'}</small>${modoAjuste && attrs ? ctlBtns(attrs) : ''}</td>`;
   const dayHead = '<th></th>' + DAYS.map((d) => `<th>${d[1]}<small>${short(date(d[0]))}</small></th>`).join('');
   const total = DAYS.map((d) => (closed(d) ? null : emps.filter((e) => works(e, d)).length));
   const offN = DAYS.map((d, i) => (total[i] === null ? null : N - total[i]));
@@ -2085,7 +2236,7 @@ function renderOffAnalysis() {
   const shiftRows = w.shifts
     .map((s, i) => {
       const mem = emps.filter((e) => e.shift === i);
-      return `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}<small>${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map((d) => (d[0] === 'domingo' ? '<td class="oa-closed" title="Veja o quadro de domingo">—</td>' : cell(mem.filter((e) => works(e, d)).length, closed(d)))).join('')}</tr>`;
+      return `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}<small>${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map((d) => (d[0] === 'domingo' ? '<td class="oa-closed" title="Veja o quadro de domingo">—</td>' : cell(mem.filter((e) => works(e, d)).length, closed(d), `data-oa="dia" data-g="t:${i}" data-day="${d[0]}"`))).join('')}</tr>`;
     })
     .join('');
   const movRow = `<tr><th class="oa-row">Movimento esperado<small>editável em Gerar</small></th>${DAYS.map((d) => `<td class="oa-mov oa-mov-${movement()[d[0]]}">${movLabel(d[0])}</td>`).join('')}</tr>`;
@@ -2099,7 +2250,7 @@ function renderOffAnalysis() {
   const postRows = posts
     .map(
       (p) =>
-        `<tr><th class="oa-row">${POST_NAMES[p.k]}<small>${p.mem.length} colab.</small></th>${DAYS.map((d) => cell(p.mem.filter((e) => works(e, d)).length, closed(d))).join('')}</tr>`,
+        `<tr><th class="oa-row">${POST_NAMES[p.k]}<small>${p.mem.length} colab.</small></th>${DAYS.map((d) => cell(p.mem.filter((e) => works(e, d)).length, closed(d), d[0] === 'domingo' ? '' : `data-oa="dia" data-g="p:${p.k}" data-day="${d[0]}"`)).join('')}</tr>`,
     )
     .join('');
   // quem folga
@@ -2181,10 +2332,16 @@ function renderOffAnalysis() {
         (bad.length ? ' Fora do padrão: ' + bad.map((x) => escape(x.e.name) + ' (' + x.n + ')').join(', ') + '.' : ''),
     );
   }
+  if (w.model === '6x1')
+    obs.push(
+      'Por que o 6x1 tem 2 folgas na semana sem domingo? Quem trabalha o domingo folga 1 dia na semana; na semana seguinte o domingo já é folga e entra mais 1 dia de folga. Sem essa folga extra, a pessoa trabalharia 10 dias seguidos (folga na quarta, depois quinta a domingo, depois segunda a sábado), acima do limite de 6 dias seguidos (art. 67 da CLT). Na média são 1,5 folga por semana.',
+    );
   if (!obs.length) obs.push('Sem pontos de atenção nesta semana.');
-  el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi + 1}</p><h2>Quem folga e quanto sobra em cada turno</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div><div class="op-head-actions"><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
+  el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi + 1}</p><h2>Quem folga e quanto sobra em cada turno</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div><div class="op-head-actions"><button type="button" class="button ${modoAjuste ? 'secondary' : 'outline'} adj-toggle" data-ajuste>${modoAjuste ? 'Ajuste ligado: use + e − nas células' : 'Ajustar escala por aqui'}</button><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
+  ${modoAjuste ? '<p class="oa-dica">Modo ajuste: <b>+</b> coloca mais 1 pessoa para trabalhar naquele dia (a folga dela vai para o dia com mais gente) e <b>−</b> tira 1 (a pessoa folga nesse dia e passa a trabalhar no dia mais vazio). Em "Pessoas por posto e turno" o mesmo vale para os turnos e refaz o rodízio das 4 semanas. Se a mudança quebrar uma regra, ela não é aplicada e aparece um erro em vermelho.</p>' : ''}
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map((o) => '<li>' + o + '</li>').join('')}</ul></div>
   <h3 class="oa-title">Por turno</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${shiftRows}${totalRow}</tbody></table></div>
+  ${posts.length ? `<h3 class="oa-title">Pessoas por posto e turno</h3><div class="table-wrap"><table class="oa-table oa-turnos"><thead><tr><th></th>${w.shifts.map((s) => `<th>${escape(s.name)}<small>${s.start}</small></th>`).join('')}<th>Total</th></tr></thead><tbody>${posts.map((q) => `<tr><th class="oa-row">${POST_NAMES[q.k]}<small>${q.mem.length} colab.</small></th>${w.shifts.map((s, i) => { const n = q.mem.filter((e) => e.shift === i).length; return `<td class="oa-${n ? 'ok' : 'warn'}"><b>${n}</b>${q.k === 'caixa' && hasPdv() ? `<small>máx. ${activePdvs(w).length} (PDVs)</small>` : ''}${modoAjuste ? ctlBtns(`data-oa="turno" data-post="${q.k}" data-turno="${i}"`) : ''}</td>`; }).join('')}<td><b>${q.mem.length}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
   ${posts.length ? `<h3 class="oa-title">Por posto</h3><div class="table-wrap"><table class="oa-table"><thead><tr>${dayHead}</tr></thead><tbody>${postRows}</tbody></table></div>` : ''}
   <h3 class="oa-title">Quem está de folga em cada dia</h3><div class="table-wrap"><table class="oa-table oa-who"><tbody>${whoRows}</tbody></table></div>`;
 }
@@ -2202,8 +2359,10 @@ function sundayConflict(e) {
   }
   return -1;
 }
-let toastTimer;
+let toastTimer,
+  toastEm = 0;
 function toast(msg, ok) {
+  toastEm = Date.now();
   const t = document.getElementById('toast');
   t.style.background = ok ? '#14845a' : '';
   t.textContent = msg;
@@ -2888,19 +3047,15 @@ document.getElementById('resetAllButton').addEventListener('click', async () => 
     state.selectedWeek = 0;
     state.notice = '';
     render();
+    toast('As 4 semanas de ' + SECTORS[state.selectedSector] + ' foram restauradas.', true);
   }
 });
 document.getElementById('resetButton').addEventListener('click', async () => {
   if (await await askConfirm('Restaurar somente a semana aberta? Esta ação não muda as outras semanas.')) {
     sector().weeks[state.selectedWeek] = newWeek();
     render();
+    toast('A semana ' + (state.selectedWeek + 1) + ' foi restaurada.', true);
   }
-});
-document.getElementById('exportButton').addEventListener('click', exportBackup);
-document.getElementById('importFile').addEventListener('change', (e) => {
-  const f = e.target.files[0];
-  if (f) importBackup(f);
-  e.target.value = '';
 });
 render();
 /* confirmação dentro do app (o navegador bloqueia confirm() em páginas incorporadas) */
@@ -3695,3 +3850,182 @@ afterRender.push(() => {
 try {
   render();
 } catch (e) {}
+
+/* Retorno em todo botão de ação: se a ação não mostrou nenhuma mensagem, mostra uma de confirmação (verde) */
+(function () {
+  const MSG = [
+    ['[data-replicate="team"]', 'Equipe e modelo copiados para as outras semanas.'],
+    ['[data-replicate="pdvs"]', 'Quantidade de PDVs copiada para as outras semanas.'],
+    ['[data-replicate="all"]', 'Preenchimento completo copiado para as outras semanas.'],
+    ['[data-replicate="shifts"]', 'Turnos replicados nas outras semanas.'],
+    ['[data-suggest-off-all]', 'Folgas sugeridas nas 4 semanas.'],
+    ['[data-suggest-off]', 'Folgas sugeridas para esta semana.'],
+    ['[data-suggest-sundays]', 'Domingos alternados sugeridos nas 4 semanas.'],
+    ['#applyPdvActive', 'PDVs em uso aplicados nas 4 semanas.'],
+  ];
+  document.addEventListener('click', (e) => {
+    const t0 = Date.now();
+    const hit = MSG.find(([sel]) => e.target.closest && e.target.closest(sel));
+    if (!hit) return;
+    setTimeout(() => {
+      if (toastEm < t0) toast(hit[1], true);
+    }, 60);
+  });
+})();
+
+/* ===== ajustes feitos direto na Análise de folgas e na Cobertura por hora ===== */
+const errosAtuais = () => new Set(compliance().filter((x) => x.level === 'erro').map((x) => x.text));
+function tentaVarias(opcoes, okMsg, semOpcaoMsg) {
+  const antes = errosAtuais(),
+    sec = sector(),
+    snap = JSON.stringify(sec.weeks),
+    ps = JSON.stringify(sec.postShifts || null),
+    plano = JSON.stringify(sec.pdvPlan || null);
+  let ultimo = '';
+  const volta = () => {
+    sec.weeks = JSON.parse(snap);
+    const o = JSON.parse(ps);
+    if (o) sec.postShifts = o;
+    else delete sec.postShifts;
+    const pl = JSON.parse(plano);
+    if (pl) sec.pdvPlan = pl;
+    else delete sec.pdvPlan;
+  };
+  for (const op of opcoes.slice(0, 40)) {
+    const r = op();
+    if (r && r.erro) {
+      ultimo = r.erro;
+      volta();
+      continue;
+    }
+    const novos = [...errosAtuais()].filter((t) => !antes.has(t));
+    if (!novos.length) {
+      render();
+      toast(typeof okMsg === 'function' ? okMsg(r) : okMsg, true);
+      return true;
+    }
+    ultimo = novos[0];
+    volta();
+  }
+  render();
+  toast('Erro: ' + (opcoes.length ? 'a mudança quebraria uma regra e não foi aplicada. ' + ultimo : semOpcaoMsg));
+  return false;
+}
+/* mexe nas folgas da semana aberta: delta=+1 → mais uma pessoa do grupo trabalhando nesse dia; −1 → uma a menos */
+function moveFolga(G, rotulo, dKey, delta) {
+  const w = week(),
+    wi = state.selectedWeek,
+    D = DAYS.find((d) => d[0] === dKey),
+    dias = DAYS.filter((d) => d[0] !== 'domingo' && !closedDay(d[0], wi)),
+    trab = (e, d) => worksOn(e, d[0], wi),
+    cov = (d) => G.filter((e) => trab(e, d)).length,
+    livre = (e, d) =>
+      !noSameOff().includes(e.station) || !w.employees.some((o) => o !== e && o.station === e.station && !trab(o, d));
+  if (!D || D[0] === 'domingo') return toast('Erro: o domingo se ajusta pela lista de quem trabalha no domingo, não por aqui.');
+  if (closedDay(D[0], wi)) return toast('Erro: a loja está fechada nesse dia.');
+  const pares = [];
+  if (delta > 0) {
+    G.filter((e) => !trab(e, D) && e.offDays.includes(D[0])).forEach((e) =>
+      dias.filter((y) => y !== D && trab(e, y) && cov(y) > 1 && livre(e, y)).forEach((y) => pares.push({ e, y, score: cov(y) })),
+    );
+    pares.sort((a, b) => b.score - a.score);
+  } else {
+    G.filter((e) => trab(e, D) && livre(e, D)).forEach((e) =>
+      e.offDays.filter((x) => x !== D[0]).forEach((x) => pares.push({ e, y: DAYS.find((d) => d[0] === x), score: cov(DAYS.find((d) => d[0] === x)) })),
+    );
+    pares.sort((a, b) => a.score - b.score);
+    const so = G.filter((e) => trab(e, D)).length;
+    if (so <= 1 && G.length > 1 && cov(D) <= 1) return toast('Erro: ' + rotulo + ' ficaria sem ninguém em ' + D[0] + '.');
+  }
+  if (!pares.length)
+    return toast(
+      delta > 0
+        ? 'Erro: ninguém de folga em ' + D[0] + ' (' + rotulo + ') pode trocar de dia sem deixar o outro dia vazio ou repetir folga no mesmo posto.'
+        : 'Erro: ninguém trabalhando em ' + D[0] + ' (' + rotulo + ') tem uma folga para trocar de dia.',
+    );
+  const ops = pares.map((par) => () => {
+    const e = par.e;
+    e.offDays = delta > 0 ? e.offDays.filter((x) => x !== D[0]).concat(par.y[0]) : e.offDays.filter((x) => x !== par.y[0]).concat(D[0]);
+    e.offDays.sort((a, b) => DAYS.findIndex((d) => d[0] === a) - DAYS.findIndex((d) => d[0] === b));
+    if (hasPdv()) assignPdvs(w, wi, true);
+    return { e, y: par.y };
+  });
+  tentaVarias(
+    ops,
+    (r) =>
+      delta > 0
+        ? 'Mais 1 em ' + D[0] + ' (' + rotulo + '): a folga de ' + r.e.name + ' passou de ' + D[0] + ' para ' + r.y[0] + '.'
+        : 'Menos 1 em ' + D[0] + ' (' + rotulo + '): ' + r.e.name + ' folga em ' + D[0] + ' e passa a trabalhar em ' + r.y[0] + '.',
+    'não encontrei troca possível.',
+  );
+}
+function moveTurno(k, i, delta) {
+  const w = week(),
+    cur = w.shifts.map((_, j) => w.employees.filter((e) => e.station === k && e.shift === j).length),
+    lim = k === 'caixa' && hasPdv() ? activePdvs(w).length : 99,
+    nome = (j) => w.shifts[j].name;
+  let j;
+  if (delta > 0) {
+    if (cur[i] + 1 > lim)
+      return toast('Erro: o ' + nome(i) + ' já tem ' + cur[i] + ' operadora' + (cur[i] === 1 ? '' : 's') + ' e só há ' + lim + ' PDV' + (lim === 1 ? '' : 's') + ' em uso: não cabe mais 1.');
+    const outros = cur.map((n, x) => [n, x]).filter(([n, x]) => x !== i && n > 0).sort((a, b) => b[0] - a[0]);
+    if (!outros.length) return toast('Erro: ' + (POST_NAMES[k] || k) + ' não tem ninguém em outro turno para passar para o ' + nome(i) + '.');
+    j = outros[0][1];
+  } else {
+    if (cur[i] < 1) return toast('Erro: o ' + nome(i) + ' não tem ninguém de ' + (POST_NAMES[k] || k) + ' para tirar.');
+    const dest = cur.map((n, x) => [n, x]).filter(([n, x]) => x !== i && n + 1 <= lim).sort((a, b) => a[0] - b[0]);
+    if (!dest.length) return toast('Erro: nenhum outro turno comporta mais 1 pessoa de ' + (POST_NAMES[k] || k) + ' (limite de ' + lim + ' por turno).');
+    j = dest[0][1];
+  }
+  const novo = cur.slice();
+  novo[i] += delta;
+  novo[j] -= delta;
+  tentaVarias(
+    [
+      () => {
+        const s = sector();
+        s.postShifts = s.postShifts || {};
+        s.postShifts[k] = novo;
+        const r = applyPostPlan(true);
+        if (r === false) return { erro: 'não foi possível refazer o rodízio.' };
+        sector().weeks.forEach((x, wi) => {
+          swapRestricted(x);
+          if (hasPdv()) assignPdvs(x, wi, true);
+        });
+        return {};
+      },
+    ],
+    delta > 0
+      ? (POST_NAMES[k] || k) + ': +1 no ' + nome(i) + ' e −1 no ' + nome(j) + '. O rodízio das 4 semanas foi refeito.'
+      : (POST_NAMES[k] || k) + ': −1 no ' + nome(i) + ' e +1 no ' + nome(j) + '. O rodízio das 4 semanas foi refeito.',
+    'não encontrei troca possível.',
+  );
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest && e.target.closest('[data-ajuste],[data-bpost],[data-oa]');
+  if (!t) return;
+  if (t.hasAttribute('data-ajuste')) {
+    modoAjuste = !modoAjuste;
+    render();
+    toast(modoAjuste ? 'Ajuste ligado: use + e − nas células das tabelas.' : 'Ajuste desligado.', true);
+    return;
+  }
+  if (t.hasAttribute('data-bpost')) {
+    boardPosto = t.dataset.bpost;
+    render();
+    return;
+  }
+  const dl = +t.dataset.dl,
+    w = week();
+  if (t.dataset.oa === 'turno') return moveTurno(t.dataset.post, +t.dataset.turno, dl);
+  if (t.dataset.oa === 'dia') {
+    const [tp, id] = t.dataset.g.split(':');
+    if (tp === 'p') return moveFolga(w.employees.filter((x) => x.station === id), POST_NAMES[id] || 'colaboradoras', t.dataset.day, dl);
+    return moveFolga(w.employees.filter((x) => x.shift === +id), w.shifts[+id].name, t.dataset.day, dl);
+  }
+  if (t.dataset.oa === 'faixa') {
+    const G = w.employees.filter((x) => (!t.dataset.post || x.station === t.dataset.post) && cobreFaixa(x, t.dataset.ini, t.dataset.fim));
+    if (!G.length) return toast('Erro: nenhuma colaboradora' + (t.dataset.post ? ' de ' + POST_NAMES[t.dataset.post] : '') + ' tem turno que cubra ' + t.dataset.ini + '–' + t.dataset.fim + '.');
+    return moveFolga(G, (t.dataset.post ? POST_NAMES[t.dataset.post] + ' · ' : '') + t.dataset.ini + '–' + t.dataset.fim, t.dataset.day, dl);
+  }
+});
