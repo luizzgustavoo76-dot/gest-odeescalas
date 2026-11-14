@@ -72,9 +72,15 @@ function assignPdvs(w,wi,fresh){
   const done=[];let short=0;
   /* fresh: quem entra mais cedo (1º turno) pega os PDVs mais baixos, 1 a 4 primeiro */
   if(fresh)emps.sort((a,b)=>mins(w.shifts[a.shift].start)-mins(w.shifts[b.shift].start)||a.id-b.id);
+  const plan=(fresh&&sector().pdvPlan)||{},reserved=new Set(Object.values(plan).flat());
   emps.forEach(e=>{
     const used=new Set(done.filter(o=>clash(e,o)).map(o=>o.pdv));
     let pick=(!fresh&&e.pdv>=1&&e.pdv<=w.pdvCount&&!used.has(e.pdv))?e.pdv:0;
+    /* PDVs escolhidos para este turno; sem escolha, usa os que não foram reservados a outro turno */
+    const mine=(plan[e.shift]||[]).filter(n=>n<=w.pdvCount).sort((x,y)=>x-y);
+    if(!pick&&mine.length)pick=mine.find(n=>!used.has(n))||0;
+    if(!pick&&fresh&&!mine.length)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
+    if(!pick&&fresh)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)&&!reserved.has(n)){pick=n;break}
     if(!pick)for(let n=1;n<=w.pdvCount;n++)if(!used.has(n)){pick=n;break}
     if(!pick){pick=((e.id-1)%w.pdvCount)+1;short++}
     e.pdv=pick;done.push(e);
@@ -379,6 +385,7 @@ function postsPanel(){
   <div class="post-grid"><span></span><b>Cedo</b><b>Tarde</b>${postKeys().map(row).join('')}</div>
   <label class="early-row">Cedo = entrada antes de <input type="time" id="postEarly" value="${state.settings.earlyBefore||'09:00'}" /></label>
   <p class="helper">Dica: a soma de cedo + tarde de cada posto deve ser igual ao número de colaboradoras daquele posto nesta semana.</p>
+  ${pdvPlanPanel()}
   <button class="button secondary full" id="applyPosts" type="button">Aplicar rodízio de turnos dos postos nas 4 semanas</button>
   <p class="helper">Só muda o turno de quem está em Pacote, Fiscal ou Recepção; PDVs e demais colaboradoras não são alterados.</p></div>`;
 }
@@ -712,3 +719,16 @@ window.addEventListener('afterprint',()=>{delete document.body.dataset.dense});
 /* impressão: tudo em 1 linha por colaboradora (folgas sem o ano) */
 window.addEventListener('beforeprint',()=>{document.querySelectorAll('#scheduleTable .c-off').forEach(td=>{td.dataset.full=td.innerHTML;td.innerHTML=td.innerHTML.replace(/\/\d{2}(?!\d)/g,'')})});
 window.addEventListener('afterprint',()=>{document.querySelectorAll('#scheduleTable .c-off[data-full]').forEach(td=>{td.innerHTML=td.dataset.full;delete td.dataset.full})});
+
+/* ===== PDVs por turno (selecionável) ===== */
+function pdvPlanPanel(){
+  if(!hasPdv())return '';
+  const w=week(),plan=sector().pdvPlan||{};
+  const rows=w.shifts.map((sh,i)=>{
+    const n=w.employees.filter(e=>e.station==='caixa'&&e.shift===i).length,sel=(plan[i]||[]).filter(x=>x<=w.pdvCount),warn=sel.length&&sel.length<n;
+    const chips=Array.from({length:w.pdvCount},(_,k)=>k+1).map(p=>`<label class="pdv-chip"><input type="checkbox" data-pdvshift="${i}" value="${p}" ${sel.includes(p)?'checked':''} /><span>${p}</span></label>`).join('');
+    return `<div class="pdv-shift"><b>${escape(sh.name)} · ${sh.start}</b><small class="${warn?'post-warn':''}">${n} operadora${n===1?'':'s'} neste horário${sel.length?' · '+sel.length+' PDV'+(sel.length===1?'':'s')+' marcado'+(sel.length===1?'':'s'):' · automático'}${warn?' (faltam PDVs: o restante usa outros números livres)':''}</small><div class="pdv-chips">${chips}</div></div>`}).join('');
+  return `<div class="pdv-plan"><label>PDVs de cada turno (Operadora Caixa)</label><p class="helper">Marque quais PDVs cada turno usa; sem marcação, o sistema escolhe automático (1º turno nos números mais baixos). Vale ao aplicar o rodízio, ao gerar a escala e no botão abaixo. Quem passar da quantidade marcada usa outro PDV livre.</p>${rows}<button class="button outline full" id="applyPdvPlan" type="button">Aplicar PDVs nas 4 semanas</button><button class="link-btn" id="clearPdvPlan" type="button">Limpar escolha (automático)</button></div>`;
+}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('[data-pdvshift]'))return;const sh=+t.dataset.pdvshift,sec=sector();sec.pdvPlan=sec.pdvPlan||{};const cur=new Set(sec.pdvPlan[sh]||[]),v=+t.value;t.checked?cur.add(v):cur.delete(v);/* um PDV só pode ser de um turno que se sobrepõe: remove das outras marcações */if(t.checked)Object.keys(sec.pdvPlan).forEach(k=>{if(+k!==sh)sec.pdvPlan[k]=(sec.pdvPlan[k]||[]).filter(x=>x!==v)});sec.pdvPlan[sh]=[...cur].sort((a,b)=>a-b);render()});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#applyPdvPlan,#clearPdvPlan');if(!b)return;const sec=sector();if(b.id==='clearPdvPlan'){sec.pdvPlan={};render();toast('PDVs por turno voltaram ao automático.');return}sector().weeks.forEach((w,wi)=>assignPdvs(w,wi,true));render();toast('PDVs aplicados nas 4 semanas.',true)});

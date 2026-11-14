@@ -149,3 +149,6 @@ A logo do Supermercados Bom Dia · São Luiz fica em `logo.png` (mantenha o arqu
 
 ## PDV ao gerar as semanas
 Ao gerar as escalas, quem trabalha no 1º turno (entrada mais cedo) recebe os PDVs mais baixos (1 a 4 primeiro); os turnos seguintes pegam os números livres seguintes. Ninguém divide o mesmo PDV no mesmo dia e horário.
+
+## PDVs de cada turno (selecionável)
+Na aba **Rodízio** (Frente de Caixa) há o bloco "PDVs de cada turno": marque quais PDVs cada turno usa (ex.: 1º turno = PDV 1 a 4). Mostra quantas operadoras há em cada horário e avisa se faltarem PDVs marcados. Vale ao aplicar o rodízio, ao gerar a escala e no botão "Aplicar PDVs nas 4 semanas". Sem marcação, o sistema escolhe automático. Quem passar da quantidade marcada usa outro PDV livre.
