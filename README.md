@@ -176,3 +176,6 @@ A quantidade de PDVs disponíveis agora fica na própria aba **Equipe** (Frente 
 
 ### Ajustes de leitura na impressão
 Título e datas da semana centralizados; colunas mais juntas (sem o espaço grande entre posto e entrada); folgas no formato "Seg. 09/11 e Ter. 10/11" (dia da semana, dia e mês na mesma célula).
+
+### Data no cabeçalho do domingo
+O cabeçalho da folha de domingo (impressão e arquivo "Baixar para imprimir") traz "Escala de domingo · data".

@@ -126,3 +126,5 @@
  .sunday-dashboard .print-brand{position:relative}.sunday-dashboard .print-brand span{position:absolute;left:0;right:0;margin:0;text-align:center;pointer-events:none}
 }
 @media print{.hero,.hero>*,#mainTitle,#sectorLabel{text-align:center!important;justify-content:center!important}.hero{display:block!important}}
+@media print{.sunday-dashboard .print-brand span{font-size:15px!important;color:#111}.sunday-dashboard .section-heading{text-align:center}.sunday-dashboard .section-heading>div{text-align:center}.sunday-dashboard h2{font-size:15px;text-align:center}}
+@media print{.sunday-dashboard .section-heading{display:none!important}}
