@@ -210,3 +210,6 @@ O painel "Configuração da semana" (abas Equipe, Turnos, Rodízio, Regras e Ger
 
 ### Botões agrupados e alinhados
 Na aba **Equipe** os botões ficam em dois grupos alinhados ("Copiar para as outras semanas" e "Sugestões automáticas"), com o mesmo tamanho; restaurar e backup ficam numa linha de rodapé. Os botões do topo (importar, modelo, imprimir, baixar) ficam em grade, e nas demais abas os botões alinham à esquerda com tamanho padrão.
+
+### Botões de folga com data
+Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/11"). O botão **Dom** fica ao lado, ocupando a altura das duas linhas (entre Qua e Sáb), indicando "folga" ou "trabalha" no domingo. A altura da linha não aumenta.
