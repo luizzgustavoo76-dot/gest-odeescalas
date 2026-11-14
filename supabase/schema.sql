@@ -111,6 +111,77 @@ grant execute on function public.sou_admin() to authenticated;
 grant execute on function public.posso_ver(text) to authenticated;
 grant execute on function public.posso_editar(text) to authenticated;
 
+-- 7) Painel de administração: registro de atividades e histórico de escalas ----
+create table if not exists public.auditoria (
+  id bigint generated always as identity primary key,
+  quando timestamptz not null default now(),
+  ultima_em timestamptz not null default now(),
+  ator uuid, ator_email text, acao text not null, alvo text, detalhes jsonb,
+  qtd int not null default 1
+);
+create index if not exists auditoria_quando_idx on public.auditoria (quando desc);
+alter table public.auditoria enable row level security;
+drop policy if exists auditoria_admin_ler on public.auditoria;
+create policy auditoria_admin_ler on public.auditoria for select to authenticated using (public.sou_admin());
+
+create table if not exists public.escalas_historico (
+  id bigint generated always as identity primary key,
+  setor text not null, dados jsonb not null, resumo jsonb,
+  versao_em timestamptz, versao_por uuid references auth.users(id) on delete set null,
+  salvo_em timestamptz not null default now()
+);
+create index if not exists escalas_historico_setor_idx on public.escalas_historico (setor, id desc);
+alter table public.escalas_historico enable row level security;
+drop policy if exists historico_admin_ler on public.escalas_historico;
+create policy historico_admin_ler on public.escalas_historico for select to authenticated using (public.sou_admin());
+
+create or replace function public.resumo_setor(d jsonb) returns jsonb
+language sql immutable set search_path = public as $$
+  select jsonb_build_object(
+    'colaboradoras', coalesce(jsonb_array_length(d->'weeks'->0->'employees'), 0),
+    'semanas', coalesce(jsonb_array_length(d->'weeks'), 0),
+    'primeiros', (select coalesce(jsonb_agg(e->>'name'), '[]'::jsonb) from (select e from jsonb_array_elements(coalesce(d->'weeks'->0->'employees','[]'::jsonb)) e limit 3) q)
+  );
+$$;
+
+create or replace function public.guarda_historico() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.dados is distinct from new.dados and new.setor <> '_config' then
+    if not exists (select 1 from public.escalas_historico h where h.setor = old.setor and h.salvo_em > now() - interval '2 minutes') then
+      insert into public.escalas_historico (setor, dados, resumo, versao_em, versao_por)
+      values (old.setor, old.dados, public.resumo_setor(old.dados), old.atualizado_em, old.atualizado_por);
+      delete from public.escalas_historico
+       where setor = old.setor
+         and id not in (select id from public.escalas_historico where setor = old.setor order by id desc limit 60);
+    end if;
+  end if;
+  return new;
+end $$;
+create or replace trigger historico_escala before update on public.escalas
+  for each row execute function public.guarda_historico();
+
+create or replace function public.audita_escala() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare ult record; mail text;
+begin
+  select email into mail from auth.users where id = auth.uid();
+  select id, ator, ultima_em into ult from public.auditoria
+   where acao = 'escala_salva' and alvo = new.setor order by id desc limit 1;
+  if found and ult.ator is not distinct from auth.uid() and ult.ultima_em > now() - interval '10 minutes' then
+    update public.auditoria set qtd = qtd + 1, ultima_em = now(), detalhes = public.resumo_setor(new.dados) where id = ult.id;
+  else
+    insert into public.auditoria (ator, ator_email, acao, alvo, detalhes)
+    values (auth.uid(), mail, 'escala_salva', new.setor, public.resumo_setor(new.dados));
+  end if;
+  return new;
+end $$;
+create or replace trigger auditar_escala after insert or update on public.escalas
+  for each row execute function public.audita_escala();
+
+revoke execute on function public.guarda_historico() from public, anon, authenticated;
+revoke execute on function public.audita_escala() from public, anon, authenticated;
+
 -- 6) DEPOIS de criar seu usuário em Authentication → Users, rode UMA vez
 --    (troque pelo seu e-mail) para virar administrador:
 --

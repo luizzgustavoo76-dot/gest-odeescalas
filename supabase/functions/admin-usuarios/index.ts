@@ -37,6 +37,78 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     return count || 0;
   };
 
+  const emailEu: string = quem.user.email || "";
+  const log = async (acaoLog: string, alvo: string | null, detalhes: unknown = null) => {
+    await admin.from("auditoria").insert({ ator: eu, ator_email: emailEu, acao: acaoLog, alvo, detalhes });
+  };
+  const emailDe = async (id: string) => {
+    const { data } = await admin.from("perfis").select("email").eq("id", id).maybeSingle();
+    return data?.email || id;
+  };
+
+  if (acao === "auditoria") {
+    let q = admin.from("auditoria").select("*").order("id", { ascending: false }).limit(Math.min(Number(b.limite) || 100, 500));
+    if (b.filtro && typeof b.filtro === "string") q = q.like("acao", b.filtro + "%");
+    const { data, error } = await q;
+    if (error) return falha(error.message, 500);
+    return json({ eventos: data });
+  }
+
+  if (acao === "historico") {
+    const setor = String(b.setor || "");
+    if (!SETORES.includes(setor)) return falha("Setor inválido.");
+    const { data, error } = await admin.from("escalas_historico").select("id,setor,resumo,versao_em,versao_por,salvo_em")
+      .eq("setor", setor).order("id", { ascending: false }).limit(30);
+    if (error) return falha(error.message, 500);
+    const ids = [...new Set((data || []).map((r: any) => r.versao_por).filter(Boolean))];
+    const { data: ps } = ids.length ? await admin.from("perfis").select("id,email,nome").in("id", ids) : { data: [] };
+    const nomes = new Map((ps || []).map((p: any) => [p.id, p.nome || p.email]));
+    return json({ versoes: (data || []).map((r: any) => ({ ...r, por: nomes.get(r.versao_por) || null })) });
+  }
+
+  if (acao === "restaurar") {
+    const { data: v } = await admin.from("escalas_historico").select("*").eq("id", Number(b.id)).maybeSingle();
+    if (!v) return falha("Versão não encontrada.", 404);
+    const { error } = await admin.from("escalas").update({ dados: v.dados }).eq("setor", v.setor);
+    if (error) return falha(error.message, 500);
+    await log("escala_restaurada", v.setor, { versao_em: v.versao_em, resumo: v.resumo });
+    return json({ ok: true });
+  }
+
+  if (acao === "lote") {
+    const ids: string[] = Array.isArray(b.ids) ? b.ids.map(String) : [];
+    if (!ids.length) return falha("Nenhum usuário marcado.");
+    const op = String(b.op || "");
+    let feitos = 0; const pulados: string[] = [];
+    for (const alvoId of ids) {
+      const em = await emailDe(alvoId);
+      if (op === "papel") {
+        if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
+        if (alvoId === eu && b.papel !== "admin") { pulados.push(em + " (você mesmo)"); continue; }
+        const { data: atual } = await admin.from("perfis").select("papel").eq("id", alvoId).maybeSingle();
+        if (atual?.papel === "admin" && b.papel !== "admin" && (await totalAdmins()) <= 1) { pulados.push(em + " (único admin)"); continue; }
+        const upd: any = { papel: String(b.papel) };
+        if (b.papel === "admin") upd.setores = [];
+        await admin.from("perfis").update(upd).eq("id", alvoId);
+        await log("usuario_nivel", em, { papel: b.papel });
+      } else if (op === "setores_add" || op === "setores_set") {
+        const novos = limpaSetores(b.setores);
+        const { data: atual } = await admin.from("perfis").select("papel,setores").eq("id", alvoId).maybeSingle();
+        if (!atual || atual.papel === "admin") { pulados.push(em + " (admin vê tudo)"); continue; }
+        const final = op === "setores_set" ? novos : [...new Set([...(atual.setores || []), ...novos])];
+        await admin.from("perfis").update({ setores: final }).eq("id", alvoId);
+        await log("usuario_setores", em, { setores: final });
+      } else if (op === "bloquear" || op === "desbloquear") {
+        if (op === "bloquear" && alvoId === eu) { pulados.push(em + " (você mesmo)"); continue; }
+        const { error } = await admin.auth.admin.updateUserById(alvoId, { ban_duration: op === "bloquear" ? "876000h" : "none" });
+        if (error) { pulados.push(em); continue; }
+        await log("usuario_" + op, em);
+      } else return falha("Operação desconhecida.");
+      feitos++;
+    }
+    return json({ ok: true, feitos, pulados });
+  }
+
   if (acao === "listar") {
     const { data: lista, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
     if (error) return falha(error.message, 500);
@@ -46,7 +118,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
       const p: any = mapa.get(u.id) || {};
       return {
         id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "leitor", setores: p.setores || [],
-        ultimo_login: u.last_sign_in_at || null, criado_em: u.created_at,
+        ultimo_login: u.last_sign_in_at || null, criado_em: u.created_at, confirmado: !!u.email_confirmed_at,
         bloqueado: !!(u.banned_until && new Date(u.banned_until) > new Date()),
       };
     }).sort((a: any, b: any) => (a.nome || a.email).localeCompare(b.nome || b.email));
@@ -68,6 +140,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
       id: data.user.id, email, nome, papel: String(b.papel), setores: b.papel === "admin" ? [] : limpaSetores(b.setores),
     });
     if (eP) return falha(eP.message, 500);
+    await log("usuario_criado", email, { papel: b.papel, setores: b.papel === "admin" ? [] : limpaSetores(b.setores) });
     return json({ ok: true, id: data.user.id });
   }
 
@@ -81,6 +154,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
       nome: String(b.nome || "").trim(), papel: String(b.papel), setores: b.papel === "admin" ? [] : limpaSetores(b.setores),
     }).eq("id", id);
     if (error) return falha(error.message, 500);
+    await log("usuario_editado", await emailDe(id), { papel: b.papel, setores: b.papel === "admin" ? [] : limpaSetores(b.setores) });
     return json({ ok: true });
   }
 
@@ -89,6 +163,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (senha.length < 6) return falha("A senha precisa ter pelo menos 6 caracteres.");
     const { error } = await admin.auth.admin.updateUserById(id, { password: senha });
     if (error) return falha(error.message);
+    await log("usuario_senha", await emailDe(id));
     return json({ ok: true });
   }
 
@@ -96,6 +171,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (acao === "bloquear" && id === eu) return falha("Você não pode bloquear a si mesmo.");
     const { error } = await admin.auth.admin.updateUserById(id, { ban_duration: acao === "bloquear" ? "876000h" : "none" });
     if (error) return falha(error.message);
+    await log("usuario_" + acao, await emailDe(id));
     return json({ ok: true });
   }
 
@@ -103,8 +179,10 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (id === eu) return falha("Você não pode excluir a si mesmo.");
     const { data: alvo } = await admin.from("perfis").select("papel").eq("id", id).maybeSingle();
     if (alvo?.papel === "admin" && (await totalAdmins()) <= 1) return falha("Não dá para excluir o único administrador.");
+    const emailAlvo = await emailDe(id);
     const { error } = await admin.auth.admin.deleteUser(id);
     if (error) return falha(error.message);
+    await log("usuario_excluido", emailAlvo);
     return json({ ok: true });
   }
 
