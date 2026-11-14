@@ -37,5 +37,13 @@ await A.evaluate(()=>{window.__ver=1});
 await A.route('**/index.html*',r=>r.fulfill({contentType:'text/html',body:'<meta name="build" content="9999">'}));
 await A.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await A.waitForTimeout(1200);
 T('aparece o botão "Nova versão! Atualizar?"',await A.evaluate(()=>{const n=document.getElementById('novaVersao');return !!n&&!n.hidden&&/Nova versão/.test(n.textContent)}));
+// clicar no botão: salva o pendente e recarrega (não pode travar em "Aguarde")
+await A.evaluate(()=>{window.__nav=null;});
+await A.evaluate(()=>{week().employees[0].name='Teste atualizar';render()});await A.waitForTimeout(1500);
+await A.evaluate(()=>{document.getElementById('toast').hidden=true});
+const nav=A.waitForNavigation({timeout:6000}).then(()=>'recarregou').catch(()=>'nao recarregou');
+await A.evaluate(()=>document.getElementById('novaVersao').click());
+const rr=await nav;
+T('clicar em "Nova versão! Atualizar?" recarrega a página (sem travar em "Aguarde")',rr==='recarregou',rr+' | '+await A.evaluate(()=>{try{return document.getElementById('toast').textContent}catch(e){return ''}}).catch(()=>''));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

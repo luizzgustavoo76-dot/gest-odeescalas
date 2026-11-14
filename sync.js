@@ -154,6 +154,7 @@
     ver[it.setor]=data[0].atualizado_em;return'ok';
   }
   async function enviar(){
+    timer=null; /* o temporizador já disparou: sem isso ele ficava "ligado" para sempre e travava o botão de nova versão */
     if(!me||!pronto)return;
     if(pushing){again=true;return}
     pushing=true;
@@ -186,9 +187,13 @@
   function mostraNovaVersao(){
     let b=document.getElementById('novaVersao');
     if(!b){b=document.createElement('button');b.id='novaVersao';b.type='button';b.className='nova-versao';b.textContent='Nova versão! Atualizar?';
-      b.addEventListener('click',()=>{
-        if(pronto&&(timer||pendentes().length)){warn('Aguarde: suas alterações estão sendo salvas. Tente de novo em instantes.');return}
-        b.disabled=true;b.textContent='Atualizando…';location.replace(novaVersao||location.href);
+      b.addEventListener('click',async()=>{
+        b.disabled=true;b.textContent='Salvando…';
+        try{
+          if(pronto&&(timer||pendentes().length)){clearTimeout(timer);timer=null;await enviar()} // salva o que estiver pendente antes de recarregar
+          if(pronto&&pendentes().length){b.disabled=false;b.textContent='Nova versão! Atualizar?';warn('Não consegui salvar suas alterações agora. Confira a conexão e tente de novo.');return}
+        }catch(e){}
+        b.textContent='Atualizando…';location.replace(novaVersao||location.href);
       });document.body.appendChild(b)}
     b.hidden=false;
   }
