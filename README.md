@@ -188,3 +188,6 @@ A letra e a altura das linhas se ajustam ao número de colaboradoras (poucas = l
 
 ### Impressão: um único documento
 "Imprimir escala" e "Baixar para imprimir" geram exatamente o mesmo documento (mesma função `buildPrintHtml`): o que aparece na tela ao abrir o arquivo é o que sai no papel. Qualquer ajuste de layout é feito nesse documento e vale para os dois botões.
+
+### Troca de PDV também na prévia
+A prévia da escala (tela) mostra, ao lado do PDV da operadora que assume, o horário da troca em vermelho, por exemplo "(após 17:20)", igual ao documento impresso.
