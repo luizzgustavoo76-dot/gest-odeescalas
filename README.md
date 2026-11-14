@@ -224,3 +224,4 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - Faixa de diagnóstico da sincronização (parte de baixo da tela) para conferir o que veio da nuvem.
 - Botão Sair (vermelho) e Atualizar da nuvem visíveis na barra do usuário.
 - Removido o botão Imprimir escala; fica só Baixar para imprimir.
+- Corrige sincronização dos nomes: a lista de nomes (roster) agora vai junto com cada setor na nuvem; dados antigos recuperam os nomes da semana 1.

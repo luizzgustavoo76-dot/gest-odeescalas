@@ -43,7 +43,7 @@
   const diag=document.createElement('div');diag.id='syncDiag';diag.hidden=true;document.body.appendChild(diag);
   const mostraDiag=(extra)=>{try{
     const k=state.selectedSector,w=state.sectors[k].weeks[state.selectedWeek];
-    diag.textContent='[build 66] '+(extra?extra+' · ':'')+'Aqui: '+((window.SECTORS&&SECTORS[k])||k)+', semana '+(state.selectedWeek+1)+' → '+w.employees.length+' colaboradoras ('+w.employees.slice(0,2).map(e=>e.name).join(', ')+'…) · setores na nuvem: '+Object.keys(synced).filter(x=>x!=='_config'&&synced[x]).length;
+    diag.textContent='[build 67] '+(extra?extra+' · ':'')+'Aqui: '+((window.SECTORS&&SECTORS[k])||k)+', semana '+(state.selectedWeek+1)+' → '+w.employees.length+' colaboradoras ('+w.employees.slice(0,2).map(e=>e.name).join(', ')+'…) · setores na nuvem: '+Object.keys(synced).filter(x=>x!=='_config'&&synced[x]).length;
     diag.hidden=false}catch(e){diag.textContent='diag: '+e.message;diag.hidden=false}};
   window.addEventListener('error',e=>{status('Erro no app: '+e.message,'err')});
   window.addEventListener('unhandledrejection',e=>{status('Erro: '+((e.reason&&e.reason.message)||e.reason),'err')});
@@ -52,27 +52,35 @@
   function aplicar(linhas){
     applying=true;
     try{
+      state.roster=state.roster||{};
       for(const l of linhas){
         if(l.setor==='_config'){
           if(l.dados.baseMonday)state.baseMonday=l.dados.baseMonday;
           if(l.dados.settings)state.settings={...state.settings,...l.dados.settings};
-        }else if(state.sectors[l.setor]!==undefined){state.sectors[l.setor]=l.dados}
+        }else if(state.sectors[l.setor]!==undefined){
+          const d={...l.dados},rs=d._roster;delete d._roster;
+          state.sectors[l.setor]=d;
+          // nomes: usa a lista salva; em dados antigos (sem lista) recupera dos colaboradores da semana 1
+          if(Array.isArray(rs)&&rs.length)state.roster[l.setor]=rs;
+          else{const em=(d.weeks&&d.weeks[0]&&d.weeks[0].employees)||[];state.roster[l.setor]=em.map(e=>({name:e.name,restricted:!!e.restricted,station:e.station}))}
+        }
       }
       try{normalize()}catch(e){console.warn(e)}
       for(const l of linhas){
         if(l.setor==='_config')synced._config=JSON.stringify(cfgDados());
-        else if(state.sectors[l.setor]!==undefined)synced[l.setor]=JSON.stringify(state.sectors[l.setor]);
+        else if(state.sectors[l.setor]!==undefined)synced[l.setor]=JSON.stringify(carga(l.setor));
       }
       try{localStorage.setItem(STORE,JSON.stringify(state))}catch(e){}
       try{render()}catch(e){console.warn(e);status('Erro ao mostrar os dados da nuvem: '+e.message,'err')}
     }finally{applying=false}
   }
+  const carga=k=>({...state.sectors[k],_roster:(state.roster&&state.roster[k])||[]});
   const cfgDados=()=>({baseMonday:state.baseMonday,settings:state.settings});
 
   /* ---------- enviar mudanças ---------- */
   function pendentes(){
     const out=[];
-    for(const k of SETORES()){const j=JSON.stringify(state.sectors[k]);if(j!==synced[k])out.push({setor:k,dados:state.sectors[k],j})}
+    for(const k of SETORES()){const c=carga(k),j=JSON.stringify(c);if(j!==synced[k])out.push({setor:k,dados:c,j})}
     const c=cfgDados(),cj=JSON.stringify(c);if(cj!==synced._config)out.push({setor:'_config',dados:c,j:cj});
     return out;
   }
