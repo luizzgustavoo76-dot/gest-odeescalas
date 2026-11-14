@@ -160,7 +160,7 @@ function renderBackupStatus(){
   el.textContent=t?'Dados salvos neste dispositivo · último backup em '+short(t)+' '+pad(t.getHours())+':'+pad(t.getMinutes()):'Dados salvos só neste dispositivo · faça um backup';
   box.classList.toggle('warn',days===null||days>=7);
 }
-function save(){localStorage.setItem(STORE,JSON.stringify(state))}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(state))}catch(e){}}
 function activateTab(name){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===name));document.querySelectorAll('.tab-panel').forEach(x=>x.classList.toggle('active',x.dataset.panel===name))}
 const effOff=e=>e.sundayWork?e.offDays:[...e.offDays,'domingo'],offLimit=(e,model=week().model)=>Math.max(0,2-(e.sundayWork?0:1)),sc=()=>sundayPlan(week()).en;
 function offText(e){const picked=DAYS.filter(d=>effOff(e).includes(d[0])||closedDay(d[0]));return picked.length?picked.map(d=>d[1]+' '+short(date(d[0]))+(closedDay(d[0])&&!effOff(e).includes(d[0])?' (feriado)':'')).join(' e '):'Definir'}

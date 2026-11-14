@@ -34,8 +34,9 @@
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="link-btn" id="logoutBtn">Sair</button>';
+  bar.innerHTML='<span id="userWho"></span><button type="button" class="link-btn" id="refreshBtn">Atualizar da nuvem</button><button type="button" class="link-btn" id="logoutBtn">Sair</button>';
   const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
+  $('refreshBtn').addEventListener('click',()=>{if(me)puxar(false)});
   $('logoutBtn').addEventListener('click',async()=>{await sb.auth.signOut()});
 
   /* ---------- aplicar dados da nuvem ---------- */
@@ -53,8 +54,8 @@
         if(l.setor==='_config')synced._config=JSON.stringify(cfgDados());
         else if(state.sectors[l.setor]!==undefined)synced[l.setor]=JSON.stringify(state.sectors[l.setor]);
       }
-      localStorage.setItem(STORE,JSON.stringify(state));
-      try{render()}catch(e){console.warn(e)}
+      try{localStorage.setItem(STORE,JSON.stringify(state))}catch(e){}
+      try{render()}catch(e){console.warn(e);status('Erro ao mostrar os dados da nuvem: '+e.message,'err')}
     }finally{applying=false}
   }
   const cfgDados=()=>({baseMonday:state.baseMonday,settings:state.settings});
@@ -97,6 +98,7 @@
     const {data,error}=await sb.from('escalas').select('*');
     if(error){status('Sem conexão com a nuvem — usando dados deste aparelho','err');console.warn(error);return}
     if(primeira&&data.length){try{localStorage.setItem('bom-dia-antes-da-nuvem',JSON.stringify(state))}catch(e){}}
+    status('Baixando '+data.length+' setor(es) da nuvem…','busy');
     aplicar(data);
     // setores que ainda não existem na nuvem sobem na primeira vez
     for(const k of SETORES().concat('_config'))if(podeEditar(k)&&!data.some(l=>l.setor===k))synced[k]=undefined;
