@@ -45,9 +45,9 @@ Aviso: validação auxiliar. O texto integral da CCT não foi consultado (pontos
 - Escalas independentes por setor: Frente de Caixa, Açougue e Frios, Loja e Depósito, Padaria e Horti Fruit.
 - Seleção de até dois dias de folga por colaboradora, entre todos os dias da semana.
 - A impressão reúne a escala semanal e a escala de domingo em folhas separadas.
-- A referência da escala é sempre ajustada para uma segunda-feira.
+- A referência da escala é sempre ajustada para um domingo: a semana vai de domingo a sábado.
 - PDVs são usados apenas na Frente de Caixa; os demais setores não exibem esse campo.
-- Quatro abas semanais independentes, com datas sequenciais calculadas a partir da segunda-feira de referência.
+- Quatro abas semanais independentes, com datas sequenciais calculadas a partir do domingo de referência.
 - Quadro de disposição de horários por dia, com cores para menor e maior cobertura.
 - A impressão é bloqueada até que todas as colaboradoras tenham as folgas obrigatórias: duas no 5x2 e uma no 6x1.
 - Mínimos de escala de domingo por setor e alertas de cobertura da Frente de Caixa.
@@ -241,3 +241,5 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 - `admin.js` – painel de administração.
 - `supabase/` – banco (`schema.sql`), função `admin-usuarios` e instruções.
 - `tests/` – testes automáticos. Rodar: `npm install --no-save playwright && npx playwright install chromium && node tests/run.js`. No GitHub rodam sozinhos a cada envio (aba Actions).
+
+- **Semana de domingo a sábado:** o domingo abre a semana em todo o app. No 6x1 cada semana tem 1 folga (sem folga extra); contas antigas recomeçam a escala (nomes e postos ficam) na primeira abertura.

@@ -234,6 +234,8 @@
       for(const k of SETORES())state.sectors[k].weeks.forEach(w=>{w.activeCount=1;w.employees=w.employees.slice(0,1);w.rotation=rotation(1,w.shifts.length)});
     }
     aplicar(data);
+    // semana de domingo a sábado: conta nova já nasce assim; conta antiga recomeça a escala (nomes e postos ficam)
+    try{if(blank){state.settings=state.settings||{};state.settings.semanaDom=true}else if(migraSemanaDomingo())setTimeout(()=>warn('A semana agora vai de domingo a sábado. Domingos e folgas foram limpos: escolha os domingos da Semana 1 e use "Sugerir folgas" ou "Gerar". A versão anterior está em Histórico.'),1200)}catch(e){console.warn(e)}
     if(primeira!==false||!uiOk)restauraUi();
     try{normalize();render()}catch(e){console.warn(e)}
     pronto=true;

@@ -91,15 +91,17 @@ const SUNDAY_MIN = { 'frente-caixa': 4, 'acougue-frios': 4, 'loja-deposito': 2, 
 function sundayMin() {
   return hasPosts() ? postKeys().reduce((t, k) => t + sundayPostMin(k), 0) : SUNDAY_MIN[state.selectedSector] || 0;
 }
+/* a semana começa no DOMINGO e termina no sábado (o número é o deslocamento a partir do domingo de referência) */
 const DAYS = [
-  ['segunda', 'Seg.', 0],
-  ['terça', 'Ter.', 1],
-  ['quarta', 'Qua.', 2],
-  ['quinta', 'Qui.', 3],
-  ['sexta', 'Sex.', 4],
-  ['sábado', 'Sáb.', 5],
-  ['domingo', 'Dom.', 6],
+  ['domingo', 'Dom.', 0],
+  ['segunda', 'Seg.', 1],
+  ['terça', 'Ter.', 2],
+  ['quarta', 'Qua.', 3],
+  ['quinta', 'Qui.', 4],
+  ['sexta', 'Sex.', 5],
+  ['sábado', 'Sáb.', 6],
 ];
+const WD = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']; /* dias úteis em ordem (índices 0 a 5) */
 const PRESETS = [
     ['07:00', '11:00'],
     ['09:30', '12:00'],
@@ -123,9 +125,10 @@ const time = (n) => {
 };
 const plus = (t, n) => time(mins(t) + n),
   iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+/* início da semana = o DOMINGO em ou antes da data (o nome "baseMonday" ficou só no que é gravado na nuvem) */
 function monday(value) {
   const d = value instanceof Date ? new Date(value) : new Date(value + 'T12:00:00');
-  d.setDate(d.getDate() - ((d.getDay() || 7) - 1));
+  d.setDate(d.getDate() - d.getDay());
   return iso(d);
 }
 const LAW_42 = new Date('2026-12-16T12:00:00'),
@@ -219,7 +222,7 @@ function date(key, index = state.selectedWeek) {
   return d;
 }
 const short = (d) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(d),
-  range = (i) => short(date('segunda', i)) + ' a ' + short(date('sábado', i));
+  range = (i) => short(date('domingo', i)) + ' a ' + short(date('sábado', i));
 function escape(v) {
   const e = document.createElement('div');
   e.textContent = v;
@@ -672,8 +675,9 @@ function importBackup(file) {
       state.baseMonday = monday(state.baseMonday || new Date());
       state.notice = '';
       state.roster = state.roster || {};
+      const migrou = migraSemanaDomingo();
       render();
-      toast('Backup importado com sucesso.', true);
+      toast(migrou ? 'Backup antigo importado: a semana agora vai de domingo a sábado, então os domingos e folgas foram limpos.' : 'Backup importado com sucesso.', true);
     } catch (err) {
       state = old;
       try {
@@ -1222,7 +1226,7 @@ function balanceOffs(w, chain) {
       cnt[s + '-' + d] = get(s, d) + 1;
       tot[d]++;
     };
-  const need = (e) => (six ? 1 : e.sundayWork ? 2 : 1);
+  const need = (e) => (six ? (e.sundayWork ? 1 : 0) : e.sundayWork ? 2 : 1);
   const wts = dayKeys.map((k, d) => (closedDay(k, wi) ? 0 : movWeight(k))),
     wsum = wts.reduce((a, b) => a + b, 0) || 1;
   const totNeed = emps.reduce((t, e) => t + need(e), 0),
@@ -1239,19 +1243,8 @@ function balanceOffs(w, chain) {
     postCnt = {};
   const lastOff = (x) => Math.max(-1, ...x.offDays.map(idx));
   const lims = emps.map((e, i) => {
-    let ub = 5,
-      lb = 0;
-    const pe = prev && prev.employees[i];
-    if (!e.sundayWork && pe && pe.sundayWork) {
-      const m = lastOff(pe);
-      if (m >= 0) ub = m;
-    } // semana seguinte à de domingo: folga até a última folga da anterior
-    const ne = next && next.employees[i];
-    if (e.sundayWork && ne && !ne.sundayWork) {
-      const c = lastOff(ne);
-      if (c >= 0) lb = c;
-    } // semana anterior à sem domingo: última folga não pode ser antes da folga seguinte
-    return { ub, lb };
+    /* com a semana começando no domingo não há mais amarra entre semanas: cada semana tem a sua folga (o app avisa se passar de 6 dias seguidos) */
+    return { ub: 5, lb: 0 };
   });
   const closedIdx = dayKeys.map((k) => closedDay(k, wi));
   const allowed = (i) => dayKeys.map((k, d) => d).filter((d) => !closedIdx[d]);
@@ -1298,6 +1291,10 @@ function balanceOffs(w, chain) {
 
       if (best === null || c < best.c) best = { c, picks };
     };
+    if (n === 0) {
+      e.offDays = [];
+      return;
+    }
     if (n === 1) cand.forEach((d) => tryPick([d]));
     else for (let a = 0; a < cand.length; a++) for (let b = a + 1; b < cand.length; b++) tryPick([cand[a], cand[b]]);
     if (!best) {
@@ -1323,9 +1320,9 @@ function offForEmp(w, e, i) {
 function offFor(e, i, model, grp) {
   const g = i % 3;
   if (model === '6x1') {
-    /* 6x1 com domingos alternados: semana COM domingo = 1 folga (qua/qui/sex); semana SEM domingo = domingo + 1 folga extra (seg/ter/qua).
-       A folga extra é necessária: com uma só folga por semana a pessoa passaria de 6 dias seguidos (art. 67 CLT). A extra vem sempre antes da folga da semana com domingo. */
-    return e.sundayWork ? [DAYS[2 + g][0]] : [grp ? ['segunda', 'terça', 'sexta'][g] : DAYS[g][0]];
+    /* 6x1 com a semana começando no domingo: 1 folga por semana. Semana COM domingo trabalhado = 1 folga em dia útil (qua/qui/sex);
+       semana SEM domingo = só o domingo (que já é a folga). Sem folga extra. */
+    return e.sundayWork ? [WD[2 + g]] : [];
   }
   if (grp) {
     const G = [
@@ -1333,7 +1330,7 @@ function offFor(e, i, model, grp) {
         [1, 4],
         [2, 5],
       ][i % 3],
-      gp = [DAYS[G[0]][0], DAYS[G[1]][0]];
+      gp = [WD[G[0]], WD[G[1]]];
     return e.sundayWork ? gp : [gp[0]];
   }
   const P = [
@@ -1344,7 +1341,7 @@ function offFor(e, i, model, grp) {
       [1, 4],
     ],
     pr = P[i % 5],
-    pair = [DAYS[pr[0]][0], DAYS[pr[1]][0]];
+    pair = [WD[pr[0]], WD[pr[1]]];
   return e.sundayWork ? pair : [pair[Math.floor(i / 5) % 2]];
 }
 /* ao copiar uma semana, as semanas a distância ímpar recebem o domingo de quem NÃO trabalhou na origem (mesma quantidade) */
@@ -1501,7 +1498,7 @@ function suggestOffDays() {
   render();
 }
 const SIX_NOTE =
-  ' No 6x1, a semana sem domingo recebe uma folga extra no meio da semana: com só 1 folga por semana e domingos alternados a pessoa passaria de 6 dias seguidos de trabalho (art. 67 da CLT).';
+  ' No 6x1, a semana (domingo a sábado) tem 1 folga: quem trabalha no domingo folga 1 dia útil e quem não trabalha tem o domingo como folga. Confira em Conformidade se alguém passa de 6 dias seguidos na emenda entre semanas.';
 function suggestOffAll() {
   if (!baseOk()) {
     needBase();
@@ -2278,9 +2275,10 @@ function renderOffAnalysis() {
         `Mais de um terço da equipe folga em: ${lowShare.map((x) => x.d[0] + ' (' + offN[x.i] + ')').join(', ')}.`,
       );
   }
-  const sat = emps.filter((e) => !works(e, DAYS[5]));
-  if (!closed(DAYS[5])) obs.push(`Folgas no sábado: <b>${sat.length}</b> de ${N}${evitaSabado() ? ' (o ideal é evitar o sábado)' : ''}.`);
-  const si = 6;
+  const SAB = DAYS.find((d) => d[0] === 'sábado'),
+    sat = emps.filter((e) => !works(e, SAB));
+  if (!closed(SAB)) obs.push(`Folgas no sábado: <b>${sat.length}</b> de ${N}${evitaSabado() ? ' (o ideal é evitar o sábado)' : ''}.`);
+  const si = DAYS.findIndex((d) => d[0] === "domingo");
   if (total[si] !== null) {
     const mn = sundayMin() || 0;
     obs.push(
@@ -2326,15 +2324,15 @@ function renderOffAnalysis() {
         (holN ? ' Feriado com loja fechada não entra nessa conta.' : ''),
     );
   } else {
-    const bad = per.filter((x) => x.n < 1 || x.n > 2);
+    const bad = per.filter((x) => x.n !== 1);
     obs.push(
-      `Conferência (6x1): a soma das folgas da semana é <b>${sumOff}</b> (quem trabalha no domingo tem 1 folga na semana; quem não trabalha tem o domingo mais 1 folga extra).` +
+      `Conferência (6x1): cada semana (domingo a sábado) tem 1 folga por colaboradora; a soma das folgas desta semana é <b>${sumOff}</b> de ${N} esperadas (quem trabalha no domingo folga 1 dia útil; quem não trabalha tem o domingo como folga) .`.replace(' .', '.') +
         (bad.length ? ' Fora do padrão: ' + bad.map((x) => escape(x.e.name) + ' (' + x.n + ')').join(', ') + '.' : ''),
     );
   }
   if (w.model === '6x1')
     obs.push(
-      'Por que o 6x1 tem 2 folgas na semana sem domingo? Quem trabalha o domingo folga 1 dia na semana; na semana seguinte o domingo já é folga e entra mais 1 dia de folga. Sem essa folga extra, a pessoa trabalharia 10 dias seguidos (folga na quarta, depois quinta a domingo, depois segunda a sábado), acima do limite de 6 dias seguidos (art. 67 da CLT). Na média são 1,5 folga por semana.',
+      '6x1 com a semana de domingo a sábado: cada semana tem 1 folga. Quem trabalha o domingo folga 1 dia útil; quem não trabalha, o domingo já é a folga. Na emenda entre semanas pode passar de 6 dias seguidos de trabalho; quando acontecer, o aviso aparece em Conformidade.',
     );
   if (!obs.length) obs.push('Sem pontos de atenção nesta semana.');
   el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi + 1}</p><h2>Quantidade de folgas por turno e posto</h2><p>Cada quadro mostra quantas colaboradoras trabalham e o que sobra se mais 1 folgar (ou faltar). Vermelho: ficaria com 0 ou 1; amarelo: ficaria com 1.</p></div><div class="op-head-actions"><button type="button" class="button ${modoAjuste ? 'secondary' : 'outline'} adj-toggle" data-ajuste>${modoAjuste ? 'Ajuste ligado: use + e − nas células' : 'Ajustar escala por aqui'}</button><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
@@ -2690,7 +2688,7 @@ function compliance() {
           ws = [];
         for (let x = Math.floor(startDay / 7); x <= Math.floor(endDay / 7); x++) ws.push(x);
         add(
-          'erro',
+          'atenção',
           name +
             ': ' +
             run +
@@ -4034,3 +4032,32 @@ document.addEventListener('click', (e) => {
     return moveFolga(G, (t.dataset.post ? POST_NAMES[t.dataset.post] + ' · ' : '') + t.dataset.ini + '–' + t.dataset.fim, t.dataset.day, dl);
   }
 });
+
+/* ===== migração: a semana passou a ir de domingo a sábado. Contas antigas (semana segunda a domingo) recomeçam a escala:
+   mantém nomes, postos, turnos e restrições, e limpa domingos, folgas e ciclos guardados. A versão anterior continua no histórico de versões. ===== */
+function migraSemanaDomingo() {
+  state.settings = state.settings || {};
+  if (state.settings.semanaDom) return false;
+  state.settings.semanaDom = true;
+  const antes = new Date((state.baseMonday || monday(new Date())) + 'T12:00:00');
+  state.baseMonday = monday(antes); /* a segunda de antes passa a cair na semana que começa no domingo anterior */
+  const sel = state.selectedSector;
+  Object.keys(state.sectors).forEach((sk) => {
+    const sec = state.sectors[sk];
+    if (!sec || !sec.weeks) return;
+    state.selectedSector = sk;
+    delete sec.ciclos;
+    delete sec.pdvSunday;
+    sec.weeks.forEach((w) => {
+      normalizeWeek(w);
+      w.employees.forEach((e, i) => {
+        e.sundayWork = false;
+        e.offDays = offForEmp(w, e, i);
+      });
+    });
+  });
+  state.selectedSector = sel;
+  state.selectedWeek = 0;
+  state.notice = 'A semana agora vai de domingo a sábado. Os domingos e as folgas foram limpos: escolha quem trabalha no domingo da Semana 1 e use "Sugerir folgas" ou "Gerar".';
+  return true;
+}

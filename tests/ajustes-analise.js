@@ -7,7 +7,7 @@ await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript
 await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
 await A.goto(BASE+'/index.html');await A.waitForTimeout(600);
 await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
-await A.evaluate(()=>{state.baseMonday='2026-11-09';setActive(12);week().employees.forEach((e,i)=>e.sundayWork=i<5);suggestOffFor(week());render()});
+await A.evaluate(()=>{state.baseMonday='2026-11-08';setActive(12);week().employees.forEach((e,i)=>e.sundayWork=i<5);suggestOffFor(week());render()});
 const cov=()=>A.evaluate(()=>{const w=week();return DAYS.filter(d=>d[0]!=='domingo').map(d=>w.employees.filter(e=>worksOn(e,d[0],0)).length)});
 const offs=()=>A.evaluate(()=>week().employees.reduce((t,e)=>t+e.offDays.length,0));
 T('botões + e − só aparecem com o ajuste ligado',await A.evaluate(()=>!document.querySelector('#offAnalysis .oa-b')));
