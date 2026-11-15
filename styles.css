@@ -433,3 +433,16 @@ body.adm-aberto{overflow:hidden}
 .aus-nota{color:#4c1d95;font-weight:700}
 .aus-list li{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .off-chip.aus:not(.dom) span{display:block!important}
+
+/* férias/atestado recolhível */
+details.aus-box{padding:0;background:#fff;border:1px solid #e3e6ec}
+details.aus-box[open]{background:#faf7ff;border-color:#e1d5f5;padding:0 12px 10px}
+details.aus-box summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#4c1d95;user-select:none}
+details.aus-box[open] summary{padding:8px 0}
+details.aus-box summary::-webkit-details-marker{display:none}
+details.aus-box summary::before{content:"▸";font-size:11px;color:#7c5cbf}
+details.aus-box[open] summary::before{content:"▾"}
+details.aus-box summary small{font-weight:400;color:#8a93a3}
+.aus-qtd{background:#ede4fb;color:#4c1d95;border-radius:999px;padding:1px 8px;font-size:11px}
+@media print{details.aus-box{display:none}}
+.operator-grid{align-items:start}

@@ -31,9 +31,13 @@ const quem=await A.evaluate(()=>sector().weeks[1].employees.findIndex(e=>e.sunda
 const domAntes=await A.evaluate(()=>sector().weeks[1].employees.filter(e=>e.sundayWork).length);
 const add=(i,tipo,de,ate)=>A.evaluate(([i,tipo,de,ate])=>{const box=document.querySelectorAll('#operatorsList .aus-box')[i];box.querySelector('[data-aus-tipo]').value=tipo;box.querySelector('[data-aus-de]').value=de;box.querySelector('[data-aus-ate]').value=ate;box.querySelector('[data-aus-add]').click()},[i,tipo,de,ate]);
 T('ficha tem o bloco "Férias / atestado"',await A.evaluate(()=>document.querySelectorAll('#operatorsList .aus-box').length===12));
+T('bloco de férias começa recolhido em todas as fichas',await A.evaluate(()=>[...document.querySelectorAll('#operatorsList details.aus-box')].every(d=>!d.open)));
+await A.evaluate((i)=>{document.querySelectorAll('#operatorsList details.aus-box')[i].querySelector('summary').click()},quem);await W(80);
+T('clicar abre só o bloco daquela pessoa',await A.evaluate((i)=>[...document.querySelectorAll('#operatorsList details.aus-box')].filter(d=>d.open).length===1&&document.querySelectorAll('#operatorsList details.aus-box')[i].open,quem));
 await limpa();await add(quem,'ferias','2026-11-20','2026-11-10');await W(100);
 let t=await toast();T('data de fim antes do início: erro vermelho',/^Erro/.test(t.txt)&&!t.verde,t.txt);
 await limpa();await add(quem,'ferias','2026-11-15','2026-11-21');await W(150);
+T('depois de adicionar, o bloco continua aberto e mostra "1 registrada"',await A.evaluate((i)=>{const d=document.querySelectorAll('#operatorsList details.aus-box')[i];return d.open&&/1 registrada/.test(d.querySelector('summary').textContent)},quem));
 t=await toast();const semSub=/não havia ninguém livre/.test(t.txt);T('férias registradas: aviso com as semanas recalculadas',/semana\(s\) 2/.test(t.txt)&&t.verde===!semSub,t.txt.slice(0,120));
 const f=await A.evaluate((i)=>{state.selectedWeek=1;render();const w=sector().weeks[1],e=w.employees[i];
  return {trab:DAYS.filter(d=>worksOn(e,d[0],1)).length,dom:e.sundayWork,offs:e.offDays.length,domQt:w.employees.filter(x=>x.sundayWork).length,

@@ -1045,10 +1045,12 @@ function ausNota(e) {
   });
   return vistos.map((a) => ` · <b class="aus-nota">${AUS_TIPOS[a.tipo]} ${brData(a.de).slice(0, 5)} a ${brData(a.ate).slice(0, 5)}</b>`).join('');
 }
+const ausAbertos = new Set();
 function ausBox(i) {
   const r = roster()[i] || {},
-    l = r.aus || [];
-  return `<fieldset class="aus-box"><legend>Férias / atestado</legend>${
+    l = r.aus || [],
+    chave = state.selectedSector + ':' + i;
+  return `<details class="aus-box" data-aus-i="${i}" ${ausAbertos.has(chave) ? 'open' : ''}><summary><span>Férias / atestado</span>${l.length ? `<b class="aus-qtd">${l.length} registrada${l.length === 1 ? '' : 's'}</b>` : '<small>nenhuma</small>'}</summary>${
     l.length
       ? '<ul class="aus-list">' +
         l
@@ -1058,9 +1060,20 @@ function ausBox(i) {
           )
           .join('') +
         '</ul>'
-      : '<p class="helper">Nenhuma ausência registrada.</p>'
-  }<div class="aus-form"><select data-aus-tipo aria-label="Tipo de ausência"><option value="ferias">Férias</option><option value="atestado">Atestado</option><option value="outro">Afastamento</option></select><label>De <input type="date" data-aus-de /></label><label>Até <input type="date" data-aus-ate /></label><button type="button" class="button outline" data-aus-add="${i}">Adicionar</button></div><p class="helper">Vale pelas datas, em qualquer semana. Nesses dias a pessoa sai da escala, da cobertura e do domingo, e as folgas da semana são recalculadas.</p></fieldset>`;
+      : ''
+  }<div class="aus-form"><select data-aus-tipo aria-label="Tipo de ausência"><option value="ferias">Férias</option><option value="atestado">Atestado</option><option value="outro">Afastamento</option></select><label>De <input type="date" data-aus-de /></label><label>Até <input type="date" data-aus-ate /></label><button type="button" class="button outline" data-aus-add="${i}">Adicionar</button></div><p class="helper">Vale pelas datas, em qualquer semana. Nesses dias a pessoa sai da escala, da cobertura e do domingo, e as folgas da semana são recalculadas.</p></details>`;
 }
+/* lembra quais blocos estão abertos, para não fecharem quando a tela é redesenhada */
+document.addEventListener(
+  'toggle',
+  (ev) => {
+    const d = ev.target;
+    if (!d.classList || !d.classList.contains('aus-box')) return;
+    const chave = state.selectedSector + ':' + d.dataset.ausI;
+    d.open ? ausAbertos.add(chave) : ausAbertos.delete(chave);
+  },
+  true,
+);
 function renderOperators() {
   const w = week(),
     options = w.shifts.map((s, i) => `<option value="${i}">${escape(s.name)} · ${s.start}–${s.end}</option>`).join(''),
