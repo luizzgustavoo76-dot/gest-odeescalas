@@ -241,6 +241,8 @@
       const m=(await r.text()).match(/<meta name="build" content="([^"]+)"/);
       if(!m||m[1]===meuBuild)return;
       novaVersao=u+'?v='+m[1];mostraNovaVersao();
+      /* aba esquecida aberta: se está parada há mais de 2 min e sem nada por salvar, atualiza sozinha para a versão nova */
+      if(me&&pronto&&!timer&&!pendentes().length&&Date.now()-Math.max(ultimoUso,lsUso())>120000)location.replace(novaVersao);
     }catch(e){}finally{verificando=false}
   }
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checaVersao()});

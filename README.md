@@ -277,3 +277,6 @@ Os postos marcados em Regras → "Não folgam no mesmo dia" (padrão: Fiscal e R
 
 ### Botão "Corrigir" nos erros (build 105)
 Os avisos vermelhos que o app sabe resolver sozinho ganham um botão **Corrigir** no fim da mensagem (no aviso acima da tabela e na Conformidade): folga obrigatória faltando (agora com os nomes) e folgas juntas de Fiscal/Recepção recalculam as folgas da semana; almoços sem cobertura refazem a cascata; jornada que passa do fechamento antecipa a entrada. Se o app não conseguir, avisa em vermelho. Guarda o estado anterior para desfazer.
+
+### Saída por inatividade e atualização (build 106)
+Teste com relógio simulado nos tempos reais (admin 15 min, usuário 30 min: aviso 1 min antes e volta ao login). Aba aberta com versão antiga não tem o recurso; agora uma aba parada há mais de 2 min e sem nada por salvar se atualiza sozinha quando sai versão nova.
