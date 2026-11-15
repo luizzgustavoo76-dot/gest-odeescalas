@@ -274,3 +274,6 @@ Reabrir o site depois de ficar parado por mais que o limite também pede login d
 
 ### Fiscal e Recepção folgam em dias diferentes (build 104)
 Os postos marcados em Regras → "Não folgam no mesmo dia" (padrão: Fiscal e Recepção) agora formam **um grupo só**: nenhuma colaboradora de um posto folga no mesmo dia que a de outro posto do grupo (antes só valia dentro do mesmo posto). Vale nas sugestões de folga, ao marcar à mão e no alerta da Conformidade. Com 5x2 isso reparte as folgas de segunda a sexta (até 3 pessoas no grupo cabem sem repetir dia).
+
+### Botão "Corrigir" nos erros (build 105)
+Os avisos vermelhos que o app sabe resolver sozinho ganham um botão **Corrigir** no fim da mensagem (no aviso acima da tabela e na Conformidade): folga obrigatória faltando (agora com os nomes) e folgas juntas de Fiscal/Recepção recalculam as folgas da semana; almoços sem cobertura refazem a cascata; jornada que passa do fechamento antecipa a entrada. Se o app não conseguir, avisa em vermelho. Guarda o estado anterior para desfazer.

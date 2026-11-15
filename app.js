@@ -899,6 +899,12 @@ function sundayWorkers() {
   return week().employees.filter((e) => !closedDay('domingo') && e.sundayWork && !ausente(e, 'domingo'));
 }
 function issues() {
+  const fixes = [];
+  const list = issues0(fixes);
+  list.fix = fixes;
+  return list;
+}
+function issues0(fixes) {
   const bad = week().employees.filter((e) => !ausSemana(e) && (week().model === '6x1' ? effOff(e).length < 1 : effOff(e).length !== 2)),
     list = [];
   if (bad.length)
@@ -912,15 +918,21 @@ function issues() {
         (neededOff() === 1 ? '' : 's') +
         ' obrigatória' +
         (neededOff() === 1 ? '' : 's') +
+        ': ' +
+        bad.map((e) => e.name).join(', ') +
         '.',
-    );
+    ),
+      fixes[list.length - 1] = { k: 'folgas', wi: state.selectedWeek };
   const minimum = sundayMin(),
     count = sundayWorkers().length;
   if (!closedDay('domingo') && count < minimum)
     list.push('Domingo: mínimo de ' + minimum + ' colaboradoras; há ' + count + '.');
   compliance()
     .filter((x) => x.level === 'erro' && x.weeks.includes(state.selectedWeek))
-    .forEach((x) => list.push(x.text));
+    .forEach((x) => {
+      list.push(x.text);
+      if (x.fix) fixes[list.length - 1] = { k: x.fix, wi: state.selectedWeek };
+    });
   return list;
 }
 function sortValue(e) {
@@ -1307,8 +1319,45 @@ function renderWarning() {
   const list = issues(),
     el = document.getElementById('scheduleWarning');
   el.hidden = !list.length;
-  el.innerHTML = list.map((t) => '• ' + escape(t)).join('<br>');
+  el.innerHTML = list.map((t, i) => '<div class="warn-line">• ' + escape(t) + fixBtn(list.fix && list.fix[i], t) + '</div>').join('');
 }
+/* ===== botão "Corrigir": conserto automático dos erros que o app sabe resolver sozinho ===== */
+const FIXES = {};
+let fixSeq = 0;
+function fixBtn(f, text) {
+  if (!f) return '';
+  const id = 'f' + ++fixSeq;
+  FIXES[id] = { ...f, text };
+  const dica = { folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento' }[f.k] || '';
+  return ` <button type="button" class="fix-btn" data-fix="${id}" title="${escape(dica)}">Corrigir</button>`;
+}
+function aplicaCorrecao(id) {
+  const f = FIXES[id];
+  if (!f) return;
+  const sel = state.selectedSector,
+    w = sector().weeks[f.wi];
+  if (!w) return;
+  state.undo = {
+    ...(state.undo || {}),
+    [sel]: { at: new Date().toISOString(), weeks: clone(sector().weeks), roster: clone((state.roster && state.roster[sel]) || []) },
+  };
+  normalizeWeek(w);
+  if (f.k === 'folgas') balanceOffs(w, false);
+  else if (f.k === 'almoco') autoLunch(w, f.wi, 0);
+  else if (f.k === 'fechamento') {
+    fitShifts(w, f.wi);
+    if (gapOf(w)) autoLunch(w, f.wi, 0);
+  }
+  render();
+  const resta = compliance().some((x) => x.text === f.text) || issues().includes(f.text);
+  if (resta)
+    toast('Não consegui corrigir esse sozinho: ' + f.text + ' Ajuste à mão (ou use Desfazer para voltar).');
+  else toast('Corrigido (Semana ' + (f.wi + 1) + '). Se não gostou, use Desfazer.', true);
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-fix]');
+  if (b) aplicaCorrecao(b.dataset.fix);
+});
 function setActive(n) {
   week().activeCount = Math.min(50, Math.max(1, +n || 1));
   render();
@@ -2886,7 +2935,7 @@ function compliance() {
     S = state.settings,
     weeks = sector().weeks,
     all = weeks.map((_, i) => i);
-  const add = (level, text, wk) => out.push({ level, text, weeks: wk });
+  const add = (level, text, wk, fix) => out.push({ level, text, weeks: wk, fix });
   if (mins(S.weekClose) > 1320)
     add(
       'atenção',
@@ -2917,7 +2966,7 @@ function compliance() {
     });
     const buraco = gapOf(w);
     if (buraco)
-      add('erro', L + 'das ' + time(buraco[0]) + ' às ' + time(buraco[1]) + ' nenhum turno está trabalhando (almoços coincidem). Deixe o almoço de um turno quando o outro voltar.', [wi]);
+      add('erro', L + 'das ' + time(buraco[0]) + ' às ' + time(buraco[1]) + ' nenhum turno está trabalhando (almoços coincidem). Deixe o almoço de um turno quando o outro voltar.', [wi], 'almoco');
     w.shifts.forEach((s) => {
       const startM = mins(s.start),
         before = mins(s.lunchStart) - startM,
@@ -2939,6 +2988,7 @@ function compliance() {
           'erro',
           L + nm + ': a jornada termina às ' + s.end + ', depois do fechamento (' + S.weekClose + '); a colaboradora ficaria devendo ' + hm(endAbs - closeMin()) + ' de carga. Entrada máxima: ' + time(maxStart(w.model, wi)) + '.',
           [wi],
+          'fechamento',
         );
       if (endAbs > 1320)
         add(
@@ -3015,6 +3065,7 @@ function compliance() {
             '.' +
             (grp.length > 3 ? ' Com mais de 3 colaboradoras nesses postos, isso pode ser inevitável.' : ''),
           [wi],
+          'folgas',
         );
     }
     const sunW = w.employees.filter((e) => e.sundayWork && !closedDay('domingo', wi));
@@ -3174,7 +3225,7 @@ function renderCompliance() {
     ? sorted
         .map(
           (x) =>
-            `<article class="finding ${x.level === 'atenção' ? 'atencao' : x.level}"><span class="finding-level">${label[x.level]}</span><p>${escape(x.text)}</p></article>`,
+            `<article class="finding ${x.level === 'atenção' ? 'atencao' : x.level}"><span class="finding-level">${label[x.level]}</span><p>${escape(x.text)}</p>${fixBtn(x.fix && { k: x.fix, wi: x.weeks[0] }, x.text)}</article>`,
         )
         .join('')
     : '<p class="empty-alert">Nenhuma pendência encontrada nas quatro semanas deste setor.</p>';
