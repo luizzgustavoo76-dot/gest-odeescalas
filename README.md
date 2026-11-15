@@ -271,3 +271,6 @@ Reabrir o site depois de ficar parado por mais que o limite também pede login d
 ### Ajuste (build 103)
 - Trocar de modelo mexe na entrada **nos dois sentidos**: turnos que terminam no fechamento continuam terminando nele (6x1 → 5x2 antecipa, 5x2 → 6x1 atrasa).
 - A cobertura do almoço olha os turnos configurados (não depende de quem está escalada em cada um). Com 2 turnos, o almoço do 2º nunca fica antes do retorno do 1º (ajuste automático com aviso); almoços coincidentes de dados antigos são refeitos sozinhos.
+
+### Fiscal e Recepção folgam em dias diferentes (build 104)
+Os postos marcados em Regras → "Não folgam no mesmo dia" (padrão: Fiscal e Recepção) agora formam **um grupo só**: nenhuma colaboradora de um posto folga no mesmo dia que a de outro posto do grupo (antes só valia dentro do mesmo posto). Vale nas sugestões de folga, ao marcar à mão e no alerta da Conformidade. Com 5x2 isso reparte as folgas de segunda a sexta (até 3 pessoas no grupo cabem sem repetir dia).

@@ -1563,7 +1563,7 @@ function balanceOffs(w, chain) {
     if (d === 5 && evitaSabado()) c += 400; // evita sábado (regra configurável)
     const M = shiftMem[e.shift] || 0;
     if (M >= 2 && M - (cs + 1) < Math.ceil(M / 2)) c += 8000; // pelo menos metade do turno presente
-    if (noSameOff().includes(e.station) && used[e.station + '-' + d]) c += 5000; // Recepção/Fiscal: mesmo dia só se não houver saída
+    if (noSameOff().includes(e.station) && used['nso-' + d]) c += 5000; // Fiscal/Recepção (todos os postos marcados formam um grupo): mesmo dia só se não houver saída
     if (hasPosts() && (postMem[e.station] || 0) >= 2 && (postCnt[e.station + '-' + d] || 0) + 1 >= postMem[e.station])
       c += 8000; // nunca deixar o posto sem ninguém
     return c + picked.filter((x) => x === d).length * 9999;
@@ -1613,7 +1613,7 @@ function balanceOffs(w, chain) {
     best.picks.forEach((d) => {
       put(e.shift, d);
       postCnt[e.station + '-' + d] = (postCnt[e.station + '-' + d] || 0) + 1;
-      if (noSameOff().includes(e.station)) used[e.station + '-' + d] = 1;
+      if (noSameOff().includes(e.station)) used['nso-' + d] = 1;
     });
   });
 }
@@ -1621,7 +1621,7 @@ function suggestOffFor(w) {
   balanceOffs(w, false);
 }
 function offForEmp(w, e, i) {
-  const g = noSameOff().includes(e.station) ? w.employees.filter((x) => x.station === e.station) : null;
+  const g = noSameOff().includes(e.station) ? w.employees.filter((x) => noSameOff().includes(x.station)) : null;
   return g ? offFor(e, g.indexOf(e), w.model, true) : offFor(e, i, w.model);
 }
 function offFor(e, i, model, grp) {
@@ -2996,27 +2996,27 @@ function compliance() {
         [wi],
       );
     });
-    noSameOff().forEach((k) => {
-      const grp = w.employees.filter((e) => e.station === k);
-      if (grp.length < 2) return;
+    if (noSameOff().length) {
+      const grp = w.employees.filter((e) => noSameOff().includes(e.station));
       const clash = [];
-      DAYS.forEach((d) => {
-        if (d[0] === 'domingo' || closedDay(d[0], wi)) return;
-        const off = grp.filter((e) => e.offDays.includes(d[0]));
-        if (off.length > 1) clash.push(d[0] + ' (' + off.map((e) => e.name).join(' e ') + ')');
-      });
+      if (grp.length >= 2)
+        DAYS.forEach((d) => {
+          if (d[0] === 'domingo' || closedDay(d[0], wi)) return;
+          const off = grp.filter((e) => e.offDays.includes(d[0]));
+          if (off.length > 1) clash.push(d[0] + ' (' + off.map((e) => e.name + ' · ' + POST_NAMES[e.station]).join(' e ') + ')');
+        });
       if (clash.length)
         add(
           grp.length <= 3 ? 'erro' : 'atenção',
           L +
-            POST_NAMES[k] +
+            noSameOff().map((k) => POST_NAMES[k]).join(' e ') +
             ': mais de uma colaboradora de folga no mesmo dia: ' +
             clash.join('; ') +
             '.' +
-            (grp.length > 3 ? ' Com mais de 3 colaboradoras no posto, isso pode ser inevitável.' : ''),
+            (grp.length > 3 ? ' Com mais de 3 colaboradoras nesses postos, isso pode ser inevitável.' : ''),
           [wi],
         );
-    });
+    }
     const sunW = w.employees.filter((e) => e.sundayWork && !closedDay('domingo', wi));
     if (sunW.length) {
       const pl = sundayPlan(w);
@@ -3391,7 +3391,7 @@ document.addEventListener('change', (event) => {
         return;
       }
       if (noSameOff().includes(e.station)) {
-        const grp = w.employees.filter((x) => x.station === e.station),
+        const grp = w.employees.filter((x) => noSameOff().includes(x.station)),
           other = grp.find((x) => x !== e && x.offDays.includes(day));
         if (other && grp.length <= 3) {
           t.checked = false;
@@ -3399,11 +3399,11 @@ document.addEventListener('change', (event) => {
             'Não é permitido: ' +
               other.name +
               ' (' +
-              POST_NAMES[e.station] +
+              POST_NAMES[other.station] +
               ') já folga ' +
               day +
-              '. Colaboradoras do posto ' +
-              POST_NAMES[e.station] +
+              '. ' +
+              noSameOff().map((k) => POST_NAMES[k]).join(' e ') +
               ' não podem folgar no mesmo dia.',
           );
           return;
@@ -4307,7 +4307,7 @@ function renderRegras() {
       )
       .join('')}</div>
     <div class="rule-add"><input id="rulePostName" type="text" maxlength="30" placeholder="Novo posto (ex.: Balcão)" /><button type="button" class="button outline" id="rulePostAdd">Adicionar posto</button></div>
-    <p class="helper">Desmarcar "Em uso" tira o posto das listas; quem estava nele passa para outro posto até você reativar. "Não folgam no mesmo dia" vale para as sugestões de folga e para os alertas.</p>`;
+    <p class="helper">Desmarcar "Em uso" tira o posto das listas; quem estava nele passa para outro posto até você reativar. "Não folgam no mesmo dia" vale para o conjunto dos postos marcados (ex.: Fiscal e Recepção nunca folgam juntas) nas sugestões de folga, na marcação manual e nos alertas.</p>`;
 }
 function regraDoSetor() {
   state.settings.rules = state.settings.rules || {};
@@ -4467,7 +4467,7 @@ function moveFolga(G, rotulo, dKey, delta) {
     trab = (e, d) => worksOn(e, d[0], wi),
     cov = (d) => G.filter((e) => trab(e, d)).length,
     livre = (e, d) =>
-      !noSameOff().includes(e.station) || !w.employees.some((o) => o !== e && o.station === e.station && !trab(o, d));
+      !noSameOff().includes(e.station) || !w.employees.some((o) => o !== e && noSameOff().includes(o.station) && !trab(o, d));
   if (!D || D[0] === 'domingo') return toast('Erro: o domingo se ajusta pela lista de quem trabalha no domingo, não por aqui.');
   if (closedDay(D[0], wi)) return toast('Erro: a loja está fechada nesse dia.');
   const pares = [];
