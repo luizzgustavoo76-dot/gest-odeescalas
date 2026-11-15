@@ -604,14 +604,14 @@ function renderGen() {
   const g = state.gen,
     u = state.undo && state.undo[state.selectedSector];
   document.getElementById('genPanel').innerHTML =
-    `<div class="setting-block"><label>Geração automática (opcional)</label><p class="helper">Nada é gerado sozinho: a escala só muda quando você clicar em "Gerar". Antes, escolha na Semana 1 quem trabalha no domingo. O app monta as 4 semanas deste setor respeitando CLT, EC 141/2026 e CCT.</p></div>
-  ${hasPosts() ? `<div class="setting-block">${hasPdv() ? `<label class="check-row"><input type="checkbox" id="genPdv" ${g.pdv ? 'checked' : ''} /> Distribuir PDVs sem repetir no mesmo dia e horário</label>` : ''}<label class="check-row"><input type="checkbox" id="genPosts" ${g.posts ? 'checked' : ''} /> Aplicar o rodízio de turnos dos postos (vagas cedo/tarde da aba Rodízio)</label></div>` : ''}
-  <div class="setting-block"><label>Movimento esperado por dia</label><p class="helper">Como o gerente: dias de mais movimento ficam com menos folgas e a equipe maior. O app distribui as folgas por turno pelo movimento, mantém ao menos metade de cada turno presente e nunca deixa um posto (Fiscal, Recepção, Pacote…) sem ninguém. Vale também para "Sugerir folgas".</p>
-  <div class="mov-grid">${DAYS.map((d) => `<label>${d[1]}<select data-mov="${d[0]}">${MOV_LEVELS.map((l) => `<option value="${l[0]}" ${movement()[d[0]] === l[0] ? 'selected' : ''}>${l[1]}</option>`).join('')}</select></label>`).join('')}</div></div>
+    `<div class="gen-col"><div class="setting-block"><label>Geração automática (opcional)</label><p class="helper">Nada é gerado sozinho: a escala só muda quando você clicar em "Gerar". Antes, escolha na Semana 1 quem trabalha no domingo. O app monta as 4 semanas deste setor respeitando CLT, EC 141/2026 e CCT.</p></div>
   <button class="button full" id="genRun" type="button">Gerar escala do setor</button>
   <button class="button outline full" id="genUndo" type="button" ${u ? '' : 'disabled'}>Desfazer última geração${u ? ' (' + short(new Date(u.at)) + ' ' + pad(new Date(u.at).getHours()) + ':' + pad(new Date(u.at).getMinutes()) + ')' : ''}</button>
-  <p class="helper">Substitui as folgas${g.posts ? ', os turnos dos postos' : ''}${hasPdv() ? ' e os números de PDV' : ''}. Mantém nomes e os domingos de semanas que você já preencheu.</p>
-  ${ciclosPanel()}`;
+  <p class="helper">Substitui as folgas${g.posts ? ', os turnos dos postos' : ''}${hasPdv() ? ' e os números de PDV' : ''}. Mantém nomes e os domingos de semanas que você já preencheu.</p></div>
+  ${hasPosts() ? `<div class="gen-col">` : ''}${hasPosts() ? `<div class="setting-block">${hasPdv() ? `<label class="check-row"><input type="checkbox" id="genPdv" ${g.pdv ? 'checked' : ''} /> Distribuir PDVs sem repetir no mesmo dia e horário</label>` : ''}<label class="check-row"><input type="checkbox" id="genPosts" ${g.posts ? 'checked' : ''} /> Aplicar o rodízio de turnos dos postos (vagas cedo/tarde da aba Rodízio)</label></div>` : ''}${hasPosts() ? '</div>' : ''}
+  <div class="gen-col"><div class="setting-block"><label>Movimento esperado por dia</label><p class="helper">Como o gerente: dias de mais movimento ficam com menos folgas e a equipe maior. O app distribui as folgas por turno pelo movimento, mantém ao menos metade de cada turno presente e nunca deixa um posto (Fiscal, Recepção, Pacote…) sem ninguém. Vale também para "Sugerir folgas".</p>
+  <div class="mov-grid">${DAYS.map((d) => `<label>${d[1]}<select data-mov="${d[0]}">${MOV_LEVELS.map((l) => `<option value="${l[0]}" ${movement()[d[0]] === l[0] ? 'selected' : ''}>${l[1]}</option>`).join('')}</select></label>`).join('')}</div></div>
+  ${ciclosPanel()}</div>`;
 }
 /* ===== continuidade: avançar para o próximo ciclo de 4 semanas (vale para todos os setores, que usam a mesma data) ===== */
 const addDias = (isoStr, n) => {

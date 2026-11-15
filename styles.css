@@ -449,3 +449,9 @@ details.aus-box summary small{font-weight:400;color:#8a93a3}
 
 .sun-rem{text-align:right;width:1%}
 @media print{.sun-rem{display:none!important}}
+
+/* aba Gerar em colunas: geração | opções | movimento + ciclo */
+.settings .tab-panel.active[data-panel="gen"]{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;align-items:start}
+.gen-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.settings .tab-panel.active[data-panel="gen"] .gen-col .button,.settings .tab-panel.active[data-panel="gen"] .gen-col .button.full{width:100%;min-width:0;margin:0;min-height:44px}
+.gen-col .ciclos-lista .button{width:auto!important;min-height:0!important}
