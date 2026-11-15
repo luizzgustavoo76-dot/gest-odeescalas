@@ -7,7 +7,7 @@ await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript
 await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
 await A.goto(BASE+'/index.html');await A.waitForTimeout(600);
 await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
-const W=ms=>A.waitForTimeout(ms);
+const W=ms=>A.waitForTimeout(ms);const textoSemFora=(v)=>false;
 const toast=()=>A.evaluate(()=>{const t=document.getElementById('toast');return {txt:t.textContent,verde:t.style.background!=='',h:t.hidden}});
 const limpa=()=>A.evaluate(()=>{document.getElementById('toast').hidden=true;toastErroEm=0;toastEm=0});
 await A.evaluate(()=>{state.baseMonday='2026-11-08';state.selectedWeek=0;setActive(12);const ps=sundayPosts().filter(p=>p!=='caixa');ps.forEach((p,k)=>{[8+2*k,9+2*k].forEach(i=>{roster()[i].station=p;week().employees[i].station=p})});week().employees.forEach(e=>{e.sundayWork=false;e.offDays=[]});render()});
@@ -46,6 +46,15 @@ const f=await A.evaluate((i)=>{state.selectedWeek=1;render();const w=sector().we
   cob:DAYS.filter(d=>d[0]!=='domingo').map(d=>w.employees.filter(x=>worksOn(x,d[0],1)).length),
   sem1:DAYS.filter(d=>worksOn(sector().weeks[0].employees[i],d[0],0)).length,
   res:resumoCiclo()[i]}},quem);
+const v=await A.evaluate((i)=>{const e=sector().weeks[1].employees[i];const tr=[...document.querySelectorAll('#scheduleTable tbody tr')].find(r=>r.querySelector('.employee-link').textContent===e.name);
+ const outras=sector().weeks[1].employees.filter(x=>x.station==='caixa'&&!foraSemana(x,1));
+ return {vermelho:getComputedStyle(tr.querySelector('.employee-link')).color,sel:tr.querySelectorAll('select').length,txt:[...tr.children].slice(1,6).map(c=>c.textContent.trim()).join('|'),
+  analise:!document.querySelector('#offAnalysis').textContent.includes(e.name),whats:textoWhats().split('*Férias / atestado*')[1]||'',nome:e.name,
+  pdvsUnicos:(()=>{const m={};return outras.every(x=>{const k=x.pdv+'-'+x.shift;if(m[k])return false;m[k]=1;return true})})()}},quem);
+T('nome em vermelho na semana das férias',v.vermelho==='rgb(185, 28, 28)',v.vermelho);
+T('sem turno, posto, PDV nem horários na linha dela',v.sel===0&&/^—\|—\|—\|—\|—$/.test(v.txt),v.sel+' '+v.txt);
+T('WhatsApp lista ela só em "Férias / atestado"',v.whats.includes(v.nome)&&!textoSemFora(v),'');
+T('na semana 1 (sem férias) a linha dela volta ao normal',await A.evaluate((i)=>{state.selectedWeek=0;render();const e=week().employees[i];const tr=[...document.querySelectorAll('#scheduleTable tbody tr')].find(r=>r.querySelector('.employee-link').textContent===e.name);const ok=tr.querySelectorAll('select').length>=1&&!tr.classList.contains('aus-row');state.selectedWeek=1;render();return ok},quem));
 T('na semana das férias ela não trabalha nenhum dia',f.trab===0&&!f.dom&&f.offs===0,JSON.stringify([f.trab,f.dom,f.offs]));
 T('domingo dela: outra pessoa assumiu, ou o app avisou em vermelho que não havia substituta',f.domQt===domAntes||(semSub&&f.domQt===domAntes-1),f.domQt+' / '+domAntes+' semSub='+semSub);
 T('tabela mostra 7 dias marcados como férias',f.chips===7,String(f.chips));

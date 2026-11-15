@@ -335,6 +335,8 @@ function ausente(e, key, wi = state.selectedWeek) {
   return a.find((x) => x.de <= t && t <= x.ate) || null;
 }
 const ausSemana = (e, wi = state.selectedWeek) => DAYS.some((d) => ausente(e, d[0], wi));
+/* fora a semana inteira (férias/atestado em todos os dias): não recebe turno, posto, PDV, folga nem domingo nessa semana */
+const foraSemana = (e, wi = state.selectedWeek) => DAYS.every((d) => ausente(e, d[0], wi));
 /* recalcula as semanas atingidas por uma ausência: tira a pessoa do domingo (e tenta repor por alguém do mesmo posto) e refaz as folgas */
 function recalcAus(de, ate) {
   const weeks = sector().weeks,
@@ -361,6 +363,7 @@ function recalcAus(de, ate) {
       }
     });
     balanceOffs(w, true);
+    if (hasPdv()) assignPdvs(w, wi);
     feitas.push(wi + 1);
   });
   return feitas;
@@ -446,7 +449,7 @@ function swapSundayShifts(w) {
 }
 /* PDV: ninguém divide o mesmo PDV com quem trabalha no mesmo dia e horário; mantém o número atual quando está livre */
 function assignPdvs(w, wi, fresh) {
-  const emps = w.employees.filter((e) => e.station === 'caixa'),
+  const emps = w.employees.filter((e) => e.station === 'caixa' && !foraSemana(e, wi)),
     days = (e) => DAYS.filter((d) => worksOn(e, d[0], wi)).map((d) => d[0]);
   const iv = (e) => [mins(w.shifts[e.shift].start), mins(w.shifts[e.shift].end)];
   const clash = (a, b) => {
@@ -1016,10 +1019,19 @@ function row(e) {
             `<label class="off-chip" title="Folga na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
         )
         .join('');
-  return `<tr><td class="c-name"><button class="employee-link" data-jump="${e.id}" type="button">${escape(e.name)}</button></td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
+  const fora = foraSemana(e),
+    aus1 = fora || ausSemana(e),
+    nomeBtn = `<button class="employee-link${aus1 ? ' aus-nome' : ''}" data-jump="${e.id}" type="button"${aus1 ? ' title="Em férias / atestado nesta semana"' : ''}>${escape(e.name)}</button>`;
+  /* férias/atestado a semana inteira: sem turno, posto, PDV nem horários */
+  if (fora)
+    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}</td><td data-label="Turno">—</td>${hasPosts() ? '<td data-label="Posto" data-print="—">—</td>' : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
+  return `<tr${aus1 ? ' class="aus-row"' : ''}><td class="c-name">${nomeBtn}</td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
 }
 function renderSchedule() {
-  document.getElementById('scheduleTable').innerHTML = `${heading()}<tbody>${staff().map(row).join('')}</tbody>`;
+  /* quem está fora a semana inteira (férias/atestado) vai para o fim da tabela */
+  const L = staff(),
+    ordem = [...L.filter((e) => !foraSemana(e)), ...L.filter((e) => foraSemana(e))];
+  document.getElementById('scheduleTable').innerHTML = `${heading()}<tbody>${ordem.map(row).join('')}</tbody>`;
 }
 function renderSunday() {
   const list = sundayWorkers(),
@@ -1289,9 +1301,18 @@ function applyRotation() {
       counts,
       message: targetIndex === state.selectedWeek ? source.rotation.message : '',
     };
-    target.employees.forEach(
-      (e, index) => (e.shift = shiftForSlot(counts, (index - offset + target.activeCount) % target.activeCount)),
-    );
+    /* quem está de férias/atestado a semana inteira fica fora do rodízio de turnos dessa semana */
+    const pres = target.employees.filter((e) => !foraSemana(e, targetIndex));
+    if (pres.length === target.employees.length)
+      target.employees.forEach(
+        (e, index) => (e.shift = shiftForSlot(counts, (index - offset + target.activeCount) % target.activeCount)),
+      );
+    else if (pres.length) {
+      const n = pres.length,
+        cP = fittedCounts(source.rotation.counts, n, target.shifts.length),
+        off = ((((targetIndex - state.selectedWeek) * cP[0]) % n) + n) % n;
+      pres.forEach((e, index) => (e.shift = shiftForSlot(cP, (index - off + n) % n)));
+    }
     sortShifts(target);
   });
   render();
@@ -1900,7 +1921,7 @@ function applyPostPlan(silent) {
       cnt = { cedo: 0, tarde: 0 };
     postKeys().forEach((k) => {
       if (postShiftsCustom(k)) {
-        const all = w.employees.filter((e) => e.station === k).sort((a, b) => a.id - b.id),
+        const all = w.employees.filter((e) => e.station === k && !foraSemana(e, wi)).sort((a, b) => a.id - b.id),
           M = all.length;
         if (!M) return;
         const raw = shiftCounts(k, w),
@@ -1930,7 +1951,7 @@ function applyPostPlan(silent) {
       }
       const slots = postSlots(k);
       if (!slots.length) return;
-      const all = w.employees.filter((e) => e.station === k).sort((a, b) => a.id - b.id);
+      const all = w.employees.filter((e) => e.station === k && !foraSemana(e, wi)).sort((a, b) => a.id - b.id);
       if (wi === 0 && all.length !== slots.length)
         notes.push(
           POST_NAMES[k] +
@@ -2511,7 +2532,7 @@ function renderOffAnalysis() {
   if (!el) return;
   const w = week(),
     wi = state.selectedWeek,
-    emps = w.employees,
+    emps = w.employees.filter((e) => !foraSemana(e, wi)),
     N = emps.length;
   const works = (e, d) => worksOn(e, d[0], wi),
     closed = (d) => closedDay(d[0], wi);
@@ -3530,7 +3551,7 @@ async function buildPrintHtml(autoPrint) {
     c.splice(1, 1);
     return c.map((td, k) => {
       const v = td.dataset.print !== undefined ? td.dataset.print : td.innerHTML;
-      return k === c.length - 1 ? year(v) : k === 0 ? esc(td.textContent.trim()) : v;
+      return k === c.length - 1 ? year(v) : k === 0 ? (tr.classList.contains('aus-row') ? '<span style="color:#b91c1c">' + esc(td.textContent.trim()) + '</span>' : esc(td.textContent.trim())) : v;
     });
   });
   const whead = ['Colaboradora', posts ? 'Posto' : null, 'Entrada', 'Almoço', 'Saída', 'Folgas com data'].filter(
@@ -4058,7 +4079,7 @@ function textoWhats() {
   const w = week(),
     linhas = ['*Escala · ' + SECTORS[state.selectedSector] + '*', 'Semana ' + (state.selectedWeek + 1) + ' · ' + range()];
   w.shifts.forEach((s, si) => {
-    const grupo = w.employees.filter((e) => e.shift === si);
+    const grupo = w.employees.filter((e) => e.shift === si && !foraSemana(e));
     if (!grupo.length) return;
     linhas.push('', '*' + s.name + '* · ' + s.start + ' às ' + s.end + ' (almoço ' + s.lunchStart + '–' + s.lunchEnd + ')');
     grupo.forEach((e) => {
@@ -4066,6 +4087,11 @@ function textoWhats() {
       linhas.push('• ' + e.name + posto + ' — folgas: ' + offText(e));
     });
   });
+  const fora = w.employees.filter((e) => foraSemana(e));
+  if (fora.length) {
+    linhas.push('', '*Férias / atestado*');
+    fora.forEach((e) => linhas.push('• ' + e.name + ' — ' + offText(e)));
+  }
   const dom = sundayWorkers();
   linhas.push('', '*Domingo ' + short(date('domingo')).slice(0, 5) + '*: ' + (dom.length ? dom.map((e) => e.name).join(', ') : 'ninguém escalado'));
   return linhas.join('\n');
