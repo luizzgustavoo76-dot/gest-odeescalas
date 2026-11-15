@@ -36,6 +36,7 @@
   const erro=(titulo,msg,retry)=>{$('errTitle').textContent=titulo;$('errMsg').textContent=msg;retryFn=retry||(()=>location.reload());painel('err')};
   $('errRetry').addEventListener('click',()=>retryFn());
   const loginErr=m=>{const e=$('loginErr');e.textContent=m||'';e.hidden=!m};
+  const avisaInat=()=>{try{if(saindoInat)return;if(sessionStorage.getItem('escalas-saiu-inativo')){sessionStorage.removeItem('escalas-saiu-inativo');loginErr('Você foi desconectado por inatividade. Suas alterações foram salvas. Entre de novo para continuar.')}}catch(e){}};
 
   if(!cfg.url||!cfg.anonKey){erro('Nuvem não configurada','Preencha a URL e a chave em supabase-config.js. Sem a nuvem o app não abre.');$('errOut').hidden=true;return}
   if(!window.supabase||!window.supabase.createClient){erro('Sem conexão','Não foi possível carregar o serviço da nuvem. Verifique a internet e tente de novo.');$('errOut').hidden=true;return}
@@ -51,6 +52,7 @@
   const traduz=m=>/invalid login/i.test(m)?'E-mail ou senha incorretos.':/email not confirmed/i.test(m)?'E-mail ainda não confirmado.':/rate limit|too many/i.test(m)?'Muitas tentativas. Aguarde um pouco.':'Não foi possível entrar: '+m;
   $('loginForm').addEventListener('submit',async ev=>{
     ev.preventDefault();loginErr('');const b=$('loginBtn');b.disabled=true;b.textContent='Entrando…';
+    try{localStorage.setItem('escalas-ultimo-uso',String(Date.now()))}catch(e){}
     const {error}=await sb.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPass').value});
     b.disabled=false;b.textContent='Entrar';if(error)loginErr(traduz(error.message));
   });
@@ -93,6 +95,37 @@
     try{Object.keys(sessionStorage).filter(k=>/^sb-/.test(k)).forEach(k=>sessionStorage.removeItem(k))}catch(e){}
     location.reload();
   };
+  /* ---------- saída automática por inatividade: 15 min (administrador) e 30 min (usuário), com aviso 1 min antes ---------- */
+  const CH_USO='escalas-ultimo-uso';
+  const inatCfg=()=>Object.assign({admin:15*60e3,usuario:30*60e3,aviso:60e3},window.INATIVIDADE_MS||{});
+  const inatLimite=()=>(perfil&&perfil.papel==='admin'?inatCfg().admin:inatCfg().usuario);
+  const lsUso=()=>{try{return +localStorage.getItem(CH_USO)||0}catch(e){return 0}};
+  let ultimoUso=Date.now(),inatBox=null,saindoInat=false;
+  const tiraAvisoInat=()=>{if(inatBox){inatBox.remove();inatBox=null}};
+  const marcaUso=()=>{
+    if(!me||saindoInat)return;const n=Date.now();
+    if(n-ultimoUso<1000&&!inatBox)return;
+    ultimoUso=n;try{localStorage.setItem(CH_USO,String(n))}catch(e){}
+    tiraAvisoInat();
+  };
+  ['pointerdown','click','keydown','wheel','touchstart','scroll'].forEach(ev=>window.addEventListener(ev,marcaUso,{capture:true,passive:true}));
+  async function sairPorInatividade(){
+    if(saindoInat)return;saindoInat=true;tiraAvisoInat();
+    try{if(pronto&&(timer||pendentes().length)){clearTimeout(timer);timer=null;await enviar()}}catch(e){} // salva o que estiver pendente antes de sair
+    try{sessionStorage.setItem('escalas-saiu-inativo','1')}catch(e){}
+    sair();
+  }
+  setInterval(()=>{
+    if(!me||!pronto||saindoInat)return;
+    const parado=Date.now()-Math.max(ultimoUso,lsUso()),lim=inatLimite(),falta=lim-parado;
+    if(falta<=0){sairPorInatividade();return}
+    if(falta<=inatCfg().aviso){
+      if(!inatBox){inatBox=document.createElement('div');inatBox.id='inatAviso';inatBox.className='inat-aviso';inatBox.setAttribute('role','alertdialog');
+        inatBox.innerHTML='<div class="inat-box"><b>Você ainda está aí?</b><p>Por segurança, você será desconectado por inatividade em <span id="inatSeg"></span> segundos. Suas alterações serão salvas antes.</p><button type="button" class="button" id="inatFica">Continuar conectado</button></div>';
+        document.body.appendChild(inatBox)}
+      const s=inatBox.querySelector('#inatSeg');if(s)s.textContent=String(Math.max(1,Math.ceil(falta/1000)));
+    }else tiraAvisoInat(); // outra aba foi usada: some o aviso
+  },window.INATIVIDADE_MS?200:5000);
   $('logoutBtn').addEventListener('click',sair);$('errOut').addEventListener('click',sair);
   $('pwBtn').addEventListener('click',()=>mostraSenha(false));
   $('undoBtn').addEventListener('click',()=>desfazer());$('redoBtn').addEventListener('click',()=>refazer());
@@ -367,6 +400,8 @@
     if(error){me=null;erro('Sem conexão','Não foi possível verificar seu acesso. Verifique a internet e tente de novo.',()=>entrou(user));return}
     if(!p){me=null;await sb.auth.signOut();painel('login');loginErr('Esta sessão não é mais válida. Entre novamente com seu e-mail e senha.');return}
     perfil=p;if(!alvo||alvo!==user.id){alvo=user.id;alvoNome=''}
+    {const u=lsUso();if(u&&Date.now()-u>inatLimite()){try{sessionStorage.setItem('escalas-saiu-inativo','1')}catch(e){}saindoInat=true;sair();return}
+      ultimoUso=Date.now();try{localStorage.setItem(CH_USO,String(ultimoUso))}catch(e){}}
     $('userWho').textContent=(perfil.nome||user.email)+(perfil.papel==='admin'?' · administrador':(perfil.setor&&typeof SECTORS!=='undefined'&&SECTORS[perfil.setor]?' · '+SECTORS[perfil.setor]:''));
     $('adminBtn').hidden=!ehAdmin();bar.hidden=false;
     if(await carregar(true)){travaSetor();tempoReal();if(ehAdmin())lembraBackup()}
@@ -382,6 +417,7 @@
     me=null;alvo=null;perfil=null;pronto=false;bar.hidden=true;if(typeof window.travaSetor==='function')window.travaSetor(null);clearTimeout(timer);timer=null;
     if(channel){sb.removeChannel(channel);channel=null}
     painel('login');status('Entre para ver as escalas','');
+    avisaInat();
   }
   sb.auth.onAuthStateChange((ev,sess)=>{
     if(ev==='PASSWORD_RECOVERY'){recuperando=true;mostraSenha(true);return}
@@ -392,6 +428,6 @@
     let s;try{s=(await sb.auth.getSession()).data.session}catch(e){erro('Sem conexão','Não foi possível verificar o login. Verifique a internet e tente de novo.');return}
     if(s&&recuperando)mostraSenha(true);
     else if(s)await entrou(s.user);
-    else{painel('login');if(linkRuim)loginErr('Este link é inválido ou já expirou. Clique em "Esqueci minha senha" para receber outro.')}
+    else{painel('login');avisaInat();if(linkRuim)loginErr('Este link é inválido ou já expirou. Clique em "Esqueci minha senha" para receber outro.')}
   })();
 })();

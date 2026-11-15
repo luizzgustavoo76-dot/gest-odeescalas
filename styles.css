@@ -459,3 +459,8 @@ details.aus-box summary small{font-weight:400;color:#8a93a3}
 /* em férias/atestado na semana: nome em vermelho */
 .employee-link.aus-nome{color:#b91c1c!important}
 #scheduleTable tr.aus-row.fora td{color:#8a93a3}
+
+/* aviso de saída por inatividade */
+.inat-aviso{position:fixed;inset:0;background:rgba(15,23,42,.55);display:grid;place-items:center;z-index:10000;padding:16px}
+.inat-box{background:#fff;border-radius:14px;padding:22px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3);border-top:5px solid var(--yellow)}
+.inat-box b{font-size:18px;color:var(--navy)}.inat-box p{margin:10px 0 16px;color:var(--muted);font-size:14px}.inat-box #inatSeg{font-weight:800;color:var(--red)}

@@ -255,3 +255,8 @@ Se a Semana 1 não tem domingos marcados, o app escolhe (respeitando o mínimo p
 - **Completar as 4 semanas** pergunta antes de substituir semanas 2 a 4 alteradas à mão.
 - **Aba Regras** avisa quando um posto tem menos pessoas do que o dobro do mínimo de domingo (não dá para alternar).
 - Banco: `setor_permitido` não pode mais ser chamada sem login.
+
+## Saída automática por inatividade (build 101)
+Sem uso (clique, tecla, rolagem ou toque), o app desconecta sozinho: **15 minutos** para administrador e **30 minutos** para usuário.
+Um minuto antes aparece o aviso "Você ainda está aí?" com o botão **Continuar conectado**. As alterações pendentes são salvas antes de sair.
+Reabrir o site depois de ficar parado por mais que o limite também pede login de novo. Os tempos ficam em `sync.js` (`inatCfg`).
