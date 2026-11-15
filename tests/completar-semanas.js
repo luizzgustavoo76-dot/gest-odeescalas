@@ -51,5 +51,9 @@ await A.evaluate((nome)=>{const i=week().employees.findIndex(e=>e.name===nome);d
 const depD=await A.evaluate((nome)=>{const e=week().employees.find(x=>x.name===nome);return {n:sundayWorkers().length,dom:e.sundayWork,offs:e.offDays.length,need:week().model==='6x1'?0:1,t:document.getElementById('toast').textContent,linhas:document.querySelectorAll('#sundaySchedule tbody tr').length}},antesD.nome);
 T('Remover tira a pessoa do domingo e refaz as folgas dela',depD.n===antesD.n-1&&!depD.dom&&depD.offs===depD.need&&depD.linhas===depD.n,JSON.stringify(depD));
 T('aviso de removida aparece',/removida do domingo/.test(depD.t),depD.t.slice(0,90));
+// impressão: sem botão Remover e sem número da semana
+const imp=await A.evaluate(async()=>{const h=await buildPrintHtml(false);return {rem:/Remover|data-sun-rem/.test(h),sem:/Semana \d/.test(h),data:h.includes(range()),linhasDom:(h.split('class="sun"')[1]||'').split('<tr>').length-2,n:sundayWorkers().length}});
+T('impressão não mostra o botão Remover',!imp.rem&&imp.linhasDom===imp.n,JSON.stringify(imp));
+T('impressão mostra só as datas, sem "Semana N"',!imp.sem&&imp.data);
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();
