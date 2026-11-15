@@ -260,3 +260,10 @@ Se a Semana 1 não tem domingos marcados, o app escolhe (respeitando o mínimo p
 Sem uso (clique, tecla, rolagem ou toque), o app desconecta sozinho: **15 minutos** para administrador e **30 minutos** para usuário.
 Um minuto antes aparece o aviso "Você ainda está aí?" com o botão **Continuar conectado**. As alterações pendentes são salvas antes de sair.
 Reabrir o site depois de ficar parado por mais que o limite também pede login de novo. Os tempos ficam em `sync.js` (`inatCfg`).
+
+## Horário limitado ao fechamento, almoços automáticos e turno fixo (build 102)
+- **5x2 = 42h semanais** (8h24 por dia; 6x1 = 7h20 por dia). A tela de Conformidade e o botão do modelo mostram a carga correta.
+- **Entrada limitada pelo fechamento**: entrada + carga + 2h de almoço não pode passar do fechamento de segunda a sábado (Regras). Com fechamento às 19h30, a entrada máxima é 09h06 no 5x2 e 10h10 no 6x1; entrada mais tarde é recusada com mensagem vermelha. Trocar 6x1 → 5x2 (ou mudar o fechamento) antecipa a entrada sozinho, e continua editável.
+- **Almoços em cascata**: com 2 turnos, o 2º almoça quando o 1º volta; com 3 ou mais, 1h de diferença entre os almoços. Mudar o almoço (ou a entrada) de um turno leva os seguintes junto. Qualquer alteração que deixe a loja sem ninguém trabalhando é recusada, e a Conformidade aponta buracos que já existam.
+- **Turno fixo**: caixinha na ficha da colaboradora. Trava o turno nas 4 semanas (rodízio, Completar as 4 semanas e plano dos postos respeitam); a escolha do turno só libera ao desmarcar. Fica salva na ficha (roster).
+- **Domingo e férias/atestado**: quem está de férias aparece em "Não podem" com o motivo "de férias" (ou atestado/afastamento).

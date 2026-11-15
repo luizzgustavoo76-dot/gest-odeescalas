@@ -140,11 +140,23 @@ function weeklyLimit(idx = state ? state.selectedWeek : 0) {
 }
 function workDuration(model, idx = state ? state.selectedWeek : 0) {
   const l = weeklyLimit(idx);
-  return model === '6x1' ? l * 10 : Math.min(500, l * 12);
+  return model === '6x1' ? l * 10 : Math.min(504, l * 12); /* 5x2: 42h semanais = 8h24 por dia (40h = 8h por dia) */
+}
+/* fechamento de segunda a sábado (a configuração só existe depois que o estado é carregado) */
+const closeMin = () => mins((typeof state !== 'undefined' && state && state.settings && state.settings.weekClose) || '19:30');
+/* a jornada (carga + 2h de almoço) tem que caber até o fechamento: esta é a entrada mais tarde permitida */
+const maxStart = (model, wi) => closeMin() - (workDuration(model, wi) + 120);
+/* faixa permitida para o início do almoço: até 6h seguidas antes e depois, sempre cumprindo a carga */
+function lunchWin(startM, model, wi) {
+  const dur = workDuration(model, wi);
+  return [startM + Math.max(60, dur - 360), startM + 360];
 }
 function shift(index, model = '5x2') {
-  const [start, lunchStart] = PRESETS[index] || [plus('10:10', (index - 2) * 40), plus('13:00', (index - 2) * 40)],
-    work = workDuration(model);
+  const [start0, lunch0] = PRESETS[index] || [plus('10:10', (index - 2) * 40), plus('13:00', (index - 2) * 40)],
+    work = workDuration(model),
+    start = time(Math.min(mins(start0), maxStart(model, 0))),
+    [lo, hi] = lunchWin(mins(start), model, 0),
+    lunchStart = time(Math.min(hi, Math.max(lo, mins(lunch0) + mins(start) - mins(start0))));
   return {
     name: index + 1 + 'º turno',
     start,
@@ -175,7 +187,7 @@ function rotation(active = 12, shifts = 3) {
   return { enabled: false, counts: distribute(active, shifts), message: '' };
 }
 function newWeek() {
-  return {
+  const w = {
     model: '5x2',
     activeCount: 12,
     pdvCount: 10,
@@ -185,6 +197,60 @@ function newWeek() {
     sortDirection: 'asc',
     rotation: rotation(),
   };
+  autoLunch(w, 0, 0);
+  return w;
+}
+/* Almoços em cascata, sempre com alguém trabalhando: com 2 turnos o 2º almoça quando o 1º volta;
+   com 3 ou mais, cada almoço começa 1h depois do anterior. A partir do turno "from" (0 = todos depois do 1º). */
+function autoLunch(w, wi, from = 0) {
+  const n = w.shifts.length;
+  for (let j = Math.max(1, from + 1); j < n; j++) {
+    const prev = w.shifts[j - 1],
+      s = w.shifts[j],
+      target = n === 2 ? mins(prev.lunchStart) + 120 : mins(prev.lunchStart) + 60,
+      [lo, hi] = lunchWin(mins(s.start), w.model, wi);
+    s.lunchStart = time(Math.min(hi, Math.max(lo, target)));
+    s.lunchEnd = plus(s.lunchStart, 120);
+  }
+}
+/* Leva a entrada para dentro do horário de fechamento e acerta o almoço dentro da faixa permitida.
+   Devolve os nomes dos turnos cuja entrada mudou. */
+function fitShifts(w, wi) {
+  const mudou = [],
+    mx = maxStart(w.model, wi);
+  w.shifts.forEach((s) => {
+    const old = mins(s.start);
+    if (old > mx) {
+      const d = mx - old;
+      s.start = time(mx);
+      s.lunchStart = plus(s.lunchStart, d);
+      mudou.push(s.name);
+    }
+    const [lo, hi] = lunchWin(mins(s.start), w.model, wi);
+    s.lunchStart = time(Math.min(hi, Math.max(lo, mins(s.lunchStart))));
+    sync(s, w.model, wi);
+  });
+  return mudou;
+}
+/* primeiro intervalo do dia em que nenhum turno (com gente escalada) está trabalhando; null = sem buraco */
+function gapOf(w) {
+  const on = w.shifts.filter((s, k) => w.employees.some((e) => e.shift === k));
+  if (on.length < 1) return null;
+  const a = Math.min(...on.map((s) => mins(s.start))),
+    b = Math.max(...on.map((s) => mins(s.start) + (mins(s.end) - mins(s.start) + 1440) % 1440));
+  let ini = null;
+  for (let t = a; t <= b; t++) {
+    const cov = t < b && on.some((s) => {
+      const st = mins(s.start),
+        en = st + ((mins(s.end) - st + 1440) % 1440),
+        ls = mins(s.lunchStart),
+        le = mins(s.lunchEnd);
+      return t >= st && t < en && !(t >= ls && t < le);
+    });
+    if (!cov && t < b && ini === null) ini = t;
+    if ((cov || t === b) && ini !== null) return [ini, t];
+  }
+  return null;
 }
 function newSector() {
   return { weeks: [0, 1, 2, 3].map(newWeek) };
@@ -294,6 +360,11 @@ function normalize() {
       e.name = r[i].name;
       e.restricted = r[i].restricted;
       if (hasPosts()) e.station = stationOk(r[i].station, e.id);
+      /* turno fixo: a posição do turno (1º, 2º...) fica travada em todas as semanas */
+      if (Number.isInteger(r[i].fixo)) {
+        e.fixo = Math.min(r[i].fixo, w.shifts.length - 1);
+        e.shift = e.fixo;
+      } else delete e.fixo;
     }),
   );
 }
@@ -913,7 +984,11 @@ function render() {
   document.getElementById('pdvMetric').textContent = w.pdvCount;
   document.getElementById('pdvMetricCard').hidden = !hasPdv();
   document.getElementById('pdvGroup').hidden = !hasPdv();
-  document.querySelectorAll('.model-button').forEach((x) => x.classList.toggle('active', x.dataset.model === w.model));
+  document.querySelectorAll('.model-button').forEach((x) => {
+    x.classList.toggle('active', x.dataset.model === w.model);
+    const sm = x.querySelector('small');
+    if (sm) sm.textContent = hm(workDuration(x.dataset.model)) + ' trabalhadas · ' + hm(workDuration(x.dataset.model) * (x.dataset.model === '6x1' ? 6 : 5)) + '/sem';
+  });
   document.getElementById('operatorsTag').textContent = w.activeCount + ' ativas';
   renderWeekTabs();
   renderShifts();
@@ -946,7 +1021,7 @@ function renderShifts() {
     week()
       .shifts.map(
         (s, i) =>
-          `<div class="shift-card"><h3>${escape(s.name)}</h3><div class="time-grid"><label>Entrada<input data-shift="${i}" data-field="start" type="time" value="${s.start}" /></label><label>Saída calculada<input type="time" value="${s.end}" disabled /></label><label>Saída para almoço<input data-shift="${i}" data-field="lunchStart" type="time" value="${s.lunchStart}" /></label><label>Retorno automático (+2h)<input type="time" value="${s.lunchEnd}" disabled /></label></div><p class="helper">Limite com hora extra (máx. 1h30): até ${plus(s.end, EXTRA_MAX)}.</p></div>`,
+          `<div class="shift-card"><h3>${escape(s.name)}</h3><div class="time-grid"><label>Entrada<input data-shift="${i}" data-field="start" type="time" value="${s.start}" max="${time(maxStart(week().model, state.selectedWeek))}" /></label><label>Saída calculada<input type="time" value="${s.end}" disabled /></label><label>Saída para almoço<input data-shift="${i}" data-field="lunchStart" type="time" value="${s.lunchStart}" /></label><label>Retorno automático (+2h)<input type="time" value="${s.lunchEnd}" disabled /></label></div><p class="helper">Limite com hora extra (máx. 1h30): até ${plus(s.end, EXTRA_MAX)}.</p></div>`,
       )
       .join('') +
     sundayCard();
@@ -988,7 +1063,7 @@ function row(e) {
     s = w.shifts[e.shift],
     i = w.employees.indexOf(e),
     ae = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  const shiftSel = `<select class="tbl-sel" data-employee="${i}" data-field="shift" aria-label="Turno de ${ae(e.name)}">${w.shifts.map((sh, k) => `<option value="${k}" ${k === e.shift ? 'selected' : ''}>${escape(sh.name)} · ${sh.start}</option>`).join('')}</select>`;
+  const shiftSel = `<select class="tbl-sel" data-employee="${i}" data-field="shift" ${e.fixo !== undefined ? 'disabled title="Turno fixo: desmarque \'Turno fixo\' na ficha para trocar"' : ''} aria-label="Turno de ${ae(e.name)}">${w.shifts.map((sh, k) => `<option value="${k}" ${k === e.shift ? 'selected' : ''}>${escape(sh.name)} · ${sh.start}</option>`).join('')}</select>`;
   const stSel = hasPosts()
     ? `<select class="tbl-sel" data-employee="${i}" data-field="station" aria-label="Posto de ${ae(e.name)}">${postKeys()
         .map((k) => `<option value="${k}" ${k === e.station ? 'selected' : ''}>${POST_NAMES[k]}</option>`)
@@ -1097,7 +1172,7 @@ function renderOperators() {
   document.getElementById('operatorsList').innerHTML = w.employees
     .map(
       (e, i) =>
-        `<article class="operator-card" id="operator-${e.id}"><h3>Colaboradora ${e.id} <button type="button" class="remove-btn" data-remove="${i}">Excluir</button></h3><div class="operator-fields"><label>Nome<input data-employee="${i}" data-field="name" value="${escape(e.name)}" /></label><label>Turno<select data-employee="${i}" data-field="shift">${options}</select></label>${hasPosts() ? `<label>Posto<select data-employee="${i}" data-field="station">${stations}</select></label>` : ''}${hasPdv() && e.station === 'caixa' ? `<label class="pdv-pick">PDV da semana<select data-employee="${i}" data-field="pdv">${pdv}</select></label>` : ''}<fieldset class="off-days"><legend>Dias de folga <small>(${week().model === '6x1' ? 'até ' : 'marcar '}${offLimit(e)}${e.sundayWork ? '' : ' + domingo'})</small></legend><div class="days-list">${e.sundayWork ? '' : `<label><input type="checkbox" checked disabled />domingo <small>${short(date('domingo')).slice(0, 5)}</small> (folga)</label>`}${DAYS.filter(
+        `<article class="operator-card" id="operator-${e.id}"><h3>Colaboradora ${e.id} <button type="button" class="remove-btn" data-remove="${i}">Excluir</button></h3><div class="operator-fields"><label>Nome<input data-employee="${i}" data-field="name" value="${escape(e.name)}" /></label><label>Turno<select data-employee="${i}" data-field="shift" ${e.fixo !== undefined ? 'disabled' : ''}>${options}</select></label><label class="check-row fixo-row"><input type="checkbox" data-employee="${i}" data-field="fixo" ${e.fixo !== undefined ? 'checked' : ''} /> Turno fixo <small>${e.fixo !== undefined ? '(travado nas 4 semanas)' : '(sempre neste turno)'}</small></label>${hasPosts() ? `<label>Posto<select data-employee="${i}" data-field="station">${stations}</select></label>` : ''}${hasPdv() && e.station === 'caixa' ? `<label class="pdv-pick">PDV da semana<select data-employee="${i}" data-field="pdv">${pdv}</select></label>` : ''}<fieldset class="off-days"><legend>Dias de folga <small>(${week().model === '6x1' ? 'até ' : 'marcar '}${offLimit(e)}${e.sundayWork ? '' : ' + domingo'})</small></legend><div class="days-list">${e.sundayWork ? '' : `<label><input type="checkbox" checked disabled />domingo <small>${short(date('domingo')).slice(0, 5)}</small> (folga)</label>`}${DAYS.filter(
           (d) => d[0] !== 'domingo',
         )
           .map(
@@ -1241,10 +1316,21 @@ function setPdv(n) {
   render();
 }
 function setModel(m) {
-  week().model = m;
-  week().employees.forEach((e) => (e.offDays = e.offDays.slice(0, offLimit(e))));
-  week().shifts.forEach((s) => sync(s, m));
+  const w = week(),
+    wi = state.selectedWeek,
+    antes = w.model;
+  w.model = m;
+  w.employees.forEach((e) => (e.offDays = e.offDays.slice(0, offLimit(e))));
+  w.shifts.forEach((s) => sync(s, m));
+  /* a carga muda de modelo para modelo: a entrada é antecipada sozinha se a jornada passaria do fechamento (continua editável) */
+  const mudou = fitShifts(w, wi);
+  if (gapOf(w)) autoLunch(w, wi, 0);
   render();
+  if (antes !== m && mudou.length)
+    toast(
+      'Entrada antecipada em ' + mudou.join(', ') + ' para a jornada do ' + m + ' (' + hm(workDuration(m)) + ' + 2h de almoço) terminar até o fechamento, ' + state.settings.weekClose + '. Você pode alterar.',
+      true,
+    );
 }
 function setShiftCount(n) {
   const w = week(),
@@ -1253,6 +1339,10 @@ function setShiftCount(n) {
   while (items.length < count) items.push(shift(items.length, w.model));
   w.shifts = items;
   w.rotation.counts = distribute(w.activeCount, count);
+  /* almoços em cascata: com 2 turnos o 2º almoça quando o 1º volta; com 3 ou mais, 1h de diferença */
+  fitShifts(w, state.selectedWeek);
+  sortShifts(w);
+  autoLunch(w, state.selectedWeek, 0);
   render();
 }
 function setSort(f) {
@@ -1302,14 +1392,19 @@ function applyRotation() {
       message: targetIndex === state.selectedWeek ? source.rotation.message : '',
     };
     /* quem está de férias/atestado a semana inteira fica fora do rodízio de turnos dessa semana */
-    const pres = target.employees.filter((e) => !foraSemana(e, targetIndex));
+    const pres = target.employees.filter((e) => !foraSemana(e, targetIndex) && e.fixo === undefined),
+      fx = target.shifts.map((_, k) => target.employees.filter((e) => e.fixo === k && !foraSemana(e, targetIndex)).length);
     if (pres.length === target.employees.length)
       target.employees.forEach(
         (e, index) => (e.shift = shiftForSlot(counts, (index - offset + target.activeCount) % target.activeCount)),
       );
     else if (pres.length) {
       const n = pres.length,
-        cP = fittedCounts(source.rotation.counts, n, target.shifts.length),
+        cP = fittedCounts(
+          source.rotation.counts.map((c, k) => Math.max(0, c - (fx[k] || 0))),
+          n,
+          target.shifts.length,
+        ),
         off = ((((targetIndex - state.selectedWeek) * cP[0]) % n) + n) % n;
       pres.forEach((e, index) => (e.shift = shiftForSlot(cP, (index - off + n) % n)));
     }
@@ -1921,12 +2016,15 @@ function applyPostPlan(silent) {
       cnt = { cedo: 0, tarde: 0 };
     postKeys().forEach((k) => {
       if (postShiftsCustom(k)) {
-        const all = w.employees.filter((e) => e.station === k && !foraSemana(e, wi)).sort((a, b) => a.id - b.id),
+        const allP = w.employees.filter((e) => e.station === k && !foraSemana(e, wi)).sort((a, b) => a.id - b.id),
+          all = allP.filter((e) => e.fixo === undefined),
           M = all.length;
         if (!M) return;
         const raw = shiftCounts(k, w),
           S = raw.reduce((a, b) => a + b, 0),
-          counts = scaleCounts(raw, M);
+          cAll = scaleCounts(raw, allP.length),
+          cSem = cAll.map((n, q) => Math.max(0, n - allP.filter((e) => e.fixo === q).length)),
+          counts = cSem.reduce((a, b) => a + b, 0) > 0 ? scaleCounts(cSem, M) : scaleCounts(raw, M);
         if (wi === 0 && S !== M)
           notes.push(
             POST_NAMES[k] + ': ' + M + ' colaboradora(s) para ' + S + ' vaga(s) (mantive a proporção entre os turnos para todas entrarem)',
@@ -1951,12 +2049,13 @@ function applyPostPlan(silent) {
       }
       const slots = postSlots(k);
       if (!slots.length) return;
-      const all = w.employees.filter((e) => e.station === k && !foraSemana(e, wi)).sort((a, b) => a.id - b.id);
-      if (wi === 0 && all.length !== slots.length)
+      const allP = w.employees.filter((e) => e.station === k && !foraSemana(e, wi)).sort((a, b) => a.id - b.id),
+        all = allP.filter((e) => e.fixo === undefined);
+      if (wi === 0 && allP.length !== slots.length)
         notes.push(
           POST_NAMES[k] +
             ': ' +
-            all.length +
+            allP.length +
             ' colaboradora(s) para ' +
             slots.length +
             ' vaga(s) (mantive a proporção cedo/tarde para todas entrarem)',
@@ -1964,8 +2063,8 @@ function applyPostPlan(silent) {
       /* todas as colaboradoras do posto entram no rodízio: se o número de vagas não bate com o de colaboradoras, mantém a proporção cedo/tarde.
          A cada semana o grupo avança o número de vagas "cedo", então quem estava cedo vai para a tarde e vice-versa. */
       const M = all.length,
-        C = cfg[k].cedo,
-        T = cfg[k].tarde;
+        C = Math.max(0, cfg[k].cedo - allP.filter((e) => e.fixo !== undefined && ix.cedo.includes(e.fixo)).length),
+        T = Math.max(0, cfg[k].tarde - allP.filter((e) => e.fixo !== undefined && ix.tarde.includes(e.fixo)).length);
       if (!M) return;
       const c =
           M === 1
@@ -2798,6 +2897,9 @@ function compliance() {
       if (m > limit * 60)
         add('erro', L + e.name + ': carga semanal de ' + hm(m) + ' acima do limite de ' + limit + 'h.', [wi]);
     });
+    const buraco = gapOf(w);
+    if (buraco)
+      add('erro', L + 'das ' + time(buraco[0]) + ' às ' + time(buraco[1]) + ' nenhum turno está trabalhando (almoços coincidem). Deixe o almoço de um turno quando o outro voltar.', [wi]);
     w.shifts.forEach((s) => {
       const startM = mins(s.start),
         before = mins(s.lunchStart) - startM,
@@ -2814,6 +2916,12 @@ function compliance() {
         if (after > 360)
           add('erro', L + nm + ': mais de 6h seguidas de trabalho depois do almoço (art. 71 da CLT).', [wi]);
       }
+      if (endAbs > closeMin())
+        add(
+          'erro',
+          L + nm + ': a jornada termina às ' + s.end + ', depois do fechamento (' + S.weekClose + '); a colaboradora ficaria devendo ' + hm(endAbs - closeMin()) + ' de carga. Entrada máxima: ' + time(maxStart(w.model, wi)) + '.',
+          [wi],
+        );
       if (endAbs > 1320)
         add(
           'atenção',
@@ -3077,7 +3185,17 @@ document.addEventListener('change', (event) => {
   }
   if (t.id === 'weekClose' || t.id === 'sundayClose') {
     if (t.value) state.settings[t.id] = t.value;
+    let mudou = [];
+    if (t.id === 'weekClose' && t.value)
+      /* fechamento mais cedo: a entrada dos turnos que passariam do horário é antecipada nas 4 semanas */
+      sector().weeks.forEach((x, k) => {
+        const m = fitShifts(x, k);
+        if (m.length && gapOf(x)) autoLunch(x, k, 0);
+        m.forEach((nm) => !mudou.includes(nm) && mudou.push(nm));
+      });
     render();
+    if (mudou.length)
+      toast('Fechamento às ' + state.settings.weekClose + ': entrada antecipada em ' + mudou.join(', ') + ' para ninguém ficar devendo horas. Você pode alterar.', true);
     return;
   }
   if (t.id === 'extraHolidays') {
@@ -3186,16 +3304,26 @@ document.addEventListener('change', (event) => {
     const s = w.shifts[+t.dataset.shift],
       f = t.dataset.field,
       dur = workDuration(w.model),
+      wi = state.selectedWeek,
       oldStart = s.start;
     if (!t.value) {
       render();
       return;
     }
+    /* entrada tarde demais: a jornada passaria do fechamento e a pessoa ficaria devendo horas */
+    if (f === 'start' && mins(t.value) > maxStart(w.model, wi)) {
+      toast(
+        'Entrada das ' + t.value + ' não é permitida: com a jornada do ' + w.model + ' (' + hm(dur) + ' + 2h de almoço) o ' + s.name + ' terminaria às ' + plus(t.value, dur + 120) + ', depois do fechamento (' + state.settings.weekClose + '), e a colaboradora ficaria devendo horas. Entrada máxima: ' + time(maxStart(w.model, wi)) + '.',
+      );
+      render();
+      return;
+    }
+    const gap0 = gapOf(w),
+      snap = clone({ shifts: w.shifts, employees: w.employees });
     s[f] = t.value;
     let ls = mins(s.lunchStart);
     if (f === 'start') ls += mins(s.start) - mins(oldStart);
-    const lo = mins(s.start) + Math.max(60, dur - 360),
-      hi = mins(s.start) + 360,
+    const [lo, hi] = lunchWin(mins(s.start), w.model, wi),
       c = Math.min(hi, Math.max(lo, ls));
     if (c !== ls && f === 'lunchStart')
       toast(
@@ -3206,7 +3334,18 @@ document.addEventListener('change', (event) => {
           '.',
       );
     s.lunchStart = time(c);
-    sync(s);
+    sync(s, w.model, wi);
+    /* os turnos seguintes acompanham o almoço deste (1h de diferença; com 2 turnos, quando o 1º volta) */
+    sortShifts(w);
+    autoLunch(w, wi, w.shifts.indexOf(s));
+    const gap = gapOf(w);
+    if (gap && !gap0) {
+      w.shifts = snap.shifts;
+      w.employees = snap.employees;
+      toast(
+        'Não é permitido: das ' + time(gap[0]) + ' às ' + time(gap[1]) + ' ficaria sem nenhuma colaboradora trabalhando (todos os turnos em almoço ou sem cobertura). Ajuste o almoço de outro turno antes.',
+      );
+    }
     render();
     return;
   }
@@ -3264,6 +3403,19 @@ document.addEventListener('change', (event) => {
     if (f === 'restricted') {
       roster()[+t.dataset.employee].restricted = t.checked;
       render();
+      return;
+    }
+    if (f === 'fixo') {
+      const rr = roster()[+t.dataset.employee];
+      if (t.checked) rr.fixo = e.shift;
+      else delete rr.fixo;
+      render();
+      toast(
+        t.checked
+          ? e.name + ' ficou fixa no ' + (e.shift + 1) + 'º turno em todas as semanas. Para trocar, desmarque “Turno fixo”.'
+          : e.name + ' voltou ao rodízio de turnos.',
+        true,
+      );
       return;
     }
     if ((f === 'shift' || f === 'station') && t.classList.contains('tbl-sel')) congelaOrdem();
@@ -3821,6 +3973,8 @@ function sundayEligible(i) {
     w = weeks[wi],
     e = w.employees[i];
   if (closedDay('domingo')) return 'domingo fechado (feriado)';
+  const au = ausente(e, 'domingo', wi);
+  if (au) return 'de ' + (AUS_TIPOS[au.tipo] || 'afastamento').toLowerCase();
   const works = (x) => !!(weeks[x] && weeks[x].employees[i] && weeks[x].employees[i].sundayWork);
   if (works(wi - 1)) return 'trabalhou o domingo anterior';
   if (works(wi + 1)) return 'trabalha o próximo domingo';
