@@ -446,3 +446,6 @@ details.aus-box summary small{font-weight:400;color:#8a93a3}
 .aus-qtd{background:#ede4fb;color:#4c1d95;border-radius:999px;padding:1px 8px;font-size:11px}
 @media print{details.aus-box{display:none}}
 .operator-grid{align-items:start}
+
+.sun-rem{text-align:right;width:1%}
+@media print{.sun-rem{display:none!important}}

@@ -43,5 +43,13 @@ const r2=await info();
 T('com a semana 3 aberta: a Semana 1 é a base e a tela continua na semana 3',r2.sel===2&&r2.iguais);
 T('domingos marcados na Semana 1 foram mantidos',await A.evaluate(()=>sector().weeks[0].employees.map(e=>e.sundayWork?1:0).join(''))===marc);
 T('sem domingos seguidos nem alertas de erro',!r2.seguidos&&r2.erros.length===0,r2.erros.join(' | '));
+// remover do domingo
+await A.evaluate(()=>{state.selectedWeek=0;render();document.getElementById('toast').hidden=true;toastErroEm=0});
+const antesD=await A.evaluate(()=>({n:sundayWorkers().length,bt:document.querySelectorAll('#sundaySchedule [data-sun-rem]').length,nome:sundayWorkers().filter(e=>e.station==='caixa').pop().name}));
+T('escala de domingo tem um botão Remover por colaboradora',antesD.bt===antesD.n&&antesD.n>0,antesD.bt+'/'+antesD.n);
+await A.evaluate((nome)=>{const i=week().employees.findIndex(e=>e.name===nome);document.querySelector('#sundaySchedule [data-sun-rem="'+i+'"]').click()},antesD.nome);await A.waitForTimeout(200);
+const depD=await A.evaluate((nome)=>{const e=week().employees.find(x=>x.name===nome);return {n:sundayWorkers().length,dom:e.sundayWork,offs:e.offDays.length,need:week().model==='6x1'?0:1,t:document.getElementById('toast').textContent,linhas:document.querySelectorAll('#sundaySchedule tbody tr').length}},antesD.nome);
+T('Remover tira a pessoa do domingo e refaz as folgas dela',depD.n===antesD.n-1&&!depD.dom&&depD.offs===depD.need&&depD.linhas===depD.n,JSON.stringify(depD));
+T('aviso de removida aparece',/removida do domingo/.test(depD.t),depD.t.slice(0,90));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

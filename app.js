@@ -1030,12 +1030,12 @@ function renderSunday() {
         const pl = sundayPlan(week()),
           end = time(pl.en),
           lunch = pl.brk ? time(pl.brk[0]) + '–' + time(pl.brk[1]) + ' (' + (pl.brk[1] - pl.brk[0]) + ' min)' : '—';
-        return `<tr><td>${escape(e.name)}</td><td>Domingo</td>${hasPosts() ? `<td>${sundayStationText(e)}</td>` : ''}<td>${time(pl.st)}</td><td>${lunch}</td><td>${end}</td></tr>`;
+        return `<tr><td>${escape(e.name)}</td><td>Domingo</td>${hasPosts() ? `<td>${sundayStationText(e)}</td>` : ''}<td>${time(pl.st)}</td><td>${lunch}</td><td>${end}</td><td class="sun-rem"><button type="button" class="remove-btn" data-sun-rem="${week().employees.indexOf(e)}" title="Tirar ${escape(e.name)} deste domingo">Remover</button></td></tr>`;
       })
       .join('');
-  const columns = hasPdv() ? 6 : 5;
+  const columns = (hasPdv() ? 6 : 5) + 1;
   document.getElementById('sundaySchedule').innerHTML =
-    `<div class="print-brand"><img src="logo.png" alt="" /><b>${escape(SECTORS[state.selectedSector])}</b><span>Escala de domingo · ${short(date('domingo'))}</span></div><div class="section-heading"><div><p class="eyebrow">ESCALA DE DOMINGO</p><h2>Domingo · ${short(date('domingo'))}</h2><p>${SECTORS[state.selectedSector]} · mínimo de ${minimum} colaboradora${minimum === 1 ? '' : 's'}.</p></div><span class="tag">${list.length} programada${list.length === 1 ? '' : 's'}</span></div><div class="table-wrap"><table><thead><tr><th>Colaboradora</th><th>Turno</th>${head}<th>Entrada</th><th>Intervalo</th><th>Saída</th></tr></thead><tbody>${rows || `<tr><td colspan="${columns}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table></div><p class="table-note">${week().sunday.mode === 'dia' ? 'Domingo dia todo, com almoço de 2h' : 'Domingo até ' + week().sunday.end + ', direto e sem intervalo'}. CCT de mercados: abono de R$ 94,00 por domingo trabalhado, além da folga semanal (confirme o valor vigente).</p>`;
+    `<div class="print-brand"><img src="logo.png" alt="" /><b>${escape(SECTORS[state.selectedSector])}</b><span>Escala de domingo · ${short(date('domingo'))}</span></div><div class="section-heading"><div><p class="eyebrow">ESCALA DE DOMINGO</p><h2>Domingo · ${short(date('domingo'))}</h2><p>${SECTORS[state.selectedSector]} · mínimo de ${minimum} colaboradora${minimum === 1 ? '' : 's'}.</p></div><span class="tag">${list.length} programada${list.length === 1 ? '' : 's'}</span></div><div class="table-wrap"><table><thead><tr><th>Colaboradora</th><th>Turno</th>${head}<th>Entrada</th><th>Intervalo</th><th>Saída</th><th class="sun-rem"></th></tr></thead><tbody>${rows || `<tr><td colspan="${columns}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table></div><p class="table-note">${week().sunday.mode === 'dia' ? 'Domingo dia todo, com almoço de 2h' : 'Domingo até ' + week().sunday.end + ', direto e sem intervalo'}. CCT de mercados: abono de R$ 94,00 por domingo trabalhado, além da folga semanal (confirme o valor vigente).</p>`;
 }
 function ausNota(e) {
   const vistos = [];
@@ -3833,6 +3833,44 @@ function addSundayWorker(i) {
   render();
   toast(w.employees[i].name + ' adicionada ao domingo.', true);
 }
+/* tira a colaboradora do domingo da semana aberta: o domingo vira folga e as folgas da semana são recalculadas */
+function removeSundayWorker(i) {
+  const w = week(),
+    e = w.employees[i];
+  if (!e || !e.sundayWork) return;
+  const sel = state.selectedSector;
+  state.undo = {
+    ...(state.undo || {}),
+    [sel]: {
+      at: new Date().toISOString(),
+      weeks: clone(sector().weeks),
+      roster: clone((state.roster && state.roster[sel]) || []),
+    },
+  };
+  e.sundayWork = false;
+  balanceOffs(w, true);
+  const resta = sundayWorkers(),
+    min = sundayMin() || 0,
+    semPosto = hasPosts() ? sundayPosts().filter((p) => resta.filter((x) => x.station === p).length < sundayPostMin(p)) : [],
+    falta = resta.length < min || semPosto.length;
+  state.notice =
+    e.name + ' saiu do domingo da Semana ' + (state.selectedWeek + 1) + '. Folgas da semana recalculadas. Você pode desfazer em "Gerar".';
+  render();
+  toast(
+    e.name +
+      ' removida do domingo.' +
+      (falta
+        ? ' Atenção: o domingo ficou abaixo do mínimo' +
+          (semPosto.length ? ' em ' + semPosto.map((p) => POST_NAMES[p]).join(', ') : ' (' + resta.length + ' de ' + min + ')') +
+          '; adicione outra colaboradora.'
+        : ''),
+    !falta,
+  );
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-sun-rem]');
+  if (b) removeSundayWorker(+b.dataset.sunRem);
+});
 function addEmployee(station, nameIn) {
   const sel = state.selectedSector,
     weeks = sector().weeks;
