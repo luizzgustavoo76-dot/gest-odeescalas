@@ -234,7 +234,7 @@ function fitShifts(w, wi) {
 }
 /* primeiro intervalo do dia em que nenhum turno (com gente escalada) está trabalhando; null = sem buraco */
 function gapOf(w) {
-  const on = w.shifts.filter((s, k) => w.employees.some((e) => e.shift === k));
+  const on = w.shifts;
   if (on.length < 1) return null;
   const a = Math.min(...on.map((s) => mins(s.start))),
     b = Math.max(...on.map((s) => mins(s.start) + (mins(s.end) - mins(s.start) + 1440) % 1440));
@@ -350,9 +350,11 @@ function sortShifts(w = week()) {
 function normalize() {
   registraPostos();
   state.settings = { ...DEFAULTS, ...state.settings };
-  sector().weeks.forEach((x) => {
+  sector().weeks.forEach((x, k) => {
     normalizeWeek(x);
     sortShifts(x);
+    /* almoços coincidentes (dados antigos ou edição): refaz a cascata para sempre haver alguém trabalhando */
+    if (gapOf(x)) autoLunch(x, k, 0);
   });
   const r = roster();
   sector().weeks.forEach((w) =>
@@ -1318,17 +1320,33 @@ function setPdv(n) {
 function setModel(m) {
   const w = week(),
     wi = state.selectedWeek,
-    antes = w.model;
+    antes = w.model,
+    durAntes = workDuration(antes, wi),
+    /* turnos que terminam justo no fechamento continuam terminando nele no outro modelo (a entrada sobe ou desce) */
+    ancorado = w.shifts.map((s) => Math.abs(mins(s.start) + durAntes + 120 - closeMin()) <= 1);
   w.model = m;
   w.employees.forEach((e) => (e.offDays = e.offDays.slice(0, offLimit(e))));
-  w.shifts.forEach((s) => sync(s, m));
-  /* a carga muda de modelo para modelo: a entrada é antecipada sozinha se a jornada passaria do fechamento (continua editável) */
-  const mudou = fitShifts(w, wi);
-  if (gapOf(w)) autoLunch(w, wi, 0);
+  const mudou = [];
+  if (antes !== m)
+    w.shifts.forEach((s, k) => {
+      if (!ancorado[k]) return;
+      const novo = closeMin() - (workDuration(m, wi) + 120),
+        d = novo - mins(s.start);
+      if (d) {
+        s.start = time(novo);
+        s.lunchStart = plus(s.lunchStart, d);
+        mudou.push(s.name);
+      }
+    });
+  w.shifts.forEach((s) => sync(s, m, wi));
+  /* o que ainda passar do fechamento é antecipado (continua editável) */
+  fitShifts(w, wi).forEach((nm) => !mudou.includes(nm) && mudou.push(nm));
+  sortShifts(w);
+  autoLunch(w, wi, 0);
   render();
   if (antes !== m && mudou.length)
     toast(
-      'Entrada antecipada em ' + mudou.join(', ') + ' para a jornada do ' + m + ' (' + hm(workDuration(m)) + ' + 2h de almoço) terminar até o fechamento, ' + state.settings.weekClose + '. Você pode alterar.',
+      'Entrada ajustada em ' + mudou.join(', ') + ' para a jornada do ' + m + ' (' + hm(workDuration(m, wi)) + ' + 2h de almoço) terminar no fechamento, ' + state.settings.weekClose + '. Você pode alterar.',
       true,
     );
 }
@@ -3335,6 +3353,11 @@ document.addEventListener('change', (event) => {
       );
     s.lunchStart = time(c);
     sync(s, w.model, wi);
+    if (w.shifts.length === 2 && f === 'lunchStart' && w.shifts.indexOf(s) === 1 && mins(s.lunchStart) < mins(w.shifts[0].lunchEnd)) {
+      s.lunchStart = w.shifts[0].lunchEnd;
+      toast('Almoço do 2º turno ajustado para ' + s.lunchStart + ': ele só pode sair quando o 1º turno volta do almoço (' + w.shifts[0].lunchEnd + '), para a loja não ficar sem ninguém.');
+    }
+    s.lunchEnd = plus(s.lunchStart, 120);
     /* os turnos seguintes acompanham o almoço deste (1h de diferença; com 2 turnos, quando o 1º volta) */
     sortShifts(w);
     autoLunch(w, wi, w.shifts.indexOf(s));

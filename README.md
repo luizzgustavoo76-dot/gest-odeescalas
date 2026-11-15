@@ -267,3 +267,7 @@ Reabrir o site depois de ficar parado por mais que o limite também pede login d
 - **Almoços em cascata**: com 2 turnos, o 2º almoça quando o 1º volta; com 3 ou mais, 1h de diferença entre os almoços. Mudar o almoço (ou a entrada) de um turno leva os seguintes junto. Qualquer alteração que deixe a loja sem ninguém trabalhando é recusada, e a Conformidade aponta buracos que já existam.
 - **Turno fixo**: caixinha na ficha da colaboradora. Trava o turno nas 4 semanas (rodízio, Completar as 4 semanas e plano dos postos respeitam); a escolha do turno só libera ao desmarcar. Fica salva na ficha (roster).
 - **Domingo e férias/atestado**: quem está de férias aparece em "Não podem" com o motivo "de férias" (ou atestado/afastamento).
+
+### Ajuste (build 103)
+- Trocar de modelo mexe na entrada **nos dois sentidos**: turnos que terminam no fechamento continuam terminando nele (6x1 → 5x2 antecipa, 5x2 → 6x1 atrasa).
+- A cobertura do almoço olha os turnos configurados (não depende de quem está escalada em cada um). Com 2 turnos, o almoço do 2º nunca fica antes do retorno do 1º (ajuste automático com aviso); almoços coincidentes de dados antigos são refeitos sozinhos.

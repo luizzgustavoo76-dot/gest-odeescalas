@@ -42,7 +42,18 @@ T('almoço do 1º às 11:30 leva o 2º para 13:30',l3[0]==='11:30-13:30'&&l3[1].
 await A.evaluate(()=>{toastErroEm=0});
 await A.fill('input[data-shift="1"][data-field=lunchStart]','12:00');await A.dispatchEvent('input[data-shift="1"][data-field=lunchStart]','change');await A.waitForTimeout(300);
 const l4=await A.evaluate(()=>({l:sector().weeks[0].shifts.map(x=>x.lunchStart),t:document.getElementById('toast').textContent}));
-T('almoços que deixam a loja sem ninguém são recusados',l4.l[1]!=='12:00'&&/sem nenhuma colaboradora/.test(l4.t),JSON.stringify(l4));
+T('com 2 turnos o 2º não pode almoçar antes do retorno do 1º',l4.l[1]==='13:30'&&/só pode sair quando o 1º turno volta/.test(l4.t),JSON.stringify(l4));
+// ida e volta de modelo: turnos ancorados no fechamento sobem e descem
+await A.evaluate(()=>{setShiftCount(3);setModel('6x1')});
+const up=await A.evaluate(()=>sector().weeks[0].shifts.map(x=>x.start+'-'+x.end));
+T('5x2→6x1 leva a entrada para cima (termina no fechamento)',up[1]==='10:10-19:30'&&up[2]==='10:10-19:30',JSON.stringify(up));
+await A.evaluate(()=>setModel('5x2'));
+const dn=await A.evaluate(()=>sector().weeks[0].shifts.map(x=>x.start+'-'+x.end));
+T('6x1→5x2 leva a entrada para baixo',dn[1]==='09:06-19:30'&&dn[2]==='09:06-19:30',JSON.stringify(dn));
+// dado antigo com almoços coincidentes é corrigido sozinho
+await A.evaluate(()=>{setShiftCount(2);const w=week();w.shifts[0].start='07:00';w.shifts[1].start='10:00';w.shifts[0].lunchStart='11:30';w.shifts[1].lunchStart='12:00';sync(w.shifts[0]);sync(w.shifts[1]);render()});
+const hl=await A.evaluate(()=>({l:week().shifts.map(x=>x.lunchStart+'-'+x.lunchEnd),gap:gapOf(week())}));
+T('almoços coincidentes de dados antigos são refeitos sozinhos',hl.gap===null&&hl.l[1].startsWith('13:30'),JSON.stringify(hl));
 // 3 turnos: 1h de diferença
 await A.evaluate(()=>setShiftCount(3));
 const l5=await A.evaluate(()=>{const s=sector().weeks[0].shifts.map(x=>mins(x.lunchStart));return [s[1]-s[0],s[2]-s[1]]});
