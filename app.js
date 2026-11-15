@@ -320,6 +320,95 @@ function roster() {
     }
   return arr;
 }
+/* ===== férias, atestados e afastamentos: ficam na ficha da pessoa (roster), por data, e valem em todas as semanas ===== */
+const ymd = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const AUS_TIPOS = { ferias: 'Férias', atestado: 'Atestado', outro: 'Afastamento' };
+function ausente(e, key, wi = state.selectedWeek) {
+  const w = sector().weeks && sector().weeks[wi];
+  if (!w) return null;
+  const rs = state.roster && state.roster[state.selectedSector];
+  if (!rs) return null;
+  const i = w.employees.indexOf(e);
+  const a = i >= 0 && rs[i] && rs[i].aus;
+  if (!a || !a.length) return null;
+  const t = ymd(date(key, wi));
+  return a.find((x) => x.de <= t && t <= x.ate) || null;
+}
+const ausSemana = (e, wi = state.selectedWeek) => DAYS.some((d) => ausente(e, d[0], wi));
+/* recalcula as semanas atingidas por uma ausência: tira a pessoa do domingo (e tenta repor por alguém do mesmo posto) e refaz as folgas */
+function recalcAus(de, ate) {
+  const weeks = sector().weeks,
+    feitas = [];
+  feitas.semSub = [];
+  weeks.forEach((w, wi) => {
+    const ini = ymd(date('domingo', wi)),
+      fim = ymd(date('sábado', wi));
+    if (ate < ini || de > fim) return;
+    normalizeWeek(w);
+    w.employees.forEach((e, i) => {
+      if (e.sundayWork && ausente(e, 'domingo', wi)) {
+        e.sundayWork = false;
+        const livre = (x, k) =>
+          !x.sundayWork &&
+          !ausente(x, 'domingo', wi) &&
+          !(weeks[wi - 1] && weeks[wi - 1].employees[k] && weeks[wi - 1].employees[k].sundayWork) &&
+          !(weeks[wi + 1] && weeks[wi + 1].employees[k] && weeks[wi + 1].employees[k].sundayWork);
+        const sub =
+          w.employees.find((x, k) => x.station === e.station && x.shift === e.shift && livre(x, k)) ||
+          w.employees.find((x, k) => x.station === e.station && livre(x, k));
+        if (sub) sub.sundayWork = true;
+        else feitas.semSub.push(wi + 1);
+      }
+    });
+    balanceOffs(w, true);
+    feitas.push(wi + 1);
+  });
+  return feitas;
+}
+function addAusencia(i, tipo, de, ate) {
+  if (!de || !ate) return toast('Erro: informe a data de início e a data de fim.');
+  if (ate < de) return toast('Erro: a data de fim é antes da data de início.');
+  const r = roster()[i];
+  if (!r) return;
+  r.aus = r.aus || [];
+  if (r.aus.some((x) => !(ate < x.de || de > x.ate))) return toast('Erro: essa pessoa já tem uma ausência registrada nesse período.');
+  r.aus.push({ tipo: AUS_TIPOS[tipo] ? tipo : 'outro', de, ate });
+  r.aus.sort((a, b) => (a.de < b.de ? -1 : 1));
+  const f = recalcAus(de, ate);
+  render();
+  toast(
+    AUS_TIPOS[tipo] +
+      ' de ' +
+      r.name +
+      ' registrado(a): ' +
+      brData(de) +
+      ' a ' +
+      brData(ate) +
+      '. ' +
+      (f.length ? 'Folgas e domingos recalculados na(s) semana(s) ' + f.join(', ') + '.' : 'O período fica fora das 4 semanas abertas; vale quando o ciclo chegar nessas datas.') +
+      (f.semSub.length
+        ? ' Atenção: no domingo da(s) semana(s) ' + f.semSub.join(', ') + ' não havia ninguém livre do mesmo posto para substituir (sem repetir domingo); escolha a substituta na escala de domingo.'
+        : ''),
+    !f.semSub.length,
+  );
+}
+function delAusencia(i, k) {
+  const r = roster()[i];
+  if (!r || !r.aus || !r.aus[k]) return;
+  const x = r.aus.splice(k, 1)[0];
+  const f = recalcAus(x.de, x.ate);
+  render();
+  toast('Ausência removida.' + (f.length ? ' Folgas recalculadas na(s) semana(s) ' + f.join(', ') + '. Confira os domingos.' : ''), true);
+}
+document.addEventListener('click', (ev) => {
+  const a = ev.target.closest && ev.target.closest('[data-aus-add]'),
+    d = ev.target.closest && ev.target.closest('[data-aus-del]');
+  if (a) {
+    const box = a.closest('.aus-box');
+    addAusencia(+a.dataset.ausAdd, box.querySelector('[data-aus-tipo]').value, box.querySelector('[data-aus-de]').value, box.querySelector('[data-aus-ate]').value);
+  }
+  if (d) delAusencia(+d.dataset.ausDel, +d.dataset.k);
+});
 /* ===== geração automática (opcional): só roda quando o botão é clicado; guarda cópia para desfazer ===== */
 /* estudante/mãe: CCT protege contra escala após 18h; troca de turno com quem não tem restrição (preferindo quem não trabalha no domingo) */
 function swapRestricted(w) {
@@ -712,7 +801,15 @@ const effOff = (e) => (e.sundayWork ? e.offDays : [...e.offDays, 'domingo']),
   offLimit = (e, model = week().model) => (model === '6x1' ? (e.sundayWork ? 1 : 0) : Math.max(0, 2 - (e.sundayWork ? 0 : 1))),
   sc = () => sundayPlan(week()).en;
 function offText(e) {
-  const picked = DAYS.filter((d) => effOff(e).includes(d[0]) || closedDay(d[0]));
+  /* férias/atestado na semana: aparece na impressão e no WhatsApp no lugar das folgas desses dias */
+  const aus = DAYS.map((d) => ausente(e, d[0])).filter(Boolean);
+  if (aus.length === 7) return AUS_TIPOS[aus[0].tipo] + ' (' + brData(aus[0].de) + ' a ' + brData(aus[0].ate) + ')';
+  const nota = aus.length ? ' · ' + AUS_TIPOS[aus[0].tipo] + ': ' + DAYS.filter((d) => ausente(e, d[0])).map((d) => d[1] + ' ' + short(date(d[0])).slice(0, 5)).join(', ') : '';
+  const picked = DAYS.filter((d) => !ausente(e, d[0]) && (effOff(e).includes(d[0]) || closedDay(d[0])));
+  if (nota)
+    return (
+      (picked.length ? picked.map((d) => d[1] + ' ' + short(date(d[0]))).join(' e ') : 'sem folga nos dias de trabalho') + nota
+    );
   return picked.length
     ? picked
         .map((d) => d[1] + ' ' + short(date(d[0])) + (closedDay(d[0]) && !effOff(e).includes(d[0]) ? ' (feriado)' : ''))
@@ -723,10 +820,10 @@ function stationText(e) {
   return e.station === 'caixa' ? 'Operadora Caixa · PDV ' + e.pdv : POST_NAMES[e.station] || 'PDV ' + e.pdv;
 }
 function sundayWorkers() {
-  return week().employees.filter((e) => !closedDay('domingo') && e.sundayWork);
+  return week().employees.filter((e) => !closedDay('domingo') && e.sundayWork && !ausente(e, 'domingo'));
 }
 function issues() {
-  const bad = week().employees.filter((e) => (week().model === '6x1' ? effOff(e).length < 1 : effOff(e).length !== 2)),
+  const bad = week().employees.filter((e) => !ausSemana(e) && (week().model === '6x1' ? effOff(e).length < 1 : effOff(e).length !== 2)),
     list = [];
   if (bad.length)
     list.push(
@@ -827,6 +924,7 @@ function render() {
   renderWarning();
   renderCompliance();
   renderOffAnalysis();
+  renderResumo();
   renderGen();
   renderBackupStatus();
   save();
@@ -898,7 +996,15 @@ function row(e) {
       ? `<select class="tbl-sel tbl-pdv" data-employee="${i}" data-field="pdv" aria-label="PDV de ${ae(e.name)}">${Array.from({ length: w.pdvCount }, (_, k) => `<option value="${k + 1}" ${k + 1 === e.pdv ? 'selected' : ''}>PDV ${k + 1}</option>`).join('')}</select>`
       : '';
   const dd = (k) => short(date(k)).slice(0, 5),
-    domChip = e.sundayWork
+    ausChip = (k, rot, cls) => {
+      const a = ausente(e, k);
+      return a
+        ? `<label class="off-chip aus ${cls}" title="${AUS_TIPOS[a.tipo]}: ${brData(a.de)} a ${brData(a.ate)}"><input type="checkbox" disabled /><span>${rot} <i>${dd(k)}</i>${cls ? `<b>${AUS_TIPOS[a.tipo].toLowerCase()}</b>` : ''}</span></label>`
+        : '';
+    },
+    domChip = ausChip('domingo', 'Dom', 'dom')
+      ? ausChip('domingo', 'Dom', 'dom')
+      : e.sundayWork
       ? `<label class="off-chip dom works" title="Trabalha no domingo"><input type="checkbox" disabled /><span>Dom <i>${dd('domingo')}</i><b>trabalha</b></span></label>`
       : `<label class="off-chip dom" title="Domingo é folga"><input type="checkbox" checked disabled /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`,
     chips =
@@ -906,10 +1012,11 @@ function row(e) {
       DAYS.filter((d) => d[0] !== 'domingo')
         .map(
           (d) =>
+            ausChip(d[0], d[1].replace('.', ''), '') ||
             `<label class="off-chip" title="Folga na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
         )
         .join('');
-  return `<tr><td class="c-name"><button class="employee-link" data-jump="${e.id}" type="button">${escape(e.name)}</button></td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}</small></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
+  return `<tr><td class="c-name"><button class="employee-link" data-jump="${e.id}" type="button">${escape(e.name)}</button></td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
 }
 function renderSchedule() {
   document.getElementById('scheduleTable').innerHTML = `${heading()}<tbody>${staff().map(row).join('')}</tbody>`;
@@ -930,6 +1037,30 @@ function renderSunday() {
   document.getElementById('sundaySchedule').innerHTML =
     `<div class="print-brand"><img src="logo.png" alt="" /><b>${escape(SECTORS[state.selectedSector])}</b><span>Escala de domingo · ${short(date('domingo'))}</span></div><div class="section-heading"><div><p class="eyebrow">ESCALA DE DOMINGO</p><h2>Domingo · ${short(date('domingo'))}</h2><p>${SECTORS[state.selectedSector]} · mínimo de ${minimum} colaboradora${minimum === 1 ? '' : 's'}.</p></div><span class="tag">${list.length} programada${list.length === 1 ? '' : 's'}</span></div><div class="table-wrap"><table><thead><tr><th>Colaboradora</th><th>Turno</th>${head}<th>Entrada</th><th>Intervalo</th><th>Saída</th></tr></thead><tbody>${rows || `<tr><td colspan="${columns}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table></div><p class="table-note">${week().sunday.mode === 'dia' ? 'Domingo dia todo, com almoço de 2h' : 'Domingo até ' + week().sunday.end + ', direto e sem intervalo'}. CCT de mercados: abono de R$ 94,00 por domingo trabalhado, além da folga semanal (confirme o valor vigente).</p>`;
 }
+function ausNota(e) {
+  const vistos = [];
+  DAYS.forEach((d) => {
+    const a = ausente(e, d[0]);
+    if (a && !vistos.includes(a)) vistos.push(a);
+  });
+  return vistos.map((a) => ` · <b class="aus-nota">${AUS_TIPOS[a.tipo]} ${brData(a.de).slice(0, 5)} a ${brData(a.ate).slice(0, 5)}</b>`).join('');
+}
+function ausBox(i) {
+  const r = roster()[i] || {},
+    l = r.aus || [];
+  return `<fieldset class="aus-box"><legend>Férias / atestado</legend>${
+    l.length
+      ? '<ul class="aus-list">' +
+        l
+          .map(
+            (x, k) =>
+              `<li><b>${AUS_TIPOS[x.tipo] || 'Afastamento'}</b> ${brData(x.de)} a ${brData(x.ate)} <button type="button" class="remove-btn" data-aus-del="${i}" data-k="${k}">Remover</button></li>`,
+          )
+          .join('') +
+        '</ul>'
+      : '<p class="helper">Nenhuma ausência registrada.</p>'
+  }<div class="aus-form"><select data-aus-tipo aria-label="Tipo de ausência"><option value="ferias">Férias</option><option value="atestado">Atestado</option><option value="outro">Afastamento</option></select><label>De <input type="date" data-aus-de /></label><label>Até <input type="date" data-aus-ate /></label><button type="button" class="button outline" data-aus-add="${i}">Adicionar</button></div><p class="helper">Vale pelas datas, em qualquer semana. Nesses dias a pessoa sai da escala, da cobertura e do domingo, e as folgas da semana são recalculadas.</p></fieldset>`;
+}
 function renderOperators() {
   const w = week(),
     options = w.shifts.map((s, i) => `<option value="${i}">${escape(s.name)} · ${s.start}–${s.end}</option>`).join(''),
@@ -948,7 +1079,7 @@ function renderOperators() {
             (d) =>
               `<label><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} />${d[0]} <small>${short(date(d[0])).slice(0, 5)}</small></label>`,
           )
-          .join('')}</div></fieldset><label>Trabalha no domingo <small>(${short(date('domingo'))})</small><select data-employee="${i}" data-field="sundayWork"><option value="false">Não</option><option value="true">Sim</option></select></label><label class="check-row restricted"><input type="checkbox" data-employee="${i}" data-field="restricted" ${e.restricted ? 'checked' : ''} /> Estudante/mãe: sem escala após 18h <small>(CCT)</small></label></div></article>`,
+          .join('')}</div></fieldset><label>Trabalha no domingo <small>(${short(date('domingo'))})</small><select data-employee="${i}" data-field="sundayWork"><option value="false">Não</option><option value="true">Sim</option></select></label><label class="check-row restricted"><input type="checkbox" data-employee="${i}" data-field="restricted" ${e.restricted ? 'checked' : ''} /> Estudante/mãe: sem escala após 18h <small>(CCT)</small></label>${ausBox(i)}</div></article>`,
     )
     .join('');
   document.querySelectorAll('[data-employee]:not([data-off])').forEach((el) => {
@@ -961,7 +1092,7 @@ function active(e, d, at) {
   const s = week().shifts[e.shift],
     point = mins(at),
     end = d[0] === 'domingo' ? Math.min(mins(s.end), sc()) : Math.min(mins(s.end), mins(state.settings.weekClose));
-  if (closedDay(d[0])) return false;
+  if (closedDay(d[0]) || ausente(e, d[0])) return false;
   if (d[0] === 'domingo') {
     if (!e.sundayWork) return false;
     const pl = sundayPlan(week());
@@ -1254,7 +1385,9 @@ function balanceOffs(w, chain) {
     return { ub: 5, lb: 0 };
   });
   const closedIdx = dayKeys.map((k) => closedDay(k, wi));
-  const allowed = (i) => dayKeys.map((k, d) => d).filter((d) => !closedIdx[d]);
+  /* férias/atestado: nesses dias a pessoa já está fora; não recebe folga neles e conta como ausente na cobertura */
+  const ausD = emps.map((e) => dayKeys.map((k) => wi >= 0 && !!ausente(e, k, wi)));
+  const allowed = (i) => dayKeys.map((k, d) => d).filter((d) => !closedIdx[d] && !ausD[i][d]);
   const order = emps
     .map((e, i) => i)
     .sort((a, b) => {
@@ -1288,9 +1421,17 @@ function balanceOffs(w, chain) {
       c += 8000; // nunca deixar o posto sem ninguém
     return c + picked.filter((x) => x === d).length * 9999;
   };
+  emps.forEach((e, i) =>
+    ausD[i].forEach((a, d) => {
+      if (a && !closedIdx[d]) {
+        put(e.shift, d);
+        postCnt[e.station + '-' + d] = (postCnt[e.station + '-' + d] || 0) + 1;
+      }
+    }),
+  );
   order.forEach((i) => {
     const e = emps[i],
-      n = need(e),
+      n = Math.min(need(e), allowed(i).length),
       { ub, lb } = lims[i];
     let cand = allowed(i);
     if (!e.sundayWork) cand = cand.filter((d) => d <= ub);
@@ -1459,7 +1600,7 @@ function fillSundays() {
     /* o posto é da colaboradora: nas semanas vazias, quem estiver no PDV herda o posto Pacote/Fiscal/Recepção da Semana 1 */
     const cand = w.employees
       .map((e, i) => i)
-      .filter((i) => !works(weeks[wi - 1], i) && !works(weeks[wi + 1], i))
+      .filter((i) => !works(weeks[wi - 1], i) && !works(weeks[wi + 1], i) && !ausente(w.employees[i], 'domingo', wi))
       .sort((a, b) => worked(a) - worked(b) || a - b);
     const pick = [],
       take = (i) => {
@@ -1530,9 +1671,19 @@ function suggestOffAll() {
 }
 /* "Completar as 4 semanas": a Semana 1 é sempre a base. Copia equipe, modelo, PDVs e turnos para as semanas 2-4, escolhe os domingos
    (se a Semana 1 ainda não tem domingos definidos, o app escolhe; se já tem, mantém os seus) e calcula as folgas das 4 semanas. */
-function completarSemanas() {
+const sigOutras = () =>
+  JSON.stringify(sector().weeks.slice(1).map((w) => w.employees.map((e) => [e.shift, e.station, e.pdv, !!e.sundayWork, e.offDays])));
+async function completarSemanas() {
   const weeks = sector().weeks,
     w0 = weeks[0];
+  /* se as semanas 2 a 4 foram mexidas depois do último preenchimento automático, pergunta antes de substituir */
+  const temConteudo = weeks.slice(1).some((w) => w.employees.some((e) => e.sundayWork));
+  if (temConteudo && sector().sigCompletar !== sigOutras()) {
+    const ok = await askConfirm(
+      'As semanas 2, 3 e 4 têm alterações feitas depois do último preenchimento automático.\n\nCompletar de novo vai substituir essas semanas pelo cálculo a partir da Semana 1. Continuar?\n\n(Se precisar, dá para voltar com o botão Desfazer.)',
+    );
+    if (!ok) return toast('Nada foi alterado: as semanas 2 a 4 ficaram como estavam.', true);
+  }
   normalizeWeek(w0);
   if (!w0.employees.length || w0.activeCount < 1) {
     state.selectedWeek = 0;
@@ -1553,7 +1704,7 @@ function completarSemanas() {
     if (hasPosts())
       sundayPosts().forEach((p) => {
         for (let k = w0.employees.filter((e) => e.station === p && e.sundayWork).length; k < sundayPostMin(p); k++) {
-          const c = w0.employees.find((e) => e.station === p && !e.sundayWork);
+          const c = w0.employees.find((e) => e.station === p && !e.sundayWork && !ausente(e, 'domingo', 0));
           if (!c) break;
           marca(c);
         }
@@ -1561,7 +1712,7 @@ function completarSemanas() {
     const falta = () => alvo - w0.employees.filter((e) => e.sundayWork).length;
     /* completa distribuindo entre os turnos (quem tem menos domingos no turno primeiro) */
     while (falta() > 0) {
-      const livres = w0.employees.filter((e) => !e.sundayWork);
+      const livres = w0.employees.filter((e) => !e.sundayWork && !ausente(e, 'domingo', 0));
       if (!livres.length) break;
       const porTurno = (s) => w0.employees.filter((e) => e.shift === s && e.sundayWork).length;
       livres.sort((a, b) => porTurno(a.shift) - porTurno(b.shift) || w0.employees.indexOf(a) - w0.employees.indexOf(b));
@@ -1582,6 +1733,7 @@ function completarSemanas() {
   const r = fillSundays();
   weeks.forEach((w) => balanceOffs(w, true));
   state.selectedWeek = antes;
+  sector().sigCompletar = sigOutras();
   const aviso = r.short.length || (r.noPost && r.noPost.length);
   state.notice =
     'Semanas 2 a 4 completadas a partir da Semana 1. ' +
@@ -2299,6 +2451,48 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#modelButton')) baixarModelo();
 });
 /* ===== análise de folgas: cobertura por dia, turno e posto, e o que acontece se mais 1 folgar ===== */
+/* ===== resumo do ciclo (4 semanas) por colaboradora: domingos, folgas, dias e horas ===== */
+function resumoCiclo() {
+  const weeks = sector().weeks,
+    n = weeks[0].employees.length;
+  return Array.from({ length: n }, (_, i) => {
+    const r = { name: weeks[0].employees[i].name, domT: 0, domF: 0, folgas: 0, dias: 0, min: 0, aus: 0, ausDom: 0, seq: 0 };
+    let run = 0;
+    weeks.forEach((w, wi) => {
+      const e = w.employees[i];
+      if (!e) return;
+      DAYS.forEach((d) => {
+        const a = ausente(e, d[0], wi),
+          t = worksOn(e, d[0], wi);
+        if (a) {
+          r.aus++;
+          if (d[0] === 'domingo') r.ausDom++;
+        }
+        else if (d[0] === 'domingo') t ? r.domT++ : closedDay('domingo', wi) || r.domF++;
+        else if (e.offDays.includes(d[0]) && !closedDay(d[0], wi)) r.folgas++;
+        if (t) {
+          r.dias++;
+          run++;
+          r.seq = Math.max(r.seq, run);
+        } else run = 0;
+      });
+      r.min += weekMin(e, w, wi);
+    });
+    return r;
+  });
+}
+function renderResumo() {
+  const el = document.getElementById('resumoCiclo');
+  if (!el) return;
+  const L = resumoCiclo(),
+    six = week().model === '6x1',
+    lim = six ? 7 : 6;
+  const rows = L.map(
+    (r) =>
+      `<tr><th class="oa-row">${escape(r.name)}</th><td>${r.domT}</td><td class="${r.domF + r.ausDom < 2 ? 'oa-bad' : ''}">${r.domF}</td><td>${r.folgas}</td><td>${r.dias}</td><td>${hm(r.min)}</td><td>${hm(Math.round(r.min / 4))}</td><td class="${r.seq > lim ? 'oa-bad' : ''}">${r.seq}</td><td>${r.aus || '—'}</td></tr>`,
+  ).join('');
+  el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">RESUMO DO CICLO</p><h2>Resumo por colaboradora</h2><p>${short(date('domingo', 0))} a ${short(date('sábado', 3))} · 4 semanas de ${SECTORS[state.selectedSector]}. Em vermelho: menos de 2 domingos de folga no mês ou mais de ${lim} dias seguidos de trabalho.</p></div></div><div class="table-wrap"><table class="oa-table resumo-table"><thead><tr><th>Colaboradora</th><th>Domingos trabalhados</th><th>Domingos de folga</th><th>Folgas na semana</th><th>Dias trabalhados</th><th>Horas no ciclo</th><th>Média por semana</th><th>Maior sequência (dias)</th><th>Dias de férias / atestado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function renderOffAnalysis() {
   const el = document.getElementById('offAnalysis');
   if (!el) return;
@@ -2394,7 +2588,7 @@ function renderOffAnalysis() {
       ).map((d) => d[0]);
     if (low.length) obs.push(`${escape(s.name)} fica com 1 ou nenhuma pessoa em: ${low.join(', ')}.`);
   });
-  const perPerson = emps.filter((e) => (w.model === '5x2' ? effOff(e).length !== 2 : effOff(e).length < 1)).length;
+  const perPerson = emps.filter((e) => !ausSemana(e, wi) && (w.model === '5x2' ? effOff(e).length !== 2 : effOff(e).length < 1)).length;
   if (perPerson) obs.push(`${perPerson} colaboradora(s) sem a quantidade de folgas do modelo ${w.model}.`);
   // conferência: cada colaboradora tem 2 folgas por semana no 5x2 (o domingo não trabalhado conta como folga)
   const per = emps.map((e) => ({
@@ -2533,7 +2727,7 @@ const holidayTag = (key, idx = state.selectedWeek) => {
 };
 const hm = (n) => Math.floor(n / 60) + 'h' + (n % 60 ? pad(n % 60) : '');
 const worksOn = (e, key, wi = state.selectedWeek) =>
-  !closedDay(key, wi) && (key === 'domingo' ? e.sundayWork : !e.offDays.includes(key));
+  !closedDay(key, wi) && !ausente(e, key, wi) && (key === 'domingo' ? e.sundayWork : !e.offDays.includes(key));
 const NATAL_COMP = ['2026-12-26', '2027-01-02', '2027-02-08', '2027-02-09'];
 
 function compliance() {
@@ -3532,7 +3726,9 @@ function sundayMinPanel() {
     .map((k) => {
       const mn = sundayPostMin(k),
         n = sw.filter((e) => e.station === k).length;
-      return `<div class="spm-row"><span class="post-name">${POST_NAMES[k]}<small class="${n < mn ? 'post-warn' : ''}">hoje ${n} no domingo</small></span><div class="number-row"><button class="stepper" data-spm="${k}" data-d="-1" type="button">−</button><input type="number" min="0" max="50" data-spm-in="${k}" value="${mn}" aria-label="Mínimo de ${POST_NAMES[k]} no domingo" /><button class="stepper" data-spm="${k}" data-d="1" type="button">+</button></div></div>`;
+      const tem = week().employees.filter((e) => e.station === k).length,
+        pouco = mn > 0 && tem < 2 * mn;
+      return `<div class="spm-row"><span class="post-name">${POST_NAMES[k]}<small class="${n < mn ? 'post-warn' : ''}">hoje ${n} no domingo</small>${pouco ? `<small class="post-warn" data-pouco="${k}">Equipe pequena: para alternar os domingos este posto precisa de ${2 * mn} pessoas (tem ${tem}). Aumente a equipe ou baixe o mínimo para ${Math.floor(tem / 2)}.</small>` : ''}</span><div class="number-row"><button class="stepper" data-spm="${k}" data-d="-1" type="button">−</button><input type="number" min="0" max="50" data-spm-in="${k}" value="${mn}" aria-label="Mínimo de ${POST_NAMES[k]} no domingo" /><button class="stepper" data-spm="${k}" data-d="1" type="button">+</button></div></div>`;
     })
     .join('');
   const custom = !!(sector().sundayPostMin && Object.keys(sector().sundayPostMin).length);
@@ -3954,7 +4150,6 @@ try {
     ['[data-replicate="pdvs"]', 'Quantidade de PDVs copiada para as outras semanas.'],
     ['[data-replicate="all"]', 'Preenchimento completo copiado para as outras semanas.'],
     ['[data-replicate="shifts"]', 'Turnos replicados nas outras semanas.'],
-    ['[data-complete]', 'Semanas completadas a partir da Semana 1.'],
     ['[data-suggest-off-all]', 'Folgas sugeridas nas 4 semanas.'],
     ['[data-suggest-off]', 'Folgas sugeridas para esta semana.'],
     ['[data-suggest-sundays]', 'Domingos alternados sugeridos nas 4 semanas.'],

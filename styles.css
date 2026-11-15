@@ -414,3 +414,22 @@ body.adm-aberto{overflow:hidden}
 .add-bar{flex-wrap:wrap;max-width:100%}
 .add-bar label{min-width:0;max-width:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .add-bar select{min-width:0;max-width:100%}
+
+/* férias / atestado */
+.off-chip.aus span{background:#f3e8ff;border-color:#c4a5ea;color:#4c1d95;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.off-chip.aus span b{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.aus-box{grid-column:1/-1;border:1px solid #e1d5f5;border-radius:10px;padding:10px 12px;margin:4px 0 0;background:#faf7ff;min-width:0}
+.aus-box legend{font-size:12px;font-weight:700;color:#4c1d95;padding:0 6px}
+.aus-list{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.aus-form{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.aus-form label{display:flex;flex-direction:column;font-size:11px;font-weight:700;color:#697386;gap:3px;min-width:0}
+.aus-form select,.aus-form input{padding:7px 8px;border:1px solid #cfd5de;border-radius:8px;font:inherit;font-size:13px;max-width:100%;min-width:0}
+.post-warn[data-pouco]{display:block;margin-top:3px;white-space:normal;line-height:1.3}
+.resumo-table td{text-align:center;font-variant-numeric:tabular-nums}
+.resumo-table td.oa-bad{background:#fde8e8;color:#a1161a;font-weight:700}
+@media print{.resumo-ciclo{display:none}}
+
+.off-chip.aus input+span,.off-chip.aus input:disabled+span{background:#f3e8ff!important;border-color:#c4a5ea!important;color:#4c1d95!important;opacity:1!important}
+.aus-nota{color:#4c1d95;font-weight:700}
+.aus-list li{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.off-chip.aus:not(.dom) span{display:block!important}

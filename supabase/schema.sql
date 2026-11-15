@@ -64,6 +64,9 @@ create policy perfis_ler on public.perfis for select to authenticated using (id 
 create policy perfis_admin_inserir on public.perfis for insert to authenticated with check ((select public.sou_admin()));
 create policy perfis_admin_alterar on public.perfis for update to authenticated using ((select public.sou_admin())) with check ((select public.sou_admin()));
 create policy perfis_admin_apagar on public.perfis for delete to authenticated using ((select public.sou_admin()));
+-- só usuários logados podem chamar (visitante sem login não)
+revoke execute on function public.setor_permitido(text) from public, anon;
+grant execute on function public.setor_permitido(text) to authenticated;
 create policy escalas_ler on public.escalas for select to authenticated using (dono = (select auth.uid()) or (select public.sou_admin()));
 create policy escalas_inserir on public.escalas for insert to authenticated with check (dono = (select auth.uid()) or (select public.sou_admin()));
 create policy escalas_alterar on public.escalas for update to authenticated using (dono = (select auth.uid()) or (select public.sou_admin())) with check (dono = (select auth.uid()) or (select public.sou_admin()));

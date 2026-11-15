@@ -248,3 +248,10 @@ Na tabela da prévia, cada botão de folga mostra o dia e a data (ex.: "Seg 09/1
 A aba **Equipe** tem 3 botões de preenchimento: **Completar as 4 semanas** (equipe, modelo, PDVs, turnos, domingos e folgas, sempre a partir da Semana 1),
 **Copiar preenchimento completo** (semana aberta idêntica nas outras) e **Sugerir folgas só desta semana**.
 Se a Semana 1 não tem domingos marcados, o app escolhe (respeitando o mínimo por posto, sem domingos seguidos e com ao menos 2 domingos de folga por mês); se já tem, mantém os seus.
+
+## Férias/atestados, resumo do ciclo e confirmações (build 95)
+- **Férias / atestado**: na ficha de cada colaboradora (Colaboradoras ativas) registre o tipo e o período. Vale pelas datas, em qualquer semana: nesses dias ela sai da escala, da cobertura e do domingo; as folgas da semana são recalculadas e o app tenta colocar uma substituta do mesmo posto no domingo.
+- **Resumo por colaboradora**: no fim da página, domingos trabalhados/de folga, folgas, dias, horas no ciclo, maior sequência e dias de ausência.
+- **Completar as 4 semanas** pergunta antes de substituir semanas 2 a 4 alteradas à mão.
+- **Aba Regras** avisa quando um posto tem menos pessoas do que o dobro do mínimo de domingo (não dá para alternar).
+- Banco: `setor_permitido` não pode mais ser chamada sem login.
