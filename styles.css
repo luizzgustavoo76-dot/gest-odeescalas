@@ -410,3 +410,7 @@ body.adm-aberto{overflow:hidden}
 .oa-unif .shift-pill{display:inline-block;margin-right:6px}
 
 .sector-picker[hidden]{display:none!important}.adm-campo[hidden]{display:none!important}
+/* celular: o seletor de colaboradora do domingo não pode passar da largura da tela */
+.add-bar{flex-wrap:wrap;max-width:100%}
+.add-bar label{min-width:0;max-width:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.add-bar select{min-width:0;max-width:100%}
