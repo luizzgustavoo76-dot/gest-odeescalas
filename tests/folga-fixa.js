@@ -38,5 +38,8 @@ await A.evaluate(()=>{state.selectedWeek=0;render()});
 await A.evaluate(i=>document.querySelector(`input[data-employee="${i}"][data-field=folgaFixa]`).click(),idx);await W(300);
 st=await A.evaluate(i=>({f:roster()[i].folgaFixa,dis:[...document.querySelectorAll(`input[data-employee="${i}"][data-off]`)].filter(x=>x.disabled).length}),idx);
 T('desmarcar libera as caixas e o gerador',!st.f&&st.dis===0,JSON.stringify(st));
+await A.evaluate(()=>{state.selectedWeek=0;render()});
+await A.evaluate(i=>document.querySelector(`#scheduleTable input[data-employee="${i}"][data-field=folgaFixa]`).click(),idx);await W(300);
+T('caixinha também na tabela da escala',await A.evaluate(i=>!!roster()[i].folgaFixa&&document.querySelector(`#scheduleTable input[data-employee="${i}"][data-field=folgaFixa]`).checked,idx));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

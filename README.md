@@ -292,3 +292,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Com a caixinha marcada, o gerador (Completar, Sugerir, Corrigir, trocar modelo) não muda esses dias; as caixas dos dias travados ficam desabilitadas.
 - Sem a caixinha, o gerador pode trocar a folga se precisar.
 - Na 5x2, quem não trabalha domingo tem só 1 folga útil (o domingo conta), então só o primeiro dia marcado trava nessa semana.
+
+## Build 110
+- A caixinha **Folga fixa** também aparece na tabela da escala, abaixo dos dias de folga de cada colaboradora (não sai na impressão).
