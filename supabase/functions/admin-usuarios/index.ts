@@ -184,11 +184,21 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
     if (!setorOk(b.setor)) return falha("Setor inválido.");
     if (id === eu && b.papel !== "admin" && (await totalAdmins()) <= 1) return falha("Você é o único administrador. Torne outra pessoa administradora antes.");
+    /* e-mail (opcional): troca o login no Auth e na tabela de perfis; a senha continua a mesma */
+    const emailAntigo = await emailDe(id);
+    const emailNovo = b.email === undefined || b.email === null ? "" : String(b.email).trim().toLowerCase();
+    const trocaEmail = emailNovo !== "" && emailNovo !== String(emailAntigo).toLowerCase();
+    if (trocaEmail) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailNovo)) return falha("E-mail inválido.");
+      const { error: eE } = await admin.auth.admin.updateUserById(id, { email: emailNovo, email_confirm: true });
+      if (eE) return falha(/already|registered|exists|duplicate/i.test(eE.message) ? "Já existe um usuário com esse e-mail." : eE.message);
+    }
     const { error } = await admin.from("perfis").update({
       nome: String(b.nome || "").trim(), papel: String(b.papel), setor: setorDe(b.papel, b.setor),
+      ...(trocaEmail ? { email: emailNovo } : {}),
     }).eq("id", id);
     if (error) return falha(error.message, 500);
-    await log("usuario_editado", await emailDe(id), { papel: b.papel });
+    await log("usuario_editado", trocaEmail ? emailNovo : emailAntigo, { papel: b.papel, ...(trocaEmail ? { email_antigo: emailAntigo } : {}) });
     return json({ ok: true });
   }
 

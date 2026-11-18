@@ -280,3 +280,6 @@ Os avisos vermelhos que o app sabe resolver sozinho ganham um botão **Corrigir*
 
 ### Saída por inatividade e atualização (build 106)
 Teste com relógio simulado nos tempos reais (admin 15 min, usuário 30 min: aviso 1 min antes e volta ao login). Aba aberta com versão antiga não tem o recurso; agora uma aba parada há mais de 2 min e sem nada por salvar se atualiza sozinha quando sai versão nova.
+
+### Trocar o e-mail no Painel ADM (build 107)
+Em Painel ADM → usuário → Editar há o campo **E-mail (usado para entrar)**. Ao salvar, a função `admin-usuarios` (v7) troca o login no Auth e em `perfis`; a senha continua a mesma e o e-mail antigo fica registrado na aba Atividade. E-mail já usado por outra conta é recusado. Requer reimplantar a função (já feito no projeto; para outro projeto: `supabase functions deploy admin-usuarios`).

@@ -54,9 +54,10 @@
   }
   function cartao(u){
     const eu=u.id===ctx.eu.id;
-    return `<article class="adm-user ${u.bloqueado?'bloq':''}" data-id="${esc(u.id)}">
+    return `<article class="adm-user ${u.bloqueado?'bloq':''}" data-id="${esc(u.id)}" data-email="${esc(u.email)}">
       <div class="adm-topo"><label class="adm-chk"><input type="checkbox" data-mark ${marcados.has(u.id)?'checked':''}> <b>${esc(u.nome||'(sem nome)')}</b></label><span>${esc(u.email)}${eu?' <span class="adm-tag">você</span>':''}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}${!u.ultimo_login?' <span class="adm-tag">nunca entrou</span>':''}</span><span class="adm-tag">${nomeNivel(u.papel)}${u.papel!=='admin'&&u.setor?' · '+esc(nomeSetor(u.setor)):''}</span><button type="button" class="adm-mais" data-a="abrir">${abertos.has(u.id)?'Fechar ▴':'Editar ▾'}</button></div>
       <div class="adm-det" ${abertos.has(u.id)?'':'hidden'}>
+        <div class="adm-campo"><label>E-mail (usado para entrar)</label><input data-f="email" type="email" autocomplete="off" value="${esc(u.email)}" placeholder="email@exemplo.com"></div>
         <div class="adm-linha"><div class="adm-campo"><label>Nome</label><input data-f="nome" value="${esc(u.nome)}" placeholder="Nome"></div>
         <div class="adm-campo"><label>Nível</label><select data-f="papel">${niveisHtml(u.papel)}</select></div>
         <div class="adm-campo" data-setorbox ${u.papel==='admin'?'hidden':''}><label>Setor que ele vai usar</label><select data-f="setor">${setorHtml(u.setor)}</select></div></div>
@@ -229,7 +230,7 @@
       const rodar=async(corpo,ok)=>{btn.disabled=true;try{await chama(corpo);await carrega();aviso(ok,true)}catch(er){aviso(er.message);btn.disabled=false}};
       if(acao==='dados'){const nome=(c.querySelector('[data-f=nome]').value||'').trim()||c.querySelector('.adm-topo span').textContent.trim();fechaPainel();ctx.abrirComo(id,nome);return}
       if(acao==='abrir'){const d=c.querySelector('.adm-det');d.hidden=!d.hidden;d.hidden?abertos.delete(id):abertos.add(id);btn.textContent=d.hidden?'Editar ▾':'Fechar ▴';return}
-      if(acao==='salvar')return rodar({acao:'atualizar',id,nome:c.querySelector('[data-f=nome]').value,papel:c.querySelector('[data-f=papel]').value,setor:c.querySelector('[data-f=papel]').value==='admin'?'':c.querySelector('[data-f=setor]').value},'Alterações salvas.');
+      if(acao==='salvar')return rodar({acao:'atualizar',id,email:(c.querySelector('[data-f=email]').value||'').trim(),nome:c.querySelector('[data-f=nome]').value,papel:c.querySelector('[data-f=papel]').value,setor:c.querySelector('[data-f=papel]').value==='admin'?'':c.querySelector('[data-f=setor]').value},'Alterações salvas.'+((c.querySelector('[data-f=email]').value||'').trim().toLowerCase()!==String(c.dataset.email||'').toLowerCase()?' O e-mail mudou: a pessoa passa a entrar com o novo e-mail (a senha continua a mesma).':''));
       if(acao==='senha'){extra.hidden=false;extra.innerHTML='<div class="adm-campo"><label>Nova senha (mín. 6)</label><div class="adm-inl"><input class="adm-ns" type="text" autocomplete="off"><button type="button" class="button outline" data-a="gerar">Gerar</button></div></div><div class="adm-btns"><button type="button" class="button" data-a="senha-ok">Definir senha</button><button type="button" class="button outline" data-a="cancela">Cancelar</button></div>';extra.querySelector('input').focus();return}
       if(acao==='gerar'){extra.querySelector('.adm-ns').value=gerarSenha();return}
       if(acao==='senha-ok')return rodar({acao:'senha',id,senha:extra.querySelector('.adm-ns').value},'Senha alterada. Passe a nova senha para a pessoa.');
