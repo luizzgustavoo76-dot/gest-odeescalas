@@ -295,3 +295,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 110
 - A caixinha **Folga fixa** também aparece na tabela da escala, abaixo dos dias de folga de cada colaboradora (não sai na impressão).
+
+## Build 111
+- **Turno fixo** também na tabela da escala (abaixo do seletor de turno).
+- Folgas travadas por **Folga fixa** (inclusive o domingo de folga) aparecem em azul-escuro, diferente do vermelho das folgas normais e do roxo das férias.

@@ -1097,7 +1097,7 @@ function row(e) {
     s = w.shifts[e.shift],
     i = w.employees.indexOf(e),
     ae = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  const shiftSel = `<select class="tbl-sel" data-employee="${i}" data-field="shift" ${e.fixo !== undefined ? 'disabled title="Turno fixo: desmarque \'Turno fixo\' na ficha para trocar"' : ''} aria-label="Turno de ${ae(e.name)}">${w.shifts.map((sh, k) => `<option value="${k}" ${k === e.shift ? 'selected' : ''}>${escape(sh.name)} · ${sh.start}</option>`).join('')}</select>`;
+  const shiftSel = `<select class="tbl-sel" data-employee="${i}" data-field="shift" ${e.fixo !== undefined ? 'disabled title="Turno fixo: desmarque \'Turno fixo\' na ficha para trocar"' : ''} aria-label="Turno de ${ae(e.name)}">${w.shifts.map((sh, k) => `<option value="${k}" ${k === e.shift ? 'selected' : ''}>${escape(sh.name)} · ${sh.start}</option>`).join('')}</select><label class="fixa-tbl" title="Mantém a colaboradora neste turno em todas as semanas e no gerador"><input type="checkbox" data-employee="${i}" data-field="fixo" ${e.fixo !== undefined ? 'checked' : ''} /> Turno fixo</label>`;
   const stSel = hasPosts()
     ? `<select class="tbl-sel" data-employee="${i}" data-field="station" aria-label="Posto de ${ae(e.name)}">${postKeys()
         .map((k) => `<option value="${k}" ${k === e.station ? 'selected' : ''}>${POST_NAMES[k]}</option>`)
@@ -1118,14 +1118,14 @@ function row(e) {
       ? ausChip('domingo', 'Dom', 'dom')
       : e.sundayWork
       ? `<label class="off-chip dom works" title="Trabalha no domingo"><input type="checkbox" disabled /><span>Dom <i>${dd('domingo')}</i><b>trabalha</b></span></label>`
-      : `<label class="off-chip dom" title="Domingo é folga"><input type="checkbox" checked disabled /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`,
+      : `<label class="off-chip dom${e.folgaFixa ? ' travada' : ''}" title="Domingo é folga${e.folgaFixa ? ' (fixa)' : ''}"><input type="checkbox" checked disabled /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`,
     chips =
       domChip +
       DAYS.filter((d) => d[0] !== 'domingo')
         .map(
           (d) =>
             ausChip(d[0], d[1].replace('.', ''), '') ||
-            `<label class="off-chip" title="Folga na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} ${travada(e, d[0]) ? 'disabled' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
+            `<label class="off-chip${travada(e, d[0]) ? ' travada' : ''}" title="${travada(e, d[0]) ? 'Folga fixa' : 'Folga'} na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} ${travada(e, d[0]) ? 'disabled' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
         )
         .join('');
   const fora = foraSemana(e),

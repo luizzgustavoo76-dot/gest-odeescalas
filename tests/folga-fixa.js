@@ -41,5 +41,6 @@ T('desmarcar libera as caixas e o gerador',!st.f&&st.dis===0,JSON.stringify(st))
 await A.evaluate(()=>{state.selectedWeek=0;render()});
 await A.evaluate(i=>document.querySelector(`#scheduleTable input[data-employee="${i}"][data-field=folgaFixa]`).click(),idx);await W(300);
 T('caixinha também na tabela da escala',await A.evaluate(i=>!!roster()[i].folgaFixa&&document.querySelector(`#scheduleTable input[data-employee="${i}"][data-field=folgaFixa]`).checked,idx));
+T('turno fixo na tabela e folgas fixas em cor própria',await A.evaluate(i=>{const r=document.querySelector(`#scheduleTable input[data-employee="${i}"][data-field=fixo]`);return !!r&&document.querySelectorAll('#scheduleTable .off-chip.travada').length>0},idx));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();
