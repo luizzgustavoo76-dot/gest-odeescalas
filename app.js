@@ -357,10 +357,18 @@ function normalize() {
     if (gapOf(x)) autoLunch(x, k, 0);
   });
   const r = roster();
-  sector().weeks.forEach((w) =>
+  sector().weeks.forEach((w, wk) =>
     w.employees.forEach((e, i) => {
       e.name = r[i].name;
       e.restricted = r[i].restricted;
+      /* folga fixa: os dias marcados ficam travados em todas as semanas (o gerador só completa o que faltar) */
+      if (Array.isArray(r[i].folgaFixa) && r[i].folgaFixa.length) {
+        e.folgaFixa = r[i].folgaFixa.slice();
+        const travados = e.folgaFixa.filter((d) => !closedDay(d, wk)).slice(0, offLimit(e, w.model));
+        e.offDays = [...travados, ...e.offDays.filter((d) => !travados.includes(d))]
+          .slice(0, offLimit(e, w.model))
+          .sort((a, b) => DAYS.findIndex((x) => x[0] === a) - DAYS.findIndex((x) => x[0] === b));
+      } else delete e.folgaFixa;
       if (hasPosts()) e.station = stationOk(r[i].station, e.id);
       /* turno fixo: a posição do turno (1º, 2º...) fica travada em todas as semanas */
       if (Number.isInteger(r[i].fixo)) {
@@ -876,6 +884,10 @@ function activateTab(name) {
 const effOff = (e) => (e.sundayWork ? e.offDays : [...e.offDays, 'domingo']),
   offLimit = (e, model = week().model) => (model === '6x1' ? (e.sundayWork ? 1 : 0) : Math.max(0, 2 - (e.sundayWork ? 0 : 1))),
   sc = () => sundayPlan(week()).en;
+/* dia de folga travado pela caixinha "Folga fixa" (vale para os primeiros dias marcados, até o limite da semana) */
+function travada(e, dia, model = week().model) {
+  return !!(e.folgaFixa && e.folgaFixa.filter((d) => !closedDay(d, state.selectedWeek)).slice(0, offLimit(e, model)).includes(dia));
+}
 function offText(e) {
   /* férias/atestado na semana: aparece na impressão e no WhatsApp no lugar das folgas desses dias */
   const aus = DAYS.map((d) => ausente(e, d[0])).filter(Boolean);
@@ -1113,7 +1125,7 @@ function row(e) {
         .map(
           (d) =>
             ausChip(d[0], d[1].replace('.', ''), '') ||
-            `<label class="off-chip" title="Folga na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
+            `<label class="off-chip" title="Folga na ${d[0]} (${dd(d[0])})"><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} ${travada(e, d[0]) ? 'disabled' : ''} /><span>${d[1].replace('.', '')} <i>${dd(d[0])}</i></span></label>`,
         )
         .join('');
   const fora = foraSemana(e),
@@ -1199,9 +1211,9 @@ function renderOperators() {
         )
           .map(
             (d) =>
-              `<label><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} />${d[0]} <small>${short(date(d[0])).slice(0, 5)}</small></label>`,
+              `<label><input type="checkbox" data-employee="${i}" data-off="${d[0]}" ${e.offDays.includes(d[0]) ? 'checked' : ''} ${travada(e, d[0]) ? 'disabled' : ''} />${d[0]} <small>${short(date(d[0])).slice(0, 5)}</small></label>`,
           )
-          .join('')}</div></fieldset><label>Trabalha no domingo <small>(${short(date('domingo'))})</small><select data-employee="${i}" data-field="sundayWork"><option value="false">Não</option><option value="true">Sim</option></select></label><label class="check-row restricted"><input type="checkbox" data-employee="${i}" data-field="restricted" ${e.restricted ? 'checked' : ''} /> Estudante/mãe: sem escala após 18h <small>(CCT)</small></label>${ausBox(i)}</div></article>`,
+          .join('')}</div><label class="check-row fixo-folga"><input type="checkbox" data-employee="${i}" data-field="folgaFixa" ${e.folgaFixa ? 'checked' : ''} /> Folga fixa <small>${e.folgaFixa ? '(travada nas 4 semanas)' : '(sempre nestes dias)'}</small></label></fieldset><label>Trabalha no domingo <small>(${short(date('domingo'))})</small><select data-employee="${i}" data-field="sundayWork"><option value="false">Não</option><option value="true">Sim</option></select></label><label class="check-row restricted"><input type="checkbox" data-employee="${i}" data-field="restricted" ${e.restricted ? 'checked' : ''} /> Estudante/mãe: sem escala após 18h <small>(CCT)</small></label>${ausBox(i)}</div></article>`,
     )
     .join('');
   document.querySelectorAll('[data-employee]:not([data-off])').forEach((el) => {
@@ -1659,7 +1671,11 @@ function balanceOffs(w, chain) {
       e.offDays = [];
       return;
     }
-    if (n === 1) cand.forEach((d) => tryPick([d]));
+    /* folga fixa: os dias travados entram primeiro; o gerador só escolhe o que faltar */
+    const lock = (e.folgaFixa || []).map(idx).filter((d) => d >= 0 && allowed(i).includes(d)).slice(0, n);
+    if (lock.length >= n) best = { c: 0, picks: lock.slice(0, n) };
+    else if (lock.length) cand.filter((d) => !lock.includes(d)).forEach((d) => tryPick([...lock, d]));
+    else if (n === 1) cand.forEach((d) => tryPick([d]));
     else for (let a = 0; a < cand.length; a++) for (let b = a + 1; b < cand.length; b++) tryPick([cand[a], cand[b]]);
     if (!best) {
       const f = (e.sundayWork && lb > 0 ? cand.filter((d) => d >= lb) : cand)[0] ?? cand[0];
@@ -3511,6 +3527,25 @@ document.addEventListener('change', (event) => {
       render();
       return;
     }
+    if (f === 'folgaFixa') {
+      const rr = roster()[+t.dataset.employee],
+        dias = e.offDays.filter((d) => !closedDay(d, state.selectedWeek));
+      if (t.checked && !dias.length) {
+        t.checked = false;
+        toast('Erro: marque primeiro os dias de folga de ' + e.name + '; depois ative "Folga fixa" para travá-los em todas as semanas.');
+        return;
+      }
+      if (t.checked) rr.folgaFixa = dias.slice();
+      else delete rr.folgaFixa;
+      render();
+      toast(
+        t.checked
+          ? 'Folga de ' + e.name + ' fixada (' + dias.join(', ') + ') em todas as semanas. O gerador não mexe nela; para trocar, desmarque "Folga fixa".'
+          : 'Folga de ' + e.name + ' liberada: o gerador pode trocar os dias se for preciso.',
+        true,
+      );
+      return;
+    }
     if (f === 'fixo') {
       const rr = roster()[+t.dataset.employee];
       if (t.checked) rr.fixo = e.shift;
@@ -4555,13 +4590,13 @@ function moveFolga(G, rotulo, dKey, delta) {
   if (closedDay(D[0], wi)) return toast('Erro: a loja está fechada nesse dia.');
   const pares = [];
   if (delta > 0) {
-    G.filter((e) => !trab(e, D) && e.offDays.includes(D[0])).forEach((e) =>
+    G.filter((e) => !trab(e, D) && e.offDays.includes(D[0]) && !travada(e, D[0])).forEach((e) =>
       dias.filter((y) => y !== D && trab(e, y) && cov(y) > 1 && livre(e, y)).forEach((y) => pares.push({ e, y, score: cov(y) - (y[0] === 'sábado' && evitaSabado() ? 100 : 0) })),
     );
     pares.sort((a, b) => b.score - a.score);
   } else {
     G.filter((e) => trab(e, D) && livre(e, D)).forEach((e) =>
-      e.offDays.filter((x) => x !== D[0]).forEach((x) => pares.push({ e, y: DAYS.find((d) => d[0] === x), score: cov(DAYS.find((d) => d[0] === x)) })),
+      e.offDays.filter((x) => x !== D[0] && !travada(e, x)).forEach((x) => pares.push({ e, y: DAYS.find((d) => d[0] === x), score: cov(DAYS.find((d) => d[0] === x)) })),
     );
     pares.sort((a, b) => a.score - b.score);
     const so = G.filter((e) => trab(e, D)).length;

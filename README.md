@@ -286,3 +286,9 @@ Em Painel ADM → usuário → Editar há o campo **E-mail (usado para entrar)**
 
 ### Completar a partir da semana aberta (build 108)
 O botão de completar agora usa a **semana que está aberta como base** e só refaz as semanas **seguintes**: na Semana 1 é "Completar as 4 semanas"; na Semana 2 vira "Completar as Semanas 3 e 4" (a Semana 1 não é alterada); na Semana 3, "Completar a Semana 4"; na Semana 4 fica desativado. Se as semanas que serão substituídas foram mexidas à mão, o app pergunta antes (e diz o que não muda). Dá para voltar com Desfazer.
+
+## Build 109 — Folga fixa
+- Caixinha **Folga fixa** junto das folgas de cada colaboradora: os dias de folga marcados ficam travados em todas as semanas (salva no cadastro do setor).
+- Com a caixinha marcada, o gerador (Completar, Sugerir, Corrigir, trocar modelo) não muda esses dias; as caixas dos dias travados ficam desabilitadas.
+- Sem a caixinha, o gerador pode trocar a folga se precisar.
+- Na 5x2, quem não trabalha domingo tem só 1 folga útil (o domingo conta), então só o primeiro dia marcado trava nessa semana.
