@@ -36,11 +36,11 @@ for(const model of ['5x2','6x1']){
 }
 // domingos já marcados pelo usuário são mantidos; estando na semana 3
 await A.evaluate(()=>{state.selectedWeek=0;week().model='5x2';const ks=sundayPosts();week().employees.forEach((e,i)=>e.sundayWork=false);[0,2,4,6].forEach(i=>week().employees[i].sundayWork=true);
- ks.forEach(p=>{if(!week().employees.some(e=>e.sundayWork&&e.station===p)){const c=week().employees.find(e=>e.station===p);if(c)c.sundayWork=true}});state.selectedWeek=2;render()});
+ ks.forEach(p=>{if(!week().employees.some(e=>e.sundayWork&&e.station===p)){const c=week().employees.find(e=>e.station===p);if(c)c.sundayWork=true}});state.selectedWeek=0;render()});
 const marc=await A.evaluate(()=>sector().weeks[0].employees.map(e=>e.sundayWork?1:0).join(''));
 await clica();await A.waitForTimeout(400);
 const r2=await info();
-T('com a semana 3 aberta: a Semana 1 é a base e a tela continua na semana 3',r2.sel===2&&r2.iguais);
+T('com a Semana 1 aberta: ela é a base e a tela continua na semana 1',r2.sel===0&&r2.iguais);
 T('domingos marcados na Semana 1 foram mantidos',await A.evaluate(()=>sector().weeks[0].employees.map(e=>e.sundayWork?1:0).join(''))===marc);
 T('sem domingos seguidos nem alertas de erro',!r2.seguidos&&r2.erros.length===0,r2.erros.join(' | '));
 // remover do domingo

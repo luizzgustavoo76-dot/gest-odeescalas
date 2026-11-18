@@ -283,3 +283,6 @@ Teste com relógio simulado nos tempos reais (admin 15 min, usuário 30 min: avi
 
 ### Trocar o e-mail no Painel ADM (build 107)
 Em Painel ADM → usuário → Editar há o campo **E-mail (usado para entrar)**. Ao salvar, a função `admin-usuarios` (v7) troca o login no Auth e em `perfis`; a senha continua a mesma e o e-mail antigo fica registrado na aba Atividade. E-mail já usado por outra conta é recusado. Requer reimplantar a função (já feito no projeto; para outro projeto: `supabase functions deploy admin-usuarios`).
+
+### Completar a partir da semana aberta (build 108)
+O botão de completar agora usa a **semana que está aberta como base** e só refaz as semanas **seguintes**: na Semana 1 é "Completar as 4 semanas"; na Semana 2 vira "Completar as Semanas 3 e 4" (a Semana 1 não é alterada); na Semana 3, "Completar a Semana 4"; na Semana 4 fica desativado. Se as semanas que serão substituídas foram mexidas à mão, o app pergunta antes (e diz o que não muda). Dá para voltar com Desfazer.

@@ -998,6 +998,14 @@ function render() {
   document.getElementById('pdvMetric').textContent = w.pdvCount;
   document.getElementById('pdvMetricCard').hidden = !hasPdv();
   document.getElementById('pdvGroup').hidden = !hasPdv();
+  const cb = document.querySelector('[data-complete]');
+  if (cb) {
+    const l = rotuloCompletar(state.selectedWeek);
+    cb.innerHTML = escape(l[0]) + ' <small>' + escape(l[1]) + '</small>';
+    cb.disabled = state.selectedWeek >= 3;
+    const hp = document.getElementById('compHelp');
+    if (hp) hp.textContent = l[2];
+  }
   document.querySelectorAll('.model-button').forEach((x) => {
     x.classList.toggle('active', x.dataset.model === w.model);
     const sm = x.querySelector('small');
@@ -1758,8 +1766,8 @@ function weekMin(e, w = week(), wi = state.selectedWeek) {
     0,
   );
 }
-function needBase() {
-  state.selectedWeek = 0;
+function needBase(b = 0) {
+  state.selectedWeek = b;
   toast(
     hasPosts()
       ? 'Escolha primeiro, na Semana 1, quem trabalha no domingo ("Trabalha no domingo = Sim"), incluindo pelo menos 1 colaboradora em cada posto obrigatório: ' +
@@ -1771,28 +1779,28 @@ function needBase() {
   );
   render();
 }
-const baseOk = () => {
-  const w0 = sector().weeks[0];
+const baseOk = (b = 0) => {
+  const w0 = sector().weeks[b];
   normalizeWeek(w0);
   const s = w0.employees.filter((e) => e.sundayWork);
   if (!s.length) return false;
   return sundayPosts().every((p) => s.some((e) => e.station === p));
 };
 /* Preenche os domingos das semanas 2-4 a partir da Semana 1, sem substituir semanas que já tenham domingo definido. */
-function fillSundays() {
+function fillSundays(base = 0) {
   const weeks = sector().weeks;
   weeks.forEach((w) => {
     normalizeWeek(w);
     sortShifts(w);
   });
-  const k = weeks[0].employees.filter((e) => e.sundayWork).length,
+  const k = weeks[base].employees.filter((e) => e.sundayWork).length,
     filled = [],
     short = [],
     noPost = [];
   const worked = (i) => weeks.reduce((t, w) => t + (w.employees[i] && w.employees[i].sundayWork ? 1 : 0), 0);
   const works = (w, i) => !!(w && w.employees[i] && w.employees[i].sundayWork);
   weeks.forEach((w, wi) => {
-    if (wi === 0 || w.employees.some((e) => e.sundayWork)) return;
+    if (wi <= base || w.employees.some((e) => e.sundayWork)) return;
     /* o posto é da colaboradora: nas semanas vazias, quem estiver no PDV herda o posto Pacote/Fiscal/Recepção da Semana 1 */
     const cand = w.employees
       .map((e, i) => i)
@@ -1867,80 +1875,104 @@ function suggestOffAll() {
 }
 /* "Completar as 4 semanas": a Semana 1 é sempre a base. Copia equipe, modelo, PDVs e turnos para as semanas 2-4, escolhe os domingos
    (se a Semana 1 ainda não tem domingos definidos, o app escolhe; se já tem, mantém os seus) e calcula as folgas das 4 semanas. */
-const sigOutras = () =>
-  JSON.stringify(sector().weeks.slice(1).map((w) => w.employees.map((e) => [e.shift, e.station, e.pdv, !!e.sundayWork, e.offDays])));
+const sigOutras = (b = 0) =>
+  JSON.stringify([b, ...sector().weeks.slice(b + 1).map((w) => w.employees.map((e) => [e.shift, e.station, e.pdv, !!e.sundayWork, e.offDays]))]);
+/* texto do botão: a semana aberta é a base; só as semanas depois dela são refeitas */
+function rotuloCompletar(b = state.selectedWeek) {
+  const resta = 3 - b;
+  if (b === 0) return ['Completar as 4 semanas', '(equipe, modelo, PDVs, domingos e folgas)', 'A Semana 1 é a base: preencha ela primeiro. Ela não é alterada além das folgas.'];
+  if (resta <= 0) return ['Última semana', '(não há semanas depois para completar)', 'Esta é a última semana do ciclo. Abra uma semana anterior para completar as seguintes.'];
+  const lista = Array.from({ length: resta }, (_, k) => b + 2 + k);
+  return [
+    'Completar ' + (resta === 1 ? 'a Semana ' + lista[0] : 'as Semanas ' + lista.join(' e ')),
+    '(a partir da Semana ' + (b + 1) + ')',
+    'A Semana ' + (b + 1) + ' é a base. ' + (b === 1 ? 'A Semana 1 não é alterada.' : 'As semanas 1 a ' + b + ' não são alteradas.'),
+  ];
+}
+/* "Completar": a semana aberta é a base. Copia equipe, modelo, PDVs e turnos para as semanas SEGUINTES, escolhe os domingos
+   (ninguém repete domingo) e recalcula as folgas delas. As semanas anteriores à base ficam como estão. */
 async function completarSemanas() {
   const weeks = sector().weeks,
-    w0 = weeks[0];
-  /* se as semanas 2 a 4 foram mexidas depois do último preenchimento automático, pergunta antes de substituir */
-  const temConteudo = weeks.slice(1).some((w) => w.employees.some((e) => e.sundayWork));
-  if (temConteudo && sector().sigCompletar !== sigOutras()) {
+    b = state.selectedWeek,
+    wb = weeks[b],
+    depois = weeks.map((_, i) => i).filter((i) => i > b),
+    nums = depois.map((i) => i + 1),
+    nomes = nums.length > 1 ? nums.slice(0, -1).join(', ') + ' e ' + nums[nums.length - 1] : String(nums[0] || '');
+  if (!depois.length) return toast('Esta é a última semana do ciclo: não há semanas depois dela para completar.', true);
+  /* pergunta antes de substituir semanas que já têm conteúdo (e avisa o que NÃO muda) */
+  const temConteudo = depois.some((i) => weeks[i].employees.some((e) => e.sundayWork));
+  if (temConteudo && sector().sigCompletar !== sigOutras(b)) {
     const ok = await askConfirm(
-      'As semanas 2, 3 e 4 têm alterações feitas depois do último preenchimento automático.\n\nCompletar de novo vai substituir essas semanas pelo cálculo a partir da Semana 1. Continuar?\n\n(Se precisar, dá para voltar com o botão Desfazer.)',
+      (nums.length > 1 ? 'As semanas ' : 'A semana ') + nomes + (nums.length > 1 ? ' têm' : ' tem') + ' alterações feitas depois do último preenchimento automático.\n\n' +
+        'Completar vai substituir ' + (nums.length > 1 ? 'as semanas ' : 'a semana ') + nomes + ' pelo cálculo a partir da Semana ' + (b + 1) + '.' +
+        (b === 1 ? ' A Semana 1 não será alterada.' : b > 1 ? ' As semanas 1 a ' + b + ' não serão alteradas.' : '') +
+        '\n\nContinuar?\n\n(Se precisar, dá para voltar com o botão Desfazer.)',
     );
-    if (!ok) return toast('Nada foi alterado: as semanas 2 a 4 ficaram como estavam.', true);
+    if (!ok) return toast('Nada foi alterado.', true);
   }
-  normalizeWeek(w0);
-  if (!w0.employees.length || w0.activeCount < 1) {
-    state.selectedWeek = 0;
+  normalizeWeek(wb);
+  if (!wb.employees.length || wb.activeCount < 1) {
     render();
-    toast('Erro: preencha primeiro a Semana 1 (colaboradoras, turnos e modelo). As outras semanas são calculadas a partir dela.');
+    toast('Erro: preencha primeiro a Semana ' + (b + 1) + ' (colaboradoras, turnos e modelo). As semanas seguintes são calculadas a partir dela.');
     return;
   }
-  const antes = state.selectedWeek;
   let auto = false;
-  if (!baseOk()) {
-    /* domingos da Semana 1: mantém quem já foi marcado, garante o mínimo de cada posto e completa até metade da equipe no máximo */
+  if (!baseOk(b)) {
+    /* domingos da semana base: mantém quem já foi marcado, garante o mínimo de cada posto e completa até metade da equipe no máximo */
     auto = true;
-    const n = w0.employees.length,
+    const n = wb.employees.length,
       alvo = Math.max(1, Math.min(Math.max(sundayMin() || 0, Math.ceil(n * 0.4)), Math.floor(n / 2) || 1));
     const marca = (e) => {
       if (e && !e.sundayWork) e.sundayWork = true;
     };
     if (hasPosts())
       sundayPosts().forEach((p) => {
-        for (let k = w0.employees.filter((e) => e.station === p && e.sundayWork).length; k < sundayPostMin(p); k++) {
-          const c = w0.employees.find((e) => e.station === p && !e.sundayWork && !ausente(e, 'domingo', 0));
+        for (let k = wb.employees.filter((e) => e.station === p && e.sundayWork).length; k < sundayPostMin(p); k++) {
+          const c = wb.employees.find((e) => e.station === p && !e.sundayWork && !ausente(e, 'domingo', b));
           if (!c) break;
           marca(c);
         }
       });
-    const falta = () => alvo - w0.employees.filter((e) => e.sundayWork).length;
+    const falta = () => alvo - wb.employees.filter((e) => e.sundayWork).length;
     /* completa distribuindo entre os turnos (quem tem menos domingos no turno primeiro) */
     while (falta() > 0) {
-      const livres = w0.employees.filter((e) => !e.sundayWork && !ausente(e, 'domingo', 0));
+      const livres = wb.employees.filter((e) => !e.sundayWork && !ausente(e, 'domingo', b));
       if (!livres.length) break;
-      const porTurno = (s) => w0.employees.filter((e) => e.shift === s && e.sundayWork).length;
-      livres.sort((a, b) => porTurno(a.shift) - porTurno(b.shift) || w0.employees.indexOf(a) - w0.employees.indexOf(b));
+      const porTurno = (s) => wb.employees.filter((e) => e.shift === s && e.sundayWork).length;
+      livres.sort((a, c) => porTurno(a.shift) - porTurno(c.shift) || wb.employees.indexOf(a) - wb.employees.indexOf(c));
       marca(livres[0]);
     }
   }
-  /* copia a Semana 1 (equipe, modelo, PDVs, turnos) para as outras e recalcula domingos e folgas */
-  state.selectedWeek = 0;
-  weeks.forEach((target, index) => {
-    if (index === 0) return;
-    weeks[index] = clone(w0);
+  /* copia a semana base (equipe, modelo, PDVs, turnos) para as seguintes e recalcula domingos e folgas */
+  const antes = state.selectedWeek;
+  state.selectedWeek = b;
+  const base = clone(wb);
+  depois.forEach((index) => {
+    weeks[index] = clone(base);
     normalizeWeek(weeks[index]);
     sortShifts(weeks[index]);
     weeks[index].employees.forEach((e) => {
       e.sundayWork = false;
     });
   });
-  const r = fillSundays();
-  weeks.forEach((w) => balanceOffs(w, true));
+  const r = fillSundays(b);
+  weeks.forEach((w, i) => {
+    if (i > b || b === 0) balanceOffs(w, true);
+  });
   state.selectedWeek = antes;
-  sector().sigCompletar = sigOutras();
+  sector().sigCompletar = sigOutras(b);
   const aviso = r.short.length || (r.noPost && r.noPost.length);
   state.notice =
-    'Semanas 2 a 4 completadas a partir da Semana 1. ' +
-    (auto ? 'Os domingos da Semana 1 foram escolhidos pelo app (você pode trocar e clicar de novo). ' : 'Os domingos que você marcou na Semana 1 foram mantidos. ') +
+    (depois.length === 1 ? 'Semana ' : 'Semanas ') + nomes + ' completada' + (depois.length === 1 ? '' : 's') + ' a partir da Semana ' + (b + 1) + '. ' +
+    (b > 0 ? 'As semanas anteriores não foram alteradas. ' : '') +
+    (auto ? 'Os domingos da Semana ' + (b + 1) + ' foram escolhidos pelo app (você pode trocar e clicar de novo). ' : 'Os domingos que você marcou na Semana ' + (b + 1) + ' foram mantidos. ') +
     sundayNote(r) +
     MOVE_NOTE;
   render();
   toast(
     aviso
       ? 'Semanas completadas, mas com atenção: confira os avisos de domingo na tela.'
-      : 'Pronto: equipe, modelo, PDVs, domingos e folgas das 4 semanas calculados a partir da Semana 1.',
+      : 'Pronto: equipe, modelo, PDVs, domingos e folgas ' + (b === 0 ? 'das 4 semanas' : 'das semanas ' + nomes) + ' calculados a partir da Semana ' + (b + 1) + '.',
     !aviso,
   );
 }

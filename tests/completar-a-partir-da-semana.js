@@ -1,0 +1,32 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const ctx=await b.newContext({viewport:{width:1400,height:900}});const A=await ctx.newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(600);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const W=ms=>A.waitForTimeout(ms);
+const rot=()=>A.evaluate(()=>({t:document.querySelector('[data-complete]').textContent.replace(/\s+/g,' ').trim(),dis:document.querySelector('[data-complete]').disabled,h:document.getElementById('compHelp').textContent}));
+await A.evaluate(()=>{state.selectedSector='frente-caixa';state.selectedWeek=0;setActive(12);render()});
+let r=await rot();
+T('Semana 1: "Completar as 4 semanas"',/Completar as 4 semanas/.test(r.t)&&!r.dis,r.t);
+await A.evaluate(()=>document.querySelector('[data-complete]').click());await W(2500);
+await A.evaluate(()=>{window.__s1=JSON.stringify(sector().weeks[0])});
+await A.evaluate(()=>{state.selectedWeek=1;render()});r=await rot();
+T('Semana 2: o botão vira "Completar as Semanas 3 e 4"',/Completar as Semanas 3 e 4/.test(r.t)&&/a partir da Semana 2/.test(r.t)&&/Semana 1 não é alterada/.test(r.h),r.t+' | '+r.h);
+// muda a semana 2 (base) e completa só 3 e 4
+await A.evaluate(()=>{const w=week();w.activeCount=14;setActive(14);w.employees[0].name='BASE2';render();window.__s3=JSON.stringify(sector().weeks[2]);window.__s1b=JSON.stringify(sector().weeks[0])});
+await A.evaluate(()=>document.querySelector('[data-complete]').click());await W(300);
+const ask=await A.evaluate(()=>{const o=document.querySelector('.ask-overlay');return o?o.textContent:null});
+if(ask){T('avisa que a Semana 1 não será alterada',/semanas 1 não serão|semanas 1 não/.test(ask)||/Semana 1/.test(ask),ask.slice(0,160));await A.evaluate(()=>document.querySelector('.ask-overlay [data-a="1"]').click());}
+await W(2500);
+const out=await A.evaluate(()=>({s1:JSON.stringify(sector().weeks[0])===window.__s1b,n3:sector().weeks[2].employees.length,n4:sector().weeks[3].employees.length,n2:sector().weeks[1].employees.length,sel:state.selectedWeek,t:document.getElementById('toast').textContent}));
+T('Semana 1 não foi alterada',out.s1);
+T('Semanas 3 e 4 seguem a equipe da Semana 2 (14)',out.n3===14&&out.n4===14&&out.n2===14,JSON.stringify(out));
+T('continua na Semana 2',out.sel===1);
+await A.evaluate(()=>{state.selectedWeek=3;render()});r=await rot();
+T('Semana 4: botão desativado ("Última semana")',r.dis&&/Última semana/.test(r.t),r.t);
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();
