@@ -128,8 +128,9 @@
     box.querySelector('#hSetor').onchange=e=>{sel=e.target.value;historico()};box.querySelector('#hDono').onchange=e=>{donoSel=e.target.value;historico()};
     try{
       const r=await chama({acao:'historico',dono:donoSel,setor:sel}),v=r.versoes||[];
-      box.querySelector('#hLista').innerHTML=v.length?`<div class="adm-matriz"><table class="adm-log"><thead><tr><th>Versão de</th><th>Editada por</th><th>Conteúdo</th><th></th></tr></thead><tbody>${v.map(x=>`<tr><td>${fmt(x.versao_em||x.salvo_em)}</td><td>${esc(x.por||'—')}</td><td>${x.resumo?esc((x.resumo.colaboradoras||0)+' colaboradoras · '+(x.resumo.semanas||0)+' semanas'+((x.resumo.primeiros||[]).length?' · '+x.resumo.primeiros.join(', ')+'…':'')):'—'}</td><td><button type="button" class="button outline" data-h="${x.id}">Restaurar</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="adm-vazio">Ainda não há versões anteriores deste setor. Elas aparecem depois da próxima edição.</p>';
-    }catch(e){box.querySelector('#hLista').innerHTML='<p class="adm-vazio">Não foi possível carregar: '+esc(e.message)+'</p>'}
+      const hl=ov.querySelector('#hLista');if(!hl||!box.isConnected||ov.querySelector('#admConteudo')!==box)return;
+      hl.innerHTML=v.length?`<div class="adm-matriz"><table class="adm-log"><thead><tr><th>Versão de</th><th>Editada por</th><th>Conteúdo</th><th></th></tr></thead><tbody>${v.map(x=>`<tr><td>${fmt(x.versao_em||x.salvo_em)}</td><td>${esc(x.por||'—')}</td><td>${x.resumo?esc((x.resumo.colaboradoras||0)+' colaboradoras · '+(x.resumo.semanas||0)+' semanas'+((x.resumo.primeiros||[]).length?' · '+x.resumo.primeiros.join(', ')+'…':'')):'—'}</td><td><button type="button" class="button outline" data-h="${x.id}">Restaurar</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="adm-vazio">Ainda não há versões anteriores deste setor. Elas aparecem depois da próxima edição.</p>';
+    }catch(e){const hl=ov.querySelector('#hLista');if(hl&&box.isConnected)hl.innerHTML='<p class="adm-vazio">Não foi possível carregar: '+esc(e.message)+'</p>'}
   }
 
   /* ---------- Backup ---------- */

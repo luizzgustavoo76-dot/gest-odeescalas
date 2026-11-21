@@ -299,3 +299,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 111
 - **Turno fixo** também na tabela da escala (abaixo do seletor de turno).
 - Folgas travadas por **Folga fixa** (inclusive o domingo de folga) aparecem em azul-escuro, diferente do vermelho das folgas normais e do roxo das férias.
+
+## Build 112
+- Painel ADM › Histórico: corrigido o erro "null is not an object" quando se troca de aba enquanto a lista carrega.
+- Zoom (pinça e toque duplo) bloqueado no aplicativo (viewport sem escala + bloqueio dos gestos no iOS).

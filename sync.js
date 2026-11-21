@@ -433,3 +433,7 @@
     else{painel('login');avisaInat();if(linkRuim)loginErr('Este link é inválido ou já expirou. Clique em "Esqueci minha senha" para receber outro.')}
   })();
 })();
+
+/* sem zoom por gesto de pinça / toque duplo (iOS ignora user-scalable) */
+(function(){try{['gesturestart','gesturechange','gestureend'].forEach(function(n){document.addEventListener(n,function(e){e.preventDefault()},{passive:false})});
+document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1&&e.scale!==undefined&&e.scale!==1)e.preventDefault()},{passive:false});}catch(e){}})();
