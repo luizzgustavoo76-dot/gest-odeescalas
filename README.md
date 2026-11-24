@@ -303,3 +303,10 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 112
 - Painel ADM › Histórico: corrigido o erro "null is not an object" quando se troca de aba enquanto a lista carrega.
 - Zoom (pinça e toque duplo) bloqueado no aplicativo (viewport sem escala + bloqueio dos gestos no iOS).
+
+## Build 113 — Almoço e saída automáticos
+- Na aba de turnos: caixinhas **Calcular horário de almoço automático** e **Calcular saída automática**, ligadas por padrão (valem para as 4 semanas do setor).
+- Almoço manual: os almoços dos outros turnos não se mexem sozinhos; a regra "sempre alguém trabalhando" continua valendo.
+- Saída manual: o campo de saída fica editável (até o fechamento).
+- Tolerância de 5 minutos na troca de almoços (ex.: 1º volta às 13:00, o 2º pode sair de 12:55 a 13:05).
+- Ao aumentar o número de turnos, as entradas são espalhadas (sem empilhar no mesmo horário) e os nomes seguem a ordem.

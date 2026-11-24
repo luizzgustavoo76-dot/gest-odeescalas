@@ -468,3 +468,4 @@ details.aus-box summary small{font-weight:400;color:#8a93a3}
 .fixa-tbl{display:block;font-size:10px;color:#5b6573;margin-top:2px;cursor:pointer;white-space:nowrap}.fixa-tbl input{margin:0 3px 0 0;vertical-align:middle}@media print{.fixa-tbl{display:none}}
 .off-chip.travada input+span,.off-chip.travada input:disabled+span{background:#173766!important;border-color:#173766!important;color:#fff!important;font-weight:700;opacity:1!important}.off-chip.travada span i{opacity:1}
 html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
+.auto-flags{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;padding:10px 12px;border:1px solid #d9dee6;border-radius:10px;background:#f7f9fc}.auto-flags .check-row{display:flex;gap:8px;align-items:flex-start;font-weight:700;font-size:13px}.auto-flags small{font-weight:400;color:#5b6573}
