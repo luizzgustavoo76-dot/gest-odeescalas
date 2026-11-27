@@ -1052,6 +1052,7 @@ function sortValue(e) {
   const s = week().shifts[e.shift],
     f = week().sortField;
   if (f === 'name') return e.name.toLocaleLowerCase('pt-BR');
+  if (f === 'shift') return e.shift * 2000 + mins(s.start);
   if (f === 'off') return e.offDays.map((k) => DAYS.find((d) => d[0] === k)[2]).join(',');
   if (f === 'hours') return mins(s.end);
   /* "Por posto": mesma ordem da impressão (posto, entrada, almoço; empate por nome) */
@@ -1078,8 +1079,15 @@ function staff() {
   }
   ordemFixa = null;
   const dir = week().sortDirection === 'asc' ? 1 : -1;
+  /* com postos: sempre agrupado por posto (igual à impressão); a coluna clicada ordena dentro de cada posto */
+  const pk = hasPosts() ? postKeys() : null,
+    pi = (e) => {
+      const i = pk.indexOf(e.station);
+      return i < 0 ? 99 : i;
+    };
   return [...emps].sort(
     (a, b) =>
+      (pk && week().sortField !== 'station' ? pi(a) - pi(b) : 0) ||
       (typeof sortValue(a) === 'number'
         ? dir * (sortValue(a) - sortValue(b))
         : dir * String(sortValue(a)).localeCompare(String(sortValue(b)), 'pt-BR')) || String(a.name).localeCompare(String(b.name), 'pt-BR'),
@@ -1290,7 +1298,7 @@ function renderSchedule() {
   const L = staff(),
     ordem = [...L.filter((e) => !foraSemana(e)), ...L.filter((e) => foraSemana(e))];
   /* ordenado "por posto" (padrão): faixa de título para cada posto, igual à impressão */
-  const faixas = hasPosts() && week().sortField === 'station',
+  const faixas = hasPosts(),
     cols = 7 + (hasPosts() ? 1 : 0),
     ativas = ordem.filter((e) => !foraSemana(e));
   let atual = null;

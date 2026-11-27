@@ -436,3 +436,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 136 — Botão "Corrigir" nos avisos de domingo da CCT
 - Os avisos "só tem 1 domingo de folga nas 4 semanas" e "escalada em dois domingos seguidos" no painel de conformidade ganharam o botão **Corrigir**: reveza os domingos (mesmo posto primeiro, respeitando o mínimo de cada posto, folga fixa e férias) e recalcula as folgas. Dá para voltar com Desfazer.
+
+## Build 137 — Prévia sempre por posto (qualquer coluna)
+- Com postos (Frente de Caixa, Loja e Depósito…), a prévia fica sempre agrupada por posto com as faixas, igual à impressão. Clicar em Colaboradora, Turno, Entrada etc. só ordena dentro de cada posto.
+- Ordenar por Turno agora ordena pelo turno de verdade (1º, 2º, 3º) e depois pela entrada.

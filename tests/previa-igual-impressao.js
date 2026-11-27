@@ -18,7 +18,11 @@ const imp=await A.evaluate(()=>{const emps=week().employees,po=k=>{const i=postK
 T('ordem na tela = ordem da impressão',JSON.stringify(tela.filter(x=>x[0]!=='#'))===JSON.stringify(imp),tela.filter(x=>x[0]!=='#').join(',')+' / '+imp.join(','));
 // clicar em Entrada tira as faixas
 await A.click('#scheduleTable [data-sort=name]');await A.waitForTimeout(200);
-T('ordenar por Colaboradora volta à lista simples',!(await ord()).some(x=>x[0]==='#'));
+{const o=await ord();const gr=[];let g=null;o.forEach(x=>{if(x[0]==='#'){g=[];gr.push(g)}else g.push(x)});
+T('ordenar por Colaboradora mantém as faixas de posto',gr.length===4,o.filter(x=>x[0]==='#').join(' | '));
+T('dentro de cada posto fica em ordem de nome',gr.every(l=>JSON.stringify(l)===JSON.stringify([...l].sort((a,b)=>a.localeCompare(b,'pt-BR'))))) }
+await A.click('#scheduleTable [data-sort=shift]').catch(()=>{});await A.waitForTimeout(200);
+T('ordenar por Turno também mantém as faixas',(await ord()).filter(x=>x[0]==='#').length===4);
 await A.click('#scheduleTable [data-sort=station]');await A.waitForTimeout(200);
 T('clicar em Posto volta ao agrupamento',(await ord()).filter(x=>x[0]==='#').length===4);
 // trocar o TURNO de alguém na tela: continua com as faixas (não volta à prévia antiga) e a linha fica no lugar
