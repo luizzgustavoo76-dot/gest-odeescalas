@@ -18,7 +18,7 @@ await A.click('#reordenarBtn');await A.waitForTimeout(200);
 T('reordenar aplica a ordem por horário',await nomes()!==antes&&!(await A.$('#ordemAviso')),await nomes());
 // regras: sábado
 await A.evaluate(()=>document.querySelector('.tab[data-tab=rules]').click());
-T('painel de regras aparece',await A.evaluate(()=>document.querySelectorAll('#offRulesPanel .rule-row').length)===4);
+T('painel de regras aparece',await A.evaluate(()=>document.querySelectorAll('#offRulesPanel .posto-card').length)===4);
 T('padrão: Recepção e Fiscal não folgam juntas',await A.evaluate(()=>[...document.querySelectorAll('#offRulesPanel [data-rule-nso]:checked')].map(x=>x.dataset.ruleNso).sort().join())==='fiscal,recepcao');
 const sab=()=>A.evaluate(()=>{const g=JSON.stringify(state.sectors);state.sectors['frente-caixa'].weeks.forEach(w=>w.activeCount=20);normalize();sector().weeks.forEach(w=>balanceOffs(w,true));const n=state.sectors['frente-caixa'].weeks.reduce((t,w)=>t+w.employees.filter(e=>e.offDays.includes('sábado')).length,0);state.sectors=JSON.parse(g);render();return n});
 const s1=await sab();

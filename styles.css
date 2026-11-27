@@ -516,3 +516,29 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 /* dias a evitar folga, por posto (aba Regras) */
 .rule-days{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:0 0 6px;font-size:12px;color:#697386}
 .rule-day{display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#1f2937}.rule-day input{margin:0}
+
+/* aba Regras: um cartão claro por posto, fechamentos juntos */
+.settings [data-panel="rules"]>#offRulesPanel{grid-column:1/-1}
+.regras-titulo{margin:0 0 10px;font-size:18px;color:var(--navy)}
+.postos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.posto-card{border:1px solid var(--line);border-left:5px solid var(--navy);border-radius:10px;padding:12px 14px;background:#fbfcfe}
+.posto-card.off{border-left-color:#c3c9d4;background:#f4f5f8;opacity:.85}
+.posto-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.posto-nome{margin:0;font-size:20px;font-weight:800;color:var(--navy)}.posto-nome small{font-size:11px;font-weight:600;color:#697386}
+.posto-uso{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.posto-grid{display:grid;gap:12px}
+.posto-bloco{display:grid;gap:6px;align-content:start}
+.posto-rot{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#697386}.posto-rot.sub{margin-top:4px}
+.posto-bloco .number-row{margin:0;max-width:210px}.posto-bloco .number-row input{font-size:22px;font-weight:800;text-align:center}
+.posto-hoje{color:#697386;font-size:12px}.posto-bloco small{display:block}
+.posto-nso{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.rule-days{padding:0;gap:6px}
+.rule-day{border:1px solid #cfd5de;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700;background:#fff}
+.rule-day:has(input:checked){background:#fde8e8;border-color:#b91c1c;color:#b91c1c}
+.regras-gerais{margin-top:12px;padding-top:12px;border-top:1px solid #eef0f4}.regras-gerais .check-row{font-size:14px}
+.close-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.close-grid label{display:grid;gap:4px;font-size:12px;font-weight:800;text-transform:uppercase;color:#697386}
+.close-grid input[type=time]{font-size:18px;font-weight:700;color:var(--navy);max-width:none!important}
+@media(max-width:760px){.postos-grid{grid-template-columns:1fr}.posto-bloco .number-row{max-width:none}}
+.posto-nso input,.posto-uso input,.rule-day input{width:auto!important;flex:none;margin:0}
+.posto-nso{justify-content:flex-start;text-align:left}
+.posto-bloco .post-warn{color:#b91c1c;font-weight:700;font-size:12px;line-height:1.35}

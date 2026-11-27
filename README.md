@@ -384,3 +384,9 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - É uma preferência, não uma proibição: se a equipe não permitir outra saída, o app ainda pode usar o dia. As travas continuam valendo (metade do turno presente, nunca posto vazio, Fiscal/Recepção separados).
 - O checkbox "Evitar folga no sábado" continua como padrão dos postos que não foram personalizados; um posto com lista própria usa só a lista dele.
 - Valores salvos em `settings.rules[setor].avoidDays[posto]` (vai para a nuvem junto das configurações). Teste: `tests/regras-evitar-dias-por-posto.js`.
+
+## Build 127 – Aba Regras reorganizada
+- **Um cartão por posto**, com o nome grande: "Em uso", "Mínimo no domingo" (número grande com − e +, e quantos estão escalados hoje), "Não folgam no mesmo dia" e "Evitar folga em" (botões Seg a Sáb). O mínimo por posto, que ficava em outro cartão, foi unido aqui.
+- **Fechamento juntos**: segunda a sábado e domingo lado a lado em um único cartão "Horário de fechamento".
+- O "Evitar folga no sábado" geral e o total mínimo de domingo ficam numa faixa abaixo dos postos. Postos fora de uso aparecem esmaecidos.
+- Corrigido: o campo numérico do mínimo no domingo agora salva também ao digitar (antes o painel de regras bloqueava o evento).

@@ -4366,21 +4366,21 @@ window.addEventListener('afterprint', () => {
 });
 
 /* ===== mínimo de colaboradoras por domingo (aba Regras) ===== */
-function sundayMinPanel() {
+/* controle do mínimo no domingo de um posto (usado no cartão do posto, na aba Regras) */
+function postoMinimo(k) {
   const sw = sundayWorkers(),
-    keys = postKeys();
-  if (!keys.length) return '';
-  const rows = keys
-    .map((k) => {
-      const mn = sundayPostMin(k),
-        n = sw.filter((e) => e.station === k).length;
-      const tem = week().employees.filter((e) => e.station === k).length,
-        pouco = mn > 0 && tem < 2 * mn;
-      return `<div class="spm-row"><span class="post-name">${POST_NAMES[k]}<small class="${n < mn ? 'post-warn' : ''}">hoje ${n} no domingo</small>${pouco ? `<small class="post-warn" data-pouco="${k}">Equipe pequena: para alternar os domingos este posto precisa de ${2 * mn} pessoas (tem ${tem}). Aumente a equipe ou baixe o mínimo para ${Math.floor(tem / 2)}.</small>` : ''}</span><div class="number-row"><button class="stepper" data-spm="${k}" data-d="-1" type="button">−</button><input type="number" min="0" max="50" data-spm-in="${k}" value="${mn}" aria-label="Mínimo de ${POST_NAMES[k]} no domingo" /><button class="stepper" data-spm="${k}" data-d="1" type="button">+</button></div></div>`;
-    })
-    .join('');
+    mn = sundayPostMin(k),
+    n = sw.filter((e) => e.station === k).length,
+    tem = week().employees.filter((e) => e.station === k).length,
+    pouco = mn > 0 && tem < 2 * mn;
+  return `<div class="number-row"><button class="stepper" data-spm="${k}" data-d="-1" type="button" aria-label="Diminuir mínimo de ${escape(POST_NAMES[k])}">−</button><input type="number" min="0" max="50" data-spm-in="${k}" value="${mn}" aria-label="Mínimo de ${escape(POST_NAMES[k])} no domingo" /><button class="stepper" data-spm="${k}" data-d="1" type="button" aria-label="Aumentar mínimo de ${escape(POST_NAMES[k])}">+</button></div><small class="${n < mn ? 'post-warn' : 'posto-hoje'}">hoje ${n} no domingo</small>${pouco ? `<small class="post-warn" data-pouco="${k}">Equipe pequena: para alternar os domingos este posto precisa de ${2 * mn} pessoas (tem ${tem}). Aumente a equipe ou baixe o mínimo para ${Math.floor(tem / 2)}.</small>` : ''}`;
+}
+function sundayMinResumo() {
   const custom = !!(sector().sundayPostMin && Object.keys(sector().sundayPostMin).length);
-  return `<div class="setting-block spm"><label>Mínimo por posto no domingo — ${SECTORS[state.selectedSector]}</label><p class="helper">Defina quantas colaboradoras cada posto precisa no domingo. Total mínimo do setor: <b>${sundayMin()}</b> (este domingo tem ${sw.length}). O painel de conformidade avisa quando um posto fica abaixo e a sugestão de domingos tenta cumprir cada posto.</p>${rows}${custom ? '<button class="link-btn" id="spmReset" type="button">Voltar ao padrão do setor</button>' : ''}</div>`;
+  return `<p class="helper">Total mínimo no domingo: <b>${sundayMin()}</b> (este domingo tem ${sundayWorkers().length}). O painel de conformidade avisa quando um posto fica abaixo e a sugestão de domingos tenta cumprir cada posto.</p>${custom ? '<button class="link-btn" id="spmReset" type="button">Voltar ao padrão do setor</button>' : ''}`;
+}
+function sundayMinPanel() {
+  return ''; /* agora faz parte do cartão de cada posto (renderRegras) */
 }
 function setSundayPostMin(k, v) {
   const sec = sector();
@@ -4743,24 +4743,27 @@ function renderRegras() {
   if (!el) return;
   const ativos = postKeys(),
     nso = noSameOff(),
-    custom = (regras().custom || []).map((c) => c.k);
-  el.innerHTML = `<label>Folgas e postos de ${escape(SECTORS[state.selectedSector])}</label>
-    <label class="check-row"><input type="checkbox" id="ruleSat" ${evitaSabado() ? 'checked' : ''} /> Evitar folga no sábado nas sugestões automáticas <small>(soma-se ao “Movimento esperado por dia” da aba Gerar)</small></label>
-    <div class="rule-posts"><div class="rule-head"><span>Posto</span><span>Em uso</span><span>Não folgam no mesmo dia</span></div>${todosPostos()
-      .map(
-        (k) =>
-          `<div class="rule-row"><span>${escape(POST_NAMES[k] || k)}${custom.includes(k) ? ' <small>(criado por você)</small>' : ''}</span><input type="checkbox" data-rule-post="${k}" ${ativos.includes(k) ? 'checked' : ''} aria-label="Posto ${escape(POST_NAMES[k] || k)} em uso" /><input type="checkbox" data-rule-nso="${k}" ${nso.includes(k) ? 'checked' : ''} ${ativos.includes(k) ? '' : 'disabled'} aria-label="${escape(POST_NAMES[k] || k)} não folgam no mesmo dia" /></div>${
-            ativos.includes(k)
-              ? `<div class="rule-days"><span>Evitar folga em:</span>${DAYS.filter((d) => d[0] !== 'domingo')
-                  .map((d) => `<label class="rule-day"><input type="checkbox" data-rule-avoid="${k}|${d[0]}" ${evitaDia(k, d[0]) ? 'checked' : ''} aria-label="${escape(POST_NAMES[k] || k)} evitar folga em ${d[0]}" />${d[1].replace('.', '')}</label>`)
-                  .join('')}</div>`
-              : ''
-          }`,
-      )
-      .join('')}</div>
+    custom = (regras().custom || []).map((c) => c.k),
+    todos = todosPostos(),
+    dias = DAYS.filter((d) => d[0] !== 'domingo');
+  const cards = todos
+    .map((k) => {
+      const on = ativos.includes(k),
+        nome = escape(POST_NAMES[k] || k);
+      return `<div class="posto-card ${on ? '' : 'off'}"><div class="posto-top"><h4 class="posto-nome">${nome}${custom.includes(k) ? ' <small>(criado por você)</small>' : ''}</h4><label class="posto-uso"><input type="checkbox" data-rule-post="${k}" ${on ? 'checked' : ''} aria-label="Posto ${nome} em uso" /> Em uso</label></div>${
+        on
+          ? `<div class="posto-grid"><div class="posto-bloco"><span class="posto-rot">Mínimo no domingo</span>${postoMinimo(k)}</div><div class="posto-bloco"><span class="posto-rot">Folgas do posto</span><label class="posto-nso"><input type="checkbox" data-rule-nso="${k}" ${nso.includes(k) ? 'checked' : ''} aria-label="${nome} não folgam no mesmo dia" /> Não folgam no mesmo dia</label><span class="posto-rot sub">Evitar folga em</span><div class="rule-days">${dias
+              .map((d) => `<label class="rule-day"><input type="checkbox" data-rule-avoid="${k}|${d[0]}" ${evitaDia(k, d[0]) ? 'checked' : ''} aria-label="${nome} evitar folga em ${d[0]}" />${d[1].replace('.', '')}</label>`)
+              .join('')}</div></div></div>`
+          : '<p class="helper">Posto fora de uso: some das listas até você reativar.</p>'
+      }</div>`;
+    })
+    .join('');
+  el.innerHTML = `<h3 class="regras-titulo">Postos de ${escape(SECTORS[state.selectedSector])}</h3>
+    <div class="postos-grid">${cards}</div>
     <div class="rule-add"><input id="rulePostName" type="text" maxlength="30" placeholder="Novo posto (ex.: Balcão)" /><button type="button" class="button outline" id="rulePostAdd">Adicionar posto</button></div>
-    <p class="helper">"Evitar folga em" escolhe, por posto, os dias em que o app deve evitar sugerir folga (é uma preferência: se não houver outra saída, ele ainda pode usar o dia). Postos que você não mexer seguem o "Evitar folga no sábado" acima.</p>
-    <p class="helper">Desmarcar "Em uso" tira o posto das listas; quem estava nele passa para outro posto até você reativar. "Não folgam no mesmo dia" vale para o conjunto dos postos marcados (ex.: Fiscal e Recepção nunca folgam juntas) nas sugestões de folga, na marcação manual e nos alertas.</p>`;
+    <div class="regras-gerais"><label class="check-row"><input type="checkbox" id="ruleSat" ${evitaSabado() ? 'checked' : ''} /> Evitar folga no sábado nas sugestões automáticas <small>(vale para os postos sem dias próprios; soma-se ao “Movimento esperado por dia” da aba Gerar)</small></label>${ativos.length ? sundayMinResumo() : ''}</div>
+    <p class="helper"><b>Evitar folga em</b> é uma preferência: se a equipe não permitir outra saída, o app ainda pode usar o dia. <b>Não folgam no mesmo dia</b> vale para o conjunto dos postos marcados (ex.: Fiscal e Recepção nunca folgam juntas), nas sugestões, na marcação manual e nos alertas. Desmarcar <b>Em uso</b> tira o posto das listas; quem estava nele passa para outro posto até você reativar.</p>`;
 }
 function regraDoSetor() {
   state.settings.rules = state.settings.rules || {};
@@ -4772,6 +4775,7 @@ document.addEventListener(
   (e) => {
     const t = e.target;
     if (!t || !t.closest || !t.closest('#offRulesPanel')) return;
+    if (t.dataset.spmIn) return; /* mínimo do domingo: tratado pelo ouvinte próprio */
     e.stopImmediatePropagation();
     if (t.id === 'ruleSat') state.settings.avoidSaturday = t.checked;
     else if (t.dataset.rulePost) {
