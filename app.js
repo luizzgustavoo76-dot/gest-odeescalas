@@ -62,6 +62,13 @@ const noSameOff = () => {
   return (Array.isArray(r) ? r : NO_SAME_OFF).filter((k) => postKeys().includes(k));
 };
 const evitaSabado = () => !(state.settings && state.settings.avoidSaturday === false);
+/* dias em que cada posto deve evitar folga (aba Regras): rules[setor].avoidDays[posto] = ['sábado', ...];
+   posto sem lista própria segue o padrão (sábado, se "Evitar folga no sábado" estiver marcado) */
+const diasEvitar = (k) => {
+  const l = regras().avoidDays && regras().avoidDays[k];
+  return Array.isArray(l) ? l : evitaSabado() ? ['sábado'] : [];
+};
+const evitaDia = (k, dia) => dia !== 'domingo' && diasEvitar(k).includes(dia);
 const postKeys = () => postosDoSetor(state.selectedSector),
   hasPosts = () => postKeys().length > 0;
 /* mínimo por posto no domingo: o que o gestor definiu ou o padrão do setor (soma = mínimo anterior do setor) */
@@ -1845,7 +1852,7 @@ function balanceOffs(w, chain) {
     const cs = get(e.shift, d) + picked.filter((x) => x === d).length;
     let c = (2 * (cs - tgt(e.shift, d)) + 1) * 100 + (2 * (tot[d] - tgtTot(d)) + 1) * 30; // segue o movimento esperado do dia
     if (!picked.length) c += seqCost(e, d);
-    if (d === 5 && evitaSabado()) c += 400; // evita sábado (regra configurável)
+    if (evitaDia(e.station, dayKeys[d])) c += 400; // evita os dias marcados para o posto (regra configurável; padrão: sábado)
     const M = shiftMem[e.shift] || 0;
     if (M >= 2 && M - (cs + 1) < Math.ceil(M / 2)) c += 8000; // pelo menos metade do turno presente
     if (noSameOff().includes(e.station) && used['nso-' + d]) c += 5000; // Fiscal/Recepção (todos os postos marcados formam um grupo): mesmo dia só se não houver saída
@@ -4742,10 +4749,17 @@ function renderRegras() {
     <div class="rule-posts"><div class="rule-head"><span>Posto</span><span>Em uso</span><span>Não folgam no mesmo dia</span></div>${todosPostos()
       .map(
         (k) =>
-          `<div class="rule-row"><span>${escape(POST_NAMES[k] || k)}${custom.includes(k) ? ' <small>(criado por você)</small>' : ''}</span><input type="checkbox" data-rule-post="${k}" ${ativos.includes(k) ? 'checked' : ''} aria-label="Posto ${escape(POST_NAMES[k] || k)} em uso" /><input type="checkbox" data-rule-nso="${k}" ${nso.includes(k) ? 'checked' : ''} ${ativos.includes(k) ? '' : 'disabled'} aria-label="${escape(POST_NAMES[k] || k)} não folgam no mesmo dia" /></div>`,
+          `<div class="rule-row"><span>${escape(POST_NAMES[k] || k)}${custom.includes(k) ? ' <small>(criado por você)</small>' : ''}</span><input type="checkbox" data-rule-post="${k}" ${ativos.includes(k) ? 'checked' : ''} aria-label="Posto ${escape(POST_NAMES[k] || k)} em uso" /><input type="checkbox" data-rule-nso="${k}" ${nso.includes(k) ? 'checked' : ''} ${ativos.includes(k) ? '' : 'disabled'} aria-label="${escape(POST_NAMES[k] || k)} não folgam no mesmo dia" /></div>${
+            ativos.includes(k)
+              ? `<div class="rule-days"><span>Evitar folga em:</span>${DAYS.filter((d) => d[0] !== 'domingo')
+                  .map((d) => `<label class="rule-day"><input type="checkbox" data-rule-avoid="${k}|${d[0]}" ${evitaDia(k, d[0]) ? 'checked' : ''} aria-label="${escape(POST_NAMES[k] || k)} evitar folga em ${d[0]}" />${d[1].replace('.', '')}</label>`)
+                  .join('')}</div>`
+              : ''
+          }`,
       )
       .join('')}</div>
     <div class="rule-add"><input id="rulePostName" type="text" maxlength="30" placeholder="Novo posto (ex.: Balcão)" /><button type="button" class="button outline" id="rulePostAdd">Adicionar posto</button></div>
+    <p class="helper">"Evitar folga em" escolhe, por posto, os dias em que o app deve evitar sugerir folga (é uma preferência: se não houver outra saída, ele ainda pode usar o dia). Postos que você não mexer seguem o "Evitar folga no sábado" acima.</p>
     <p class="helper">Desmarcar "Em uso" tira o posto das listas; quem estava nele passa para outro posto até você reativar. "Não folgam no mesmo dia" vale para o conjunto dos postos marcados (ex.: Fiscal e Recepção nunca folgam juntas) nas sugestões de folga, na marcação manual e nos alertas.</p>`;
 }
 function regraDoSetor() {
@@ -4770,6 +4784,13 @@ document.addEventListener(
         return;
       }
       r.posts = todosPostos().filter((k) => atual.has(k));
+    } else if (t.dataset.ruleAvoid) {
+      const [k, dia] = t.dataset.ruleAvoid.split('|'),
+        r = regraDoSetor();
+      const atual = new Set(diasEvitar(k));
+      t.checked ? atual.add(dia) : atual.delete(dia);
+      r.avoidDays = r.avoidDays || {};
+      r.avoidDays[k] = WD.filter((x) => atual.has(x));
     } else if (t.dataset.ruleNso) {
       const r = regraDoSetor(),
         atual = new Set(noSameOff());
@@ -4912,7 +4933,7 @@ function moveFolga(G, rotulo, dKey, delta) {
   const pares = [];
   if (delta > 0) {
     G.filter((e) => !trab(e, D) && e.offDays.includes(D[0]) && !travada(e, D[0])).forEach((e) =>
-      dias.filter((y) => y !== D && trab(e, y) && cov(y) > 1 && livre(e, y)).forEach((y) => pares.push({ e, y, score: cov(y) - (y[0] === 'sábado' && evitaSabado() ? 100 : 0) })),
+      dias.filter((y) => y !== D && trab(e, y) && cov(y) > 1 && livre(e, y)).forEach((y) => pares.push({ e, y, score: cov(y) - (evitaDia(e.station, y[0]) ? 100 : 0) })),
     );
     pares.sort((a, b) => b.score - a.score);
   } else {

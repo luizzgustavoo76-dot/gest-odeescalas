@@ -378,3 +378,9 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 125 – Correção urgente
 - **Corrige:** o seletor de setor não trocava (voltava para Frente de Caixa). Regressão da build 122, que apagou a linha que grava o setor escolhido. Teste novo `trocar-setor-seletor.js` usa o seletor de verdade (os testes antigos trocavam o setor por código e não pegavam isso).
+
+## Build 126 – Regras: dias a evitar folga por posto
+- Na aba **Regras**, cada posto em uso ganhou a linha **"Evitar folga em"** (Seg a Sáb), para escolher os dias em que as sugestões de folga devem evitar aquele posto (ex.: Fiscal evita sexta e sábado, Pacote só o sábado).
+- É uma preferência, não uma proibição: se a equipe não permitir outra saída, o app ainda pode usar o dia. As travas continuam valendo (metade do turno presente, nunca posto vazio, Fiscal/Recepção separados).
+- O checkbox "Evitar folga no sábado" continua como padrão dos postos que não foram personalizados; um posto com lista própria usa só a lista dele.
+- Valores salvos em `settings.rules[setor].avoidDays[posto]` (vai para a nuvem junto das configurações). Teste: `tests/regras-evitar-dias-por-posto.js`.

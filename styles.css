@@ -512,3 +512,7 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .ciclo-avancado{margin-top:4px;font-size:12px}.ciclo-avancado summary{cursor:pointer;color:var(--muted)}.ciclo-avancado label{display:block;margin-top:6px}
 .period-tab .st{display:block;font-style:normal;font-size:10px;font-weight:700;margin-top:2px}.st-real{color:#173766}.st-sem{color:#a1161a}.st-and{color:#14845a}.st-plan{color:#697386}
 @media print{.ciclo-nav,.ciclo-avancado{display:none!important}}
+
+/* dias a evitar folga, por posto (aba Regras) */
+.rule-days{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:0 0 6px;font-size:12px;color:#697386}
+.rule-day{display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#1f2937}.rule-day input{margin:0}
