@@ -485,5 +485,15 @@
     });
     state.selectedSector = orig;
   }
-  window.afdRealizado = { guardaRealizado, aplicaRealizado, restauraTodos, troca, restauraPlano };
+  function aplicaTodos() {
+    const orig = state.selectedSector;
+    Object.keys(state.sectors).forEach((k) => {
+      if (!state.sectors[k] || !state.sectors[k].weeks) return;
+      state.selectedSector = k;
+      state.sectors[k].weeks.forEach(normalizeWeek);
+      aplicaRealizado();
+    });
+    state.selectedSector = orig;
+  }
+  window.afdRealizado = { guardaRealizado, aplicaRealizado, restauraTodos, troca, restauraPlano, aplicaTodos };
 })();

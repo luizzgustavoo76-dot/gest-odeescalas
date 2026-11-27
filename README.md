@@ -368,3 +368,10 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 123 – Ordem da impressão
 - Impressão e pré-visualização (escala semanal e de domingo): 1º por **posto** (todo mundo do posto junto, com faixa de título "Produção · 4 pessoas"), 2º por **horário de entrada**, depois horário de almoço e nome. Setores sem postos: só por horário.
 - Teste: `impressao-ordem-postos.js`.
+
+## Build 124 – Ciclos e semanas passadas
+- **Navegação por ciclo no topo:** `◀ Ciclo 22/11 a 19/12 ▶`. ◀ abre o ciclo anterior (guardado ou por data, mostrando o realizado onde houver ponto); ▶ abre um ciclo já visto ou pergunta se quer avançar ao próximo. A data solta ficou em "Alterar a data".
+- **Etiquetas nas abas das semanas:** Realizada (🔒, com ponto), Passada · sem ponto, Em andamento, Planejada. Semana futura nunca é realizada.
+- **Avançar ciclo:** se alguma semana já passou sem AFD importado (e a conta já usa o ponto), o app avisa antes; cancelar permite importar o AFD.
+- **Rodízio de domingo do ciclo novo:** usa o domingo realmente trabalhado (ponto) quando existe; o plano só quando não há ponto.
+- Teste: `ciclo-navegacao-estados.js`.

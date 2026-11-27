@@ -730,15 +730,15 @@ function ciclosPanel() {
   <button class="button secondary full" id="cicloAvancar" type="button">Avançar para o próximo ciclo (${cicloTxt(addDias(state.baseMonday, 28))})</button>
   ${cs.length ? `<p class="helper"><b>Ciclos anteriores</b> (${SECTORS[state.selectedSector]})</p><ul class="ciclos-lista">${cs.map((c) => `<li><span>${cicloTxt(c.inicio)}</span><button type="button" class="button outline" data-ciclo="${c.inicio}">Voltar a este ciclo</button></li>`).join('')}</ul>` : '<p class="helper">Nenhum ciclo anterior guardado ainda.</p>'}</div>`;
 }
-function avancaDomingos(velhas, novas) {
+function avancaDomingos(velhas, novas, reais = velhas) {
   /* continua a sequência: quem trabalhou no último domingo do ciclo anterior não trabalha no primeiro do novo; mantém a quantidade de cada semana */
   const works = (w, i) => !!(w && w.employees[i] && w.employees[i].sundayWork),
     feitos = {},
     curtas = [];
-  const count = (i) => velhas.reduce((t, w) => t + (works(w, i) ? 1 : 0), 0) + (feitos[i] || 0);
+  const count = (i) => reais.reduce((t, w) => t + (works(w, i) ? 1 : 0), 0) + (feitos[i] || 0);
   novas.forEach((w, wi) => {
     const k = velhas[wi].employees.filter((e) => e.sundayWork).length,
-      ant = wi === 0 ? velhas[velhas.length - 1] : novas[wi - 1];
+      ant = wi === 0 ? reais[reais.length - 1] : novas[wi - 1];
     w.employees.forEach((e) => (e.sundayWork = false));
     const cand = w.employees
         .map((e, i) => i)
@@ -761,6 +761,39 @@ function avancaDomingos(velhas, novas) {
   });
   return curtas;
 }
+/* semanas do ciclo atual que já passaram e não têm ponto (AFD) importado; só avisa quem já usa o ponto em algum setor */
+function semPontoPassado() {
+  const hoje = iso(new Date()),
+    usa = Object.values(state.sectors).some((x) => x && x.realizado && Object.keys(x.realizado).length),
+    lista = [];
+  if (!usa) return lista;
+  const orig = state.selectedSector;
+  Object.keys(state.sectors).forEach((k) => {
+    if (!state.sectors[k] || !state.sectors[k].weeks) return;
+    state.selectedSector = k;
+    for (let wi = 0; wi < 4; wi++) if (iso(date('sábado', wi)) < hoje && !semanaReal(wi)) lista.push(SECTORS[k] + ' (semana ' + (wi + 1) + ')');
+  });
+  state.selectedSector = orig;
+  return lista;
+}
+async function pedeAvancarCiclo() {
+  const sem = semPontoPassado();
+  const txt =
+    'Avançar para o ciclo ' + cicloTxt(addDias(state.baseMonday, 28)) + '? O ciclo atual (' + cicloTxt(state.baseMonday) + ') fica guardado em todos os setores e os domingos seguem a sequência.' +
+    (sem.length ? '\n\nAtenção: estas semanas já passaram e não têm ponto (AFD) importado: ' + sem.slice(0, 6).join(', ') + (sem.length > 6 ? '…' : '') + '. Sem o ponto, o rodízio de domingo usa o plano e não o que realmente aconteceu. Cancele para importar o AFD antes (Importar planilha…).' : '');
+  if (await askConfirm(txt)) avancaCiclo();
+}
+/* setas do ciclo: ◀ volta (ciclo guardado ou data anterior); ▶ vai a um ciclo guardado ou avança para o próximo */
+async function cicloVai(dir) {
+  const alvo = addDias(state.baseMonday, 28 * dir),
+    guardado = (sector().ciclos || []).find((c) => c.inicio === alvo);
+  if (guardado) return voltaCiclo(alvo);
+  if (dir > 0 && !(sector().planos && sector().planos[alvo])) return pedeAvancarCiclo();
+  if (window.afdRealizado) window.afdRealizado.troca(alvo);
+  else state.baseMonday = alvo;
+  state.selectedWeek = 0;
+  render();
+}
 function avancaCiclo() {
   if (window.afdRealizado) window.afdRealizado.restauraTodos();
   const velho = state.baseMonday,
@@ -774,7 +807,18 @@ function avancaCiclo() {
     const velhas = JSON.parse(JSON.stringify(sec.weeks));
     sec.ciclos = [{ inicio: velho, guardado: new Date().toISOString(), semanas: velhas }, ...(sec.ciclos || [])].slice(0, 6);
     const novas = JSON.parse(JSON.stringify(sec.weeks));
-    const curtas = avancaDomingos(velhas, novas);
+    /* domingos realmente trabalhados (ponto/AFD) valem mais que o plano para continuar o rodízio */
+    const reais = JSON.parse(JSON.stringify(velhas));
+    reais.forEach((rw, rwi) => {
+      const S = addDias(velho, 7 * rwi),
+        rr = sec.realizado && sec.realizado[S];
+      if (!rr) return;
+      rw.employees.forEach((e) => {
+        const p = rr.pessoas[e.name];
+        if (p && p[S] !== undefined) e.sundayWork = p[S].length > 0;
+      });
+    });
+    const curtas = avancaDomingos(velhas, novas, reais);
     /* rodízio mensal/quinzenal: ao virar o ciclo, a equipe gira para o(s) turno(s) seguinte(s) (sem mexer em turno fixo) */
     const per = RODIZIO[sec.rodizio] || 1;
     if (per > 1)
@@ -796,6 +840,7 @@ function avancaCiclo() {
   });
   state.selectedSector = sel;
   state.baseMonday = addDias(velho, 28);
+  if (window.afdRealizado) window.afdRealizado.aplicaTodos();
   state.selectedWeek = 0;
   state.notice = 'Novo ciclo: ' + cicloTxt(state.baseMonday) + '. O ciclo anterior ficou guardado em Gerar → Ciclo de 4 semanas.';
   render();
@@ -821,6 +866,7 @@ function voltaCiclo(ini) {
     sec.ciclos = lista.slice(0, 6);
   });
   state.baseMonday = ini;
+  if (window.afdRealizado) window.afdRealizado.aplicaTodos();
   state.selectedWeek = 0;
   state.notice = 'Ciclo ' + cicloTxt(ini) + ' aberto. O ciclo que estava na tela ficou guardado.';
   render();
@@ -829,14 +875,10 @@ function voltaCiclo(ini) {
 document.addEventListener('click', async (e) => {
   const av = e.target.closest && e.target.closest('#cicloAvancar'),
     vo = e.target.closest && e.target.closest('[data-ciclo]');
-  if (av) {
-    if (
-      await askConfirm(
-        'Avançar para o ciclo ' + cicloTxt(addDias(state.baseMonday, 28)) + '? O ciclo atual (' + cicloTxt(state.baseMonday) + ') fica guardado em todos os setores e os domingos seguem a sequência.',
-      )
-    )
-      avancaCiclo();
-  } else if (vo) {
+  if (av) await pedeAvancarCiclo();
+  else if (e.target.closest && e.target.closest('#cicloPrev')) await cicloVai(-1);
+  else if (e.target.closest && e.target.closest('#cicloNext')) await cicloVai(1);
+  else if (vo) {
     if (await askConfirm('Voltar ao ciclo ' + cicloTxt(vo.dataset.ciclo) + '? O ciclo que está na tela fica guardado.')) voltaCiclo(vo.dataset.ciclo);
   }
 });
@@ -1057,6 +1099,10 @@ function render() {
   document.getElementById('sectorSelect').value = state.selectedSector;
   atualizaDesfazer();
   document.getElementById('weekStart').value = monday(state.baseMonday);
+  {
+    const nt = document.getElementById('cicloNavTxt');
+    if (nt) nt.innerHTML = '<b>Ciclo ' + cicloTxt(state.baseMonday) + '</b><small>4 semanas · domingo a sábado</small>';
+  }
   document.getElementById('sectorLabel').textContent = 'PAINEL GERENCIAL · ' + name.toUpperCase();
   document.getElementById('mainTitle').textContent = 'Escala semanal · ' + name;
   document.getElementById('settingsTitle').textContent = 'Semana ' + (state.selectedWeek + 1);
@@ -1118,11 +1164,21 @@ function render() {
   renderBackupStatus();
   save();
 }
+/* etiqueta de cada semana: realizada (tem ponto), passada sem ponto, em andamento ou planejada */
+function estadoSemana(i) {
+  const hoje = iso(new Date()),
+    ini = iso(date('domingo', i)),
+    fim = iso(date('sábado', i));
+  if (semanaReal(i)) return '<em class="st st-real">Realizada</em>';
+  if (fim < hoje) return '<em class="st st-sem">Passada · sem ponto</em>';
+  if (ini <= hoje) return '<em class="st st-and">Em andamento</em>';
+  return '<em class="st st-plan">Planejada</em>';
+}
 function renderWeekTabs() {
   document.getElementById('periodTabs').innerHTML = [0, 1, 2, 3]
     .map(
       (i) =>
-        `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}${semanaReal(i) ? ' 🔒' : ''}<small>${range(i)}</small></button>`,
+        `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}${semanaReal(i) ? ' 🔒' : ''}<small>${range(i)}</small>${estadoSemana(i)}</button>`,
     )
     .join('');
 }
