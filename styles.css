@@ -479,3 +479,12 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .afd-a-erro{color:#b91c1c;font-weight:700}.afd-a-atenção{color:#b45309;font-weight:700}.afd-a-info{color:#5b6573}
 .cidade-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#e8f0fe;color:#1a3c8f;font-size:12px;font-weight:600}
 .cidade-tag.pend{background:#fff3cd;color:#7a5b00}
+.settings .tab-panel.active[data-panel="rotation"]{display:flex;flex-direction:column;gap:18px}
+.settings .tab-panel.active[data-panel="rotation"]>.setting-block{width:100%}
+@media(min-width:761px){.metrics:has(.com-postos){grid-template-columns:2.2fr repeat(3,1fr)}}
+.post-breakdown{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px;color:var(--muted)}
+.post-breakdown span b{color:var(--navy);font-size:15px}
+.metric.highlight .post-breakdown{color:#fff}.metric.highlight .post-breakdown span b{color:#fff;font-size:17px}
+.vg-box{max-width:1100px}.vg-bloco{border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}.vg-cab{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.vg-cab h3{margin:0}.vg-cab .button{margin-left:auto}.vg-meta{color:var(--muted);font-size:13px}
+.vg-tag{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.vg-tag.erro{background:#fde2e2;color:#a1161a}.vg-tag.aten{background:#fff3cd;color:#7a5b00}.vg-tag.ok{background:#e0f4ea;color:#12633f}
+.vg-tabs{display:flex;gap:6px;flex-wrap:wrap}.vg-bloco details{margin-top:8px}.vg-bloco summary{cursor:pointer;font-weight:700;color:var(--navy)}

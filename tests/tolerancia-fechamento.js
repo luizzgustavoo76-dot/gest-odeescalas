@@ -1,0 +1,21 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const A=await (await b.newContext({viewport:{width:1400,height:900}})).newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const r=await A.evaluate(()=>{setActive(12);const w=week();const mx=maxStart(w.model,0),tol=maxStartTol(w.model,0);return {mx:time(mx),tol:time(tol),m:w.model,d:workDuration(w.model,0)}});
+T('tolerância = +15 min',/./.test(r.tol)&&r.tol!==r.mx,JSON.stringify(r));
+// entrada exatamente no limite + 15 é aceita; +16 é recusada
+const ok=await A.evaluate(()=>{const w=week();const lim=maxStartTol(w.model,0);const inp=document.querySelector('[data-shift="2"][data-field="start"]');
+ const set=(v)=>{inp.value=v;inp.dispatchEvent(new Event('change',{bubbles:true}))};
+ set(time(lim+1));const rec=week().shifts.some(s=>s.start===time(lim+1));
+ const i2=document.querySelector('[data-shift="2"][data-field="start"]');i2.value=time(lim);i2.dispatchEvent(new Event('change',{bubbles:true}));
+ return {rec,acc:week().shifts.some(s=>s.start===time(lim)),lim:time(lim)}});
+T('+16 min recusado',ok.rec===false,JSON.stringify(ok));
+T('limite com tolerância aceito',ok.acc===true,JSON.stringify(ok));
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();

@@ -146,6 +146,9 @@ function workDuration(model, idx = state ? state.selectedWeek : 0) {
 const closeMin = () => mins((typeof state !== 'undefined' && state && state.settings && state.settings.weekClose) || '19:30');
 /* a jornada (carga + 2h de almoço) tem que caber até o fechamento: esta é a entrada mais tarde permitida */
 const maxStart = (model, wi) => closeMin() - (workDuration(model, wi) + 120);
+/* tolerância: a jornada pode terminar até 15 min depois do fechamento (atendimento de quem ainda está na loja) */
+const TOL_FECH = 15;
+const maxStartTol = (model, wi) => maxStart(model, wi) + TOL_FECH;
 /* faixa permitida para o início do almoço: até 6h seguidas antes e depois, sempre cumprindo a carga */
 function lunchWin(startM, model, wi) {
   const dur = workDuration(model, wi);
@@ -1053,6 +1056,20 @@ function render() {
   document.getElementById('sundayClose').value = state.settings.sundayClose;
   document.getElementById('extraHolidays').value = state.settings.extraText || '';
   document.getElementById('activeMetric').textContent = w.activeCount;
+  {
+    const card = document.getElementById('activeMetric').closest('.metric'),
+      ks = hasPosts() ? postKeys() : [];
+    let bd = document.getElementById('postBreakdown');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.id = 'postBreakdown';
+      bd.className = 'post-breakdown';
+      card.appendChild(bd);
+    }
+    card.classList.toggle('com-postos', ks.length > 0);
+    bd.hidden = !ks.length;
+    bd.innerHTML = ks.map((k) => '<span><b>' + w.employees.filter((e) => e.station === k).length + '</b> ' + POST_NAMES[k] + '</span>').join('');
+  }
   document.getElementById('shiftMetric').textContent = w.shifts.length;
   document.getElementById('modelMetric').textContent = w.model;
   document.getElementById('pdvMetric').textContent = w.pdvCount;
@@ -1104,7 +1121,7 @@ function renderShifts() {
     week()
       .shifts.map(
         (s, i) =>
-          `<div class="shift-card"><h3>${escape(s.name)}</h3><div class="time-grid"><label>Entrada<input data-shift="${i}" data-field="start" type="time" value="${s.start}" max="${time(maxStart(week().model, state.selectedWeek))}" /></label><label>${autoSaida(week()) ? 'Saída calculada' : 'Saída'}<input type="time" value="${s.end}" ${autoSaida(week()) ? 'disabled' : `data-shift="${i}" data-field="end" max="${state.settings.weekClose}"`} /></label><label>Saída para almoço<input data-shift="${i}" data-field="lunchStart" type="time" value="${s.lunchStart}" /></label><label>Retorno automático (+2h)<input type="time" value="${s.lunchEnd}" disabled /></label></div><p class="helper">Limite com hora extra (máx. 1h30): até ${plus(s.end, EXTRA_MAX)}.</p></div>`,
+          `<div class="shift-card"><h3>${escape(s.name)}</h3><div class="time-grid"><label>Entrada<input data-shift="${i}" data-field="start" type="time" value="${s.start}" max="${time(maxStartTol(week().model, state.selectedWeek))}" /></label><label>${autoSaida(week()) ? 'Saída calculada' : 'Saída'}<input type="time" value="${s.end}" ${autoSaida(week()) ? 'disabled' : `data-shift="${i}" data-field="end" max="${plus(state.settings.weekClose, TOL_FECH)}"`} /></label><label>Saída para almoço<input data-shift="${i}" data-field="lunchStart" type="time" value="${s.lunchStart}" /></label>${autoAlmoco(week()) ? `<label>Retorno automático (+2h)<input type="time" value="${s.lunchEnd}" disabled /></label>` : ''}</div><p class="helper">Limite com hora extra (máx. 1h30): até ${plus(s.end, EXTRA_MAX)}.</p></div>`,
       )
       .join('') +
     sundayCard();
@@ -3000,7 +3017,7 @@ function renderOffAnalysis() {
 function loadInfo() {
   const row = (m) =>
     `<li${week().model === m ? ' class="current"' : ''}><strong>${m}</strong>: ${hm(workDuration(m))} por dia · ${hm(workDuration(m) * (m === '6x1' ? 6 : 5))} por semana</li>`;
-  return `<div class="load-info"><strong>Carga horária obrigatória (limite semanal hoje: ${weeklyLimit()}h)</strong><ul>${row('5x2')}${row('6x1')}</ul><p class="helper">A saída é calculada (entrada + carga + 2h de almoço) para nunca ficar abaixo da carga. Hora extra: no máximo 1h30 por dia, em qualquer modelo.</p></div>`;
+  return `<div class="load-info"><strong>Carga horária obrigatória (limite semanal hoje: ${weeklyLimit()}h)</strong><ul>${row('5x2')}${row('6x1')}</ul><p class="helper">${autoSaida(week()) ? 'A saída é calculada (entrada + carga' + (autoAlmoco(week()) ? ' + 2h de almoço' : '') + ') para nunca ficar abaixo da carga. ' : ''}Hora extra: no máximo 1h30 por dia, em qualquer modelo.</p></div>`;
 }
 function sundayConflict(e) {
   const ws = sector().weeks,
@@ -3154,7 +3171,7 @@ function compliance() {
         if (after > 360)
           add('erro', L + nm + ': mais de 6h seguidas de trabalho depois do almoço (art. 71 da CLT).', [wi]);
       }
-      if (endAbs > closeMin())
+      if (endAbs > closeMin() + TOL_FECH)
         add(
           'erro',
           L + nm + ': a jornada termina às ' + s.end + ', depois do fechamento (' + S.weekClose + '); a colaboradora ficaria devendo ' + hm(endAbs - closeMin()) + ' de carga. Entrada máxima: ' + time(maxStart(w.model, wi)) + '.',
@@ -3562,8 +3579,8 @@ document.addEventListener('change', (event) => {
   }
   if (t.dataset.shift !== undefined && t.dataset.field === 'end') {
     const s = w.shifts[+t.dataset.shift];
-    if (!t.value || mins(t.value) > closeMin()) {
-      toast('Saída depois do fechamento (' + state.settings.weekClose + ') não é permitida.');
+    if (!t.value || mins(t.value) > closeMin() + TOL_FECH) {
+      toast('Saída depois de ' + plus(state.settings.weekClose, TOL_FECH) + ' (fechamento + tolerância de ' + TOL_FECH + ' min) não é permitida.');
     } else s.end = t.value;
     render();
     return;
@@ -3579,9 +3596,9 @@ document.addEventListener('change', (event) => {
       return;
     }
     /* entrada tarde demais: a jornada passaria do fechamento e a pessoa ficaria devendo horas */
-    if (f === 'start' && mins(t.value) > maxStart(w.model, wi)) {
+    if (f === 'start' && mins(t.value) > maxStartTol(w.model, wi)) {
       toast(
-        'Entrada das ' + t.value + ' não é permitida: com a jornada do ' + w.model + ' (' + hm(dur) + ' + 2h de almoço) o ' + s.name + ' terminaria às ' + plus(t.value, dur + 120) + ', depois do fechamento (' + state.settings.weekClose + '), e a colaboradora ficaria devendo horas. Entrada máxima: ' + time(maxStart(w.model, wi)) + '.',
+        'Entrada das ' + t.value + ' não é permitida: com a jornada do ' + w.model + ' (' + hm(dur) + ' + 2h de almoço) o ' + s.name + ' terminaria às ' + plus(t.value, dur + 120) + ', depois do fechamento (' + state.settings.weekClose + '), e a colaboradora ficaria devendo horas. Entrada máxima: ' + time(maxStartTol(w.model, wi)) + ' (já com a tolerância de ' + TOL_FECH + ' min após o fechamento).',
       );
       render();
       return;
@@ -4025,7 +4042,7 @@ async function buildPrintHtml(autoPrint) {
     `<table class="${cls}" style="--f:${m.font}pt;--r:${m.row}mm"><thead><tr>${head.map((h, k) => `<th style="width:${widths[k] || 'auto'}%">${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v, k) => `<td${k === 0 ? ' class="n"' : ''}>${v}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table>`;
   const img = logo ? `<img src="${logo}" alt="">` : '';
   const css = `@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html{background:#e9ecef}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}.page{width:281mm;margin:0 auto 6mm;background:#fff;padding:0;break-after:page}.page:last-child{break-after:auto;margin-bottom:0}.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2px solid #f7c82c;padding:0 0 3mm;margin:0 0 3mm}.top img{height:11mm}.brand{display:flex;align-items:center;gap:8px}.brand b{display:block;color:#ba2025;font-size:15px;line-height:1.1}.brand small{display:block;color:#173766;font-size:8px;letter-spacing:.6px;font-weight:bold;margin-top:3px}.brand .s{color:#173766;font-size:15px}.mid{grid-column:2;text-align:center;font-weight:bold;font-size:15px}.title{text-align:center;color:#173766;font-weight:bold;font-size:15px;line-height:1.5;margin:6mm 0 3mm}table{width:100%;border-collapse:collapse;white-space:nowrap}th{background:#f3f5f8;color:#173766;text-align:left;font-size:calc(var(--f)*.75);text-transform:uppercase;letter-spacing:.3px;height:8mm;padding:0 8px}td{height:var(--r);font-size:var(--f);padding:0 8px;border-bottom:1px solid #d9dde3;vertical-align:middle}td.n{font-weight:bold}.sun td.n{font-weight:normal}.sun td{padding:0 12px}.sun th{padding:0 12px}.swap-note{font-weight:bold;color:#b00020}.pcs{display:flex;gap:.8mm}.pc{flex:1;text-align:center;border:.25mm solid #c5ccd6;border-radius:1mm;font-size:calc(var(--f)*.6);padding:.4mm 0;line-height:1.15;color:#444}.pc.off,.pc.dom-off{background:#ba2025;border-color:#ba2025;color:#fff;font-weight:bold}.pc.dom-work{background:#f7c82c;border-color:#e0ad00;color:#111;font-weight:bold}.pc.aus{background:#f3e8ff;border-color:#c4a5ea;color:#4c1d95}.pc.fer{background:#e6e9ee;color:#555}.pc{-webkit-print-color-adjust:exact;print-color-adjust:exact}.shift-pill{display:none}@media print{html{background:#fff}.page{margin:0}}`;
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>${css}</style></head><body><section class="page"><div class="top"><div class="brand">${img}<div><b>Gestão de Escalas</b><small>GRUPO SÃO LUIZ</small></div></div></div><div class="title">Escala semanal · ${esc(name)}<br>${esc(range())}</div>${table(whead, wrows, wm, wid, 'wk')}</section><section class="page"><div class="top"><div class="brand">${img}<span class="s"><b style="color:#173766">${esc(name)}</b></span></div><div class="mid">Escala de domingo · ${short(date('domingo'))}</div></div>${table(shead, srows, sm, posts ? [17, 20, 8, 14, 8, 33] : [22, 10, 14, 10, 44], 'sun')}</section>${autoPrint ? "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script>" : ''}</body></html>`;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>${css}</style></head><body><section class="page"><div class="top"><div class="brand">${img}<div><b>Gestão de Escalas</b><small>GRUPO SÃO LUIZ</small></div></div></div><div class="title">Escala semanal · ${esc(name)}<br>${esc(range())}</div>${table(whead, wrows, wm, wid, 'wk')}${week().employees.some((e) => e.fixo !== undefined || (e.folgaFixa && e.folgaFixa.length)) ? '<p style="font-size:9px;margin:4px 0 0;color:#444">🔒 = folga fixa ou turno fixo (a gerência não deve trocar).</p>' : ''}</section><section class="page"><div class="top"><div class="brand">${img}<span class="s"><b style="color:#173766">${esc(name)}</b></span></div><div class="mid">Escala de domingo · ${short(date('domingo'))}</div></div>${table(shead, srows, sm, posts ? [17, 20, 8, 14, 8, 33] : [22, 10, 14, 10, 44], 'sun')}</section>${autoPrint ? "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script>" : ''}</body></html>`;
 }
 async function printFile() {
   if (ordemFixa) {

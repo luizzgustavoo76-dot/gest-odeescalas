@@ -333,3 +333,13 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - **Importar planilha / AFD…:** aceita também o arquivo AFD (.txt/.afd). Para quem já está na equipe do setor aberto: ajusta turno (pela entrada típica; respeita turno fixo), domingo trabalhado e folgas (dia com movimento sem batida, respeitando folga fixa, férias e limite de folgas). Confirma antes, dá para **Desfazer**, e lista quem não é do setor.
 - **Histórico do ponto:** botão novo; guarda primeira/última batida por dia (até 90 dias) no próprio setor.
 - Testes: `afd-importar-escala.js`, `cidade-cct.js`.
+
+## Build 118
+- **Todos os setores (visão geral):** nova opção no seletor de setor. Mostra, por setor, a escala da semana escolhida (turno, horário, folgas com 🔒), pendências (erros/atenção) e a análise individual do ciclo. "Abrir setor" troca o setor ativo.
+- **Tolerância de 15 min no fechamento:** a jornada pode terminar até 15 min depois do fechamento (ex.: fechamento 19h30 → entrada até 9h21 e saída até 19h45 sem erro). A geração automática continua mirando o fechamento exato; a carga da CLT não diminui.
+- **Equipe:** o card de colaboradores ativos mostra quantas são de cada posto (operadora, pacote, fiscal, recepção) e ficou maior.
+- **Turnos:** "Retorno automático (+2h)" e a nota de "+2h de almoço" só aparecem com "Calcular horário de almoço automático" ligado; a nota da saída só com "Calcular saída automática" ligado.
+- **Rodízio:** modelo do rodízio em cima e rodízio de turnos dos postos embaixo, em largura total.
+- **Impressão:** legenda "🔒 = folga fixa ou turno fixo" quando houver.
+- Feriados municipais: pesquisados, aguardando confirmação do usuário antes de aplicar.
+- Testes: `tolerancia-fechamento.js`, `visao-geral.js`.
