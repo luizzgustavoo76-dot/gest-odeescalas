@@ -4762,7 +4762,7 @@ function renderRegras() {
   el.innerHTML = `<h3 class="regras-titulo">Postos de ${escape(SECTORS[state.selectedSector])}</h3>
     <div class="postos-grid">${cards}</div>
     <div class="rule-add"><input id="rulePostName" type="text" maxlength="30" placeholder="Novo posto (ex.: Balcão)" /><button type="button" class="button outline" id="rulePostAdd">Adicionar posto</button></div>
-    <div class="regras-gerais"><label class="check-row"><input type="checkbox" id="ruleSat" ${evitaSabado() ? 'checked' : ''} /> Evitar folga no sábado nas sugestões automáticas <small>(vale para os postos sem dias próprios; soma-se ao “Movimento esperado por dia” da aba Gerar)</small></label>${ativos.length ? sundayMinResumo() : ''}</div>
+    <div class="regras-gerais"><p class="helper">O sábado vem marcado em cada posto; desmarque nos postos em que a folga de sábado pode ser usada. Soma-se ao “Movimento esperado por dia” da aba Gerar.</p>${ativos.length ? sundayMinResumo() : ''}</div>
     <p class="helper"><b>Evitar folga em</b> é uma preferência: se a equipe não permitir outra saída, o app ainda pode usar o dia. <b>Não folgam no mesmo dia</b> vale para o conjunto dos postos marcados (ex.: Fiscal e Recepção nunca folgam juntas), nas sugestões, na marcação manual e nos alertas. Desmarcar <b>Em uso</b> tira o posto das listas; quem estava nele passa para outro posto até você reativar.</p>`;
 }
 function regraDoSetor() {

@@ -403,3 +403,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Selo da Conformidade mostra "Sem erros" em verde (só fica vermelho quando há erro).
 - "Recolher configuração ▴" virou "Recolher ▴", menor, nos quatro painéis.
 - Rodízio dos postos: botões Aplicar/Limpar com a mesma largura.
+
+## Build 130 – Sábado só por posto
+- Removido o quadradinho geral "Evitar folga no sábado" da aba Regras: o sábado agora vem marcado em cada posto ("Evitar folga em" → Sáb) e é ajustado por posto. Quem já tinha desligado o geral continua com os postos sem o Sáb até personalizar.
+- Os dias evitados somam-se ao "Movimento esperado por dia" da aba Gerar.

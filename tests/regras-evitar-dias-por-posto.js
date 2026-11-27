@@ -28,8 +28,6 @@ await A.click('#offRulesPanel [data-rule-avoid="fiscal|sábado"]',{force:true});
 T('liberar o sábado do Fiscal não mexe nos outros postos',await A.evaluate(()=>evitaDia('recepcao','sábado')&&!evitaDia('fiscal','sábado')&&evitaDia('fiscal','terça')));
 await A.waitForTimeout(1800);
 T('regra salva na nuvem junto das configurações',await A.evaluate(()=>{const c=__db.escalas.find(e=>e.setor==='_config');return !!c&&JSON.stringify(c.dados.settings.rules['frente-caixa'].avoidDays.fiscal)===JSON.stringify(['terça','quarta'])}));
-// compatível com o checkbox geral
-await A.uncheck('#ruleSat');
-T('sem o geral, posto sem lista própria não evita sábado; o Fiscal mantém a terça',await A.evaluate(()=>!evitaDia('recepcao','sábado')&&evitaDia('fiscal','terça')));
+T('o quadradinho geral de sábado não existe mais (só por posto)',await A.evaluate(()=>!document.getElementById('ruleSat')));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

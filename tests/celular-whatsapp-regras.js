@@ -22,9 +22,9 @@ T('painel de regras aparece',await A.evaluate(()=>document.querySelectorAll('#of
 T('padrão: Recepção e Fiscal não folgam juntas',await A.evaluate(()=>[...document.querySelectorAll('#offRulesPanel [data-rule-nso]:checked')].map(x=>x.dataset.ruleNso).sort().join())==='fiscal,recepcao');
 const sab=()=>A.evaluate(()=>{const g=JSON.stringify(state.sectors);state.sectors['frente-caixa'].weeks.forEach(w=>w.activeCount=20);normalize();sector().weeks.forEach(w=>balanceOffs(w,true));const n=state.sectors['frente-caixa'].weeks.reduce((t,w)=>t+w.employees.filter(e=>e.offDays.includes('sábado')).length,0);state.sectors=JSON.parse(g);render();return n});
 const s1=await sab();
-await A.uncheck('#ruleSat');const s2=await sab();
+while(await A.$('#offRulesPanel [data-rule-avoid$="|sábado"]:checked')){await A.click('#offRulesPanel [data-rule-avoid$="|sábado"]:checked',{force:true});await A.waitForTimeout(80)}const s2=await sab();
 T('desligar "evitar sábado" passa a usar o sábado nas sugestões',s2>s1,s1+' → '+s2);
-await A.check('#ruleSat');
+while(await A.$('#offRulesPanel .posto-card:not(.off) [data-rule-avoid$="|sábado"]:not(:checked)')){await A.click('#offRulesPanel .posto-card:not(.off) [data-rule-avoid$="|sábado"]:not(:checked)',{force:true});await A.waitForTimeout(80)}
 // postos: desativar Pacote
 await A.uncheck('#offRulesPanel [data-rule-post=pacote]');await A.waitForTimeout(200);
 T('posto desativado some das listas',await A.evaluate(()=>!postKeys().includes('pacote')&&![...document.querySelectorAll('#scheduleTable select[data-field=station] option')].some(o=>o.value==='pacote')));
