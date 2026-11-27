@@ -55,12 +55,13 @@
   function cartao(u){
     const eu=u.id===ctx.eu.id;
     return `<article class="adm-user ${u.bloqueado?'bloq':''}" data-id="${esc(u.id)}" data-email="${esc(u.email)}">
-      <div class="adm-topo"><label class="adm-chk"><input type="checkbox" data-mark ${marcados.has(u.id)?'checked':''}> <b>${esc(u.nome||'(sem nome)')}</b></label><span>${esc(u.email)}${eu?' <span class="adm-tag">você</span>':''}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}${!u.ultimo_login?' <span class="adm-tag">nunca entrou</span>':''}</span><span class="adm-tag">${nomeNivel(u.papel)}${u.papel!=='admin'&&u.setor?' · '+esc(nomeSetor(u.setor)):''}</span><button type="button" class="adm-mais" data-a="abrir">${abertos.has(u.id)?'Fechar ▴':'Editar ▾'}</button></div>
+      <div class="adm-topo"><label class="adm-chk"><input type="checkbox" data-mark ${marcados.has(u.id)?'checked':''}> <b>${esc(u.nome||'(sem nome)')}</b></label><span>${esc(u.email)}${eu?' <span class="adm-tag">você</span>':''}${u.bloqueado?' <span class="adm-tag red">bloqueado</span>':''}${!u.ultimo_login?' <span class="adm-tag">nunca entrou</span>':''}</span><span class="adm-tag">${nomeNivel(u.papel)}${u.papel!=='admin'&&u.setor?' · '+esc(nomeSetor(u.setor)):''}${u.cidade&&window.cidadeInfo(u.cidade)?' · '+esc(window.cidadeInfo(u.cidade).nome):''}</span><button type="button" class="adm-mais" data-a="abrir">${abertos.has(u.id)?'Fechar ▴':'Editar ▾'}</button></div>
       <div class="adm-det" ${abertos.has(u.id)?'':'hidden'}>
         <div class="adm-campo"><label>E-mail (usado para entrar)</label><input data-f="email" type="email" autocomplete="off" value="${esc(u.email)}" placeholder="email@exemplo.com"></div>
         <div class="adm-linha"><div class="adm-campo"><label>Nome</label><input data-f="nome" value="${esc(u.nome)}" placeholder="Nome"></div>
         <div class="adm-campo"><label>Nível</label><select data-f="papel">${niveisHtml(u.papel)}</select></div>
-        <div class="adm-campo" data-setorbox ${u.papel==='admin'?'hidden':''}><label>Setor que ele vai usar</label><select data-f="setor">${setorHtml(u.setor)}</select></div></div>
+        <div class="adm-campo" data-setorbox ${u.papel==='admin'?'hidden':''}><label>Setor que ele vai usar</label><select data-f="setor">${setorHtml(u.setor)}</select></div>
+        <div class="adm-campo"><label>Cidade (define a convenção coletiva)</label><select data-f="cidade">${window.cidadeOpcoes(u.cidade)}</select></div></div>
           <div class="adm-rodape"><small>Criada em ${fmt(u.criado_em)} · Último acesso: ${fmt(u.ultimo_login)} (${rel(u.ultimo_login)}) · ${u.setores_salvos} de ${SETORES.length} setores com dados</small>
         <div class="adm-btns"><button type="button" class="button" data-a="salvar">Salvar</button><button type="button" class="button outline" data-a="dados">Abrir dados</button>
         <button type="button" class="button outline" data-a="senha">Nova senha</button>
@@ -73,7 +74,8 @@
         <div class="adm-campo"><label>E-mail</label><input id="nvEmail" type="email" placeholder="nome@exemplo.com" autocomplete="off"></div>
         <div class="adm-campo"><label>Senha (mín. 6)</label><div class="adm-inl"><input id="nvSenha" type="text" placeholder="Senha" autocomplete="off"><button type="button" class="button outline" id="nvGerar" title="Gerar senha forte">Gerar</button></div></div>
         <div class="adm-campo"><label>Nível</label><select id="nvPapel">${niveisHtml('usuario')}</select></div>
-        <div class="adm-campo" id="nvSetorBox"><label>Setor que ele vai usar</label><select id="nvSetor">${setorHtml('')}</select></div></div>
+        <div class="adm-campo" id="nvSetorBox"><label>Setor que ele vai usar</label><select id="nvSetor">${setorHtml('')}</select></div>
+        <div class="adm-campo"><label>Cidade (define a convenção coletiva)</label><select id="nvCidade">${window.cidadeOpcoes('')}</select></div></div>
         <div class="adm-btns"><button type="button" class="button" id="nvCriar">Criar usuário</button><button type="button" class="button outline" id="nvCopiar" hidden>Copiar e-mail e senha</button></div></section>
       <div class="adm-filtros"><input id="fQ" type="search" placeholder="Buscar por nome ou e-mail…" value="${esc(filtro.q)}">
         <select id="fPapel"><option value="">Todos os níveis</option>${NIVEIS.map(([i,n])=>`<option value="${i}" ${filtro.papel===i?'selected':''}>${n}</option>`).join('')}</select>
@@ -206,7 +208,7 @@
     let ultimo=null;
     box.querySelector('#nvCriar').onclick=async ev=>{
       const b=ev.currentTarget;aviso('');
-      const corpo={acao:'criar',nome:box.querySelector('#nvNome').value,email:box.querySelector('#nvEmail').value,senha:box.querySelector('#nvSenha').value,papel:box.querySelector('#nvPapel').value,setor:box.querySelector('#nvPapel').value==='admin'?'':box.querySelector('#nvSetor').value};
+      const corpo={acao:'criar',nome:box.querySelector('#nvNome').value,email:box.querySelector('#nvEmail').value,senha:box.querySelector('#nvSenha').value,papel:box.querySelector('#nvPapel').value,setor:box.querySelector('#nvPapel').value==='admin'?'':box.querySelector('#nvSetor').value,cidade:box.querySelector('#nvCidade').value};
       b.disabled=true;b.textContent='Criando…';
       try{await chama(corpo);ultimo={e:corpo.email,s:corpo.senha};
         ['#nvNome','#nvEmail','#nvSenha'].forEach(s=>box.querySelector(s).value='');
@@ -231,7 +233,7 @@
       const rodar=async(corpo,ok)=>{btn.disabled=true;try{await chama(corpo);await carrega();aviso(ok,true)}catch(er){aviso(er.message);btn.disabled=false}};
       if(acao==='dados'){const nome=(c.querySelector('[data-f=nome]').value||'').trim()||c.querySelector('.adm-topo span').textContent.trim();fechaPainel();ctx.abrirComo(id,nome);return}
       if(acao==='abrir'){const d=c.querySelector('.adm-det');d.hidden=!d.hidden;d.hidden?abertos.delete(id):abertos.add(id);btn.textContent=d.hidden?'Editar ▾':'Fechar ▴';return}
-      if(acao==='salvar')return rodar({acao:'atualizar',id,email:(c.querySelector('[data-f=email]').value||'').trim(),nome:c.querySelector('[data-f=nome]').value,papel:c.querySelector('[data-f=papel]').value,setor:c.querySelector('[data-f=papel]').value==='admin'?'':c.querySelector('[data-f=setor]').value},'Alterações salvas.'+((c.querySelector('[data-f=email]').value||'').trim().toLowerCase()!==String(c.dataset.email||'').toLowerCase()?' O e-mail mudou: a pessoa passa a entrar com o novo e-mail (a senha continua a mesma).':''));
+      if(acao==='salvar')return rodar({acao:'atualizar',id,email:(c.querySelector('[data-f=email]').value||'').trim(),nome:c.querySelector('[data-f=nome]').value,papel:c.querySelector('[data-f=papel]').value,setor:c.querySelector('[data-f=papel]').value==='admin'?'':c.querySelector('[data-f=setor]').value,cidade:c.querySelector('[data-f=cidade]').value},'Alterações salvas.'+((c.querySelector('[data-f=email]').value||'').trim().toLowerCase()!==String(c.dataset.email||'').toLowerCase()?' O e-mail mudou: a pessoa passa a entrar com o novo e-mail (a senha continua a mesma).':''));
       if(acao==='senha'){extra.hidden=false;extra.innerHTML='<div class="adm-campo"><label>Nova senha (mín. 6)</label><div class="adm-inl"><input class="adm-ns" type="text" autocomplete="off"><button type="button" class="button outline" data-a="gerar">Gerar</button></div></div><div class="adm-btns"><button type="button" class="button" data-a="senha-ok">Definir senha</button><button type="button" class="button outline" data-a="cancela">Cancelar</button></div>';extra.querySelector('input').focus();return}
       if(acao==='gerar'){extra.querySelector('.adm-ns').value=gerarSenha();return}
       if(acao==='senha-ok')return rodar({acao:'senha',id,senha:extra.querySelector('.adm-ns').value},'Senha alterada. Passe a nova senha para a pessoa.');

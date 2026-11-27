@@ -262,6 +262,7 @@
     const {data,error}=await sb.from('escalas').select('*').eq('dono',alvo);
     if(error){pronto=false;erro('Sem conexão','Não foi possível buscar as escalas na nuvem. O app só abre com conexão. Verifique a internet e tente de novo.',()=>carregar(primeira));return false}
     clearTimeout(timer);timer=null;
+    try{if(typeof window.defineCidade==='function'){if(perfil&&alvo===me.id)window.defineCidade(perfil.cidade);else{const {data:pc}=await sb.from('perfis').select('cidade').eq('id',alvo).maybeSingle();window.defineCidade(pc&&pc.cidade)}}}catch(e){}
     for(const k of Object.keys(ver))delete ver[k];
     for(const k of Object.keys(synced))delete synced[k];
     // começa de uma escala em branco para não misturar dados de outra conta

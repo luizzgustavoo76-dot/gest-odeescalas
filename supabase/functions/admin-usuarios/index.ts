@@ -9,6 +9,9 @@ const cors = {
 };
 const NIVEIS = ["admin", "usuario"];
 const SETORES = ["frente-caixa", "acougue-frios", "loja-deposito", "padaria", "horti-fruit"];
+/* cidade em que a pessoa trabalha (define a convenção coletiva aplicada); vazio = não informada */
+const CIDADES = ["araruna", "sao-pedro-do-ivai", "peabiru", "campo-mourao", "engenheiro-beltrao", "terra-boa"];
+const cidadeDe = (c: unknown) => (c && CIDADES.includes(String(c)) ? String(c) : null);
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const falha = (msg: string, status = 400) => json({ erro: msg }, status);
@@ -34,6 +37,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   /* setor de trabalho: só vale para "usuario"; vazio = todos os setores */
   const setorDe = (papel: unknown, s: unknown) => (String(papel) === "admin" || !s ? null : String(s));
   const setorOk = (s: unknown) => !s || SETORES.includes(String(s));
+  const cidadeOk = (c: unknown) => !c || CIDADES.includes(String(c));
   const totalAdmins = async () => {
     const { count } = await admin.from("perfis").select("id", { count: "exact", head: true }).eq("papel", "admin");
     return count || 0;
@@ -105,7 +109,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   if (acao === "backup") {
     const { data: esc, error } = await admin.from("escalas").select("dono,setor,dados,atualizado_em").order("dono").order("setor");
     if (error) return falha(error.message, 500);
-    const { data: perfis } = await admin.from("perfis").select("id,email,nome,papel,setor,criado_em");
+    const { data: perfis } = await admin.from("perfis").select("id,email,nome,papel,setor,cidade,criado_em");
     const mail = new Map((perfis || []).map((p: any) => [p.id, p.email]));
     await log("backup_baixado", null, { linhas: (esc || []).length, contas: (perfis || []).length });
     return json({
@@ -146,7 +150,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     const usuarios = lista.users.map((u: any) => {
       const p: any = mapa.get(u.id) || {};
       return {
-        id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "usuario", setor: p.setor || null, setores_salvos: dados.get(u.id)?.n || 0, ultima_edicao: dados.get(u.id)?.ult || null,
+        id: u.id, email: u.email, nome: p.nome || "", papel: p.papel || "usuario", setor: p.setor || null, cidade: p.cidade || null, setores_salvos: dados.get(u.id)?.n || 0, ultima_edicao: dados.get(u.id)?.ult || null,
         ultimo_login: u.last_sign_in_at || null, criado_em: u.created_at, confirmado: !!u.email_confirmed_at,
         bloqueado: !!(u.banned_until && new Date(u.banned_until) > new Date()),
       };
@@ -165,12 +169,13 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
     if (senha.length < 6) return falha("A senha precisa ter pelo menos 6 caracteres.");
     if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
     if (!setorOk(b.setor)) return falha("Setor inválido.");
+    if (!cidadeOk(b.cidade)) return falha("Cidade inválida.");
     const { data, error } = await admin.auth.admin.createUser({
       email, password: senha, email_confirm: true, user_metadata: { nome },
     });
     if (error) return falha(/already|registered|exists/i.test(error.message) ? "Já existe um usuário com esse e-mail." : error.message);
     const { error: eP } = await admin.from("perfis").upsert({
-      id: data.user.id, email, nome, papel: String(b.papel), setor: setorDe(b.papel, b.setor),
+      id: data.user.id, email, nome, papel: String(b.papel), setor: setorDe(b.papel, b.setor), cidade: cidadeDe(b.cidade),
     });
     if (eP) return falha(eP.message, 500);
     await log("usuario_criado", email, { papel: b.papel });
@@ -183,6 +188,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
   if (acao === "atualizar") {
     if (!nivelOk(b.papel)) return falha("Nível de acesso inválido.");
     if (!setorOk(b.setor)) return falha("Setor inválido.");
+    if (!cidadeOk(b.cidade)) return falha("Cidade inválida.");
     if (id === eu && b.papel !== "admin" && (await totalAdmins()) <= 1) return falha("Você é o único administrador. Torne outra pessoa administradora antes.");
     /* e-mail (opcional): troca o login no Auth e na tabela de perfis; a senha continua a mesma */
     const emailAntigo = await emailDe(id);
@@ -194,7 +200,7 @@ export async function tratar(req: Request, admin: any): Promise<Response> {
       if (eE) return falha(/already|registered|exists|duplicate/i.test(eE.message) ? "Já existe um usuário com esse e-mail." : eE.message);
     }
     const { error } = await admin.from("perfis").update({
-      nome: String(b.nome || "").trim(), papel: String(b.papel), setor: setorDe(b.papel, b.setor),
+      nome: String(b.nome || "").trim(), papel: String(b.papel), setor: setorDe(b.papel, b.setor), cidade: cidadeDe(b.cidade),
       ...(trocaEmail ? { email: emailNovo } : {}),
     }).eq("id", id);
     if (error) return falha(error.message, 500);

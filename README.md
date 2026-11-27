@@ -327,3 +327,9 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Botão "Enviar por WhatsApp" escondido por enquanto (o código continua no app).
 - Impressão: coluna de folgas com os 7 dias da semana (como na tela): folga em vermelho, domingo de folga em vermelho, domingo trabalhado em amarelo, férias/atestado em roxo. A página do domingo também mostra as folgas.
 - Atualização automática: verifica a cada 1 min e atualiza sozinha a aba parada há 30 s sem nada por salvar (antes 2 min).
+
+## Build 117 – Cidade/CCT por conta e importação do AFD na escala
+- **Painel ADM:** campo **Cidade** por usuário/conta (Araruna, São Pedro do Ivaí, Peabiru, Campo Mourão, Engenheiro Beltrão, Terra Boa). Coluna `perfis.cidade`; edge function `admin-usuarios` v8 valida e grava. A cidade aparece ao lado do nome (📍). Araruna, Peabiru, Campo Mourão e Engenheiro Beltrão: base do Sindiempresarial de Campo Mourão e Região. **Terra Boa e São Pedro do Ivaí: "CCT a confirmar"** (por enquanto valem as regras de Campo Mourão; a CLT do 5x2 continua inalterável).
+- **Importar planilha / AFD…:** aceita também o arquivo AFD (.txt/.afd). Para quem já está na equipe do setor aberto: ajusta turno (pela entrada típica; respeita turno fixo), domingo trabalhado e folgas (dia com movimento sem batida, respeitando folga fixa, férias e limite de folgas). Confirma antes, dá para **Desfazer**, e lista quem não é do setor.
+- **Histórico do ponto:** botão novo; guarda primeira/última batida por dia (até 90 dias) no próprio setor.
+- Testes: `afd-importar-escala.js`, `cidade-cct.js`.

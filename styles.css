@@ -477,3 +477,5 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .afd-scroll{overflow:auto;max-width:100%}.afd-tbl{border-collapse:collapse;width:100%;font-size:13px}.afd-tbl th,.afd-tbl td{border-bottom:1px solid #e5e8ee;padding:6px 8px;text-align:left;vertical-align:top}
 .afd-erro td:first-child{border-left:4px solid #b91c1c}.afd-atenção td:first-child{border-left:4px solid #d97706}
 .afd-a-erro{color:#b91c1c;font-weight:700}.afd-a-atenção{color:#b45309;font-weight:700}.afd-a-info{color:#5b6573}
+.cidade-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#e8f0fe;color:#1a3c8f;font-size:12px;font-weight:600}
+.cidade-tag.pend{background:#fff3cd;color:#7a5b00}

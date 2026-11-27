@@ -2813,7 +2813,8 @@ async function baixarModelo() {
 }
 document.addEventListener('change', (e) => {
   if (e.target.id === 'xlsxFile' && e.target.files[0]) {
-    importarPlanilha(e.target.files[0]);
+    if (/\.(txt|afd)$/i.test(e.target.files[0].name) && window.afdImportar) window.afdImportar(e.target.files[0]);
+    else importarPlanilha(e.target.files[0]);
     e.target.value = '';
   }
 });

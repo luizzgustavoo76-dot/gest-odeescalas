@@ -226,4 +226,153 @@
       toast('Não consegui ler o arquivo: ' + e.message);
     }
   });
+
+  /* ===== importar o AFD para a escala: preenche turno, domingo e folgas das semanas e guarda histórico ===== */
+  const HIST_MAX_DIAS = 90;
+  const ABR = { domingo: 'dom', segunda: 'seg', terça: 'ter', quarta: 'qua', quinta: 'qui', sexta: 'sex', sábado: 'sáb' };
+  const mediana = (a) => {
+    const b = [...a].sort((x, y) => x - y);
+    return b[Math.floor(b.length / 2)];
+  };
+
+  function planejar(afd) {
+    const sec = sector(),
+      plano = { semanas: [], naoAchados: [], ignoradas: [], dias: afd.dias.filter((d) => diaNaEscala(d)).length };
+    const nomesEscala = new Set();
+    for (let wi = 0; wi < 4; wi++) {
+      const w = sec.weeks[wi];
+      if (!w) continue;
+      const mudancas = [];
+      const diasComDado = DAYS.filter((d) => afd.punches[iso(date(d[0], wi))]);
+      if (!diasComDado.length) continue;
+      w.employees.forEach((e) => {
+        nomesEscala.add(e.name);
+        const pisDe = Object.keys(afd.names).filter((pis) => acha(afd.names[pis], [e]));
+        const m = { nome: e.name, wi, e, shift: null, dom: null, offs: null, nota: [] };
+        const firsts = [],
+          sem = {};
+        DAYS.forEach((d) => {
+          const di = iso(date(d[0], wi)),
+            dia = afd.punches[di];
+          if (!dia) return;
+          const v = pisDe.map((p) => dia[p]).find(Boolean) || [];
+          sem[d[0]] = v;
+          if (v.length && d[0] !== 'domingo') firsts.push(v[0]);
+        });
+        if (!pisDe.length) return;
+        /* turno: o mais próximo da entrada típica */
+        if (firsts.length && e.fixo === undefined && !ausente(e, 'segunda', wi)) {
+          const f = mediana(firsts);
+          let best = 0,
+            bd = 1e9;
+          w.shifts.forEach((s, j) => {
+            const dd = Math.abs(mins(s.start) - f);
+            if (dd < bd) ((bd = dd), (best = j));
+          });
+          if (bd <= 90 && best !== e.shift) m.shift = best;
+        }
+        /* domingo */
+        if (sem.domingo !== undefined && !ausente(e, 'domingo', wi) && !closedDay('domingo', wi)) {
+          const trab = sem.domingo.length > 0;
+          if (trab !== !!e.sundayWork) m.dom = trab;
+        }
+        /* folgas: dia com movimento na loja em que a pessoa não bateu nada */
+        if (!e.folgaFixa) {
+          const dom = m.dom !== null ? m.dom : !!e.sundayWork;
+          const offs = DAYS.filter((d) => d[0] !== 'domingo' && sem[d[0]] !== undefined && !sem[d[0]].length && !ausente(e, d[0], wi) && !closedDay(d[0], wi)).map((d) => d[0]);
+          const lim = offLimit({ ...e, sundayWork: dom }, w.model);
+          const atual = [...e.offDays].sort().join();
+          if (offs.length && offs.length <= lim && offs.sort().join() !== atual) m.offs = offs;
+          else if (offs.length > lim) m.nota.push('faltou/folgou em ' + offs.length + ' dias (limite ' + lim + ')');
+        }
+        if (m.shift !== null || m.dom !== null || m.offs || m.nota.length) mudancas.push(m);
+      });
+      plano.semanas.push({ wi, mudancas });
+    }
+    /* quem bateu e não está em nenhuma semana */
+    const vistos = new Set();
+    Object.values(afd.punches).forEach((o) => Object.keys(o).forEach((p) => vistos.add(p)));
+    const emps = sec.weeks[0].employees;
+    vistos.forEach((p) => {
+      const n = afd.names[p] || 'PIS ' + p;
+      if (!acha(n, emps)) plano.naoAchados.push(n);
+    });
+    plano.naoAchados = [...new Set(plano.naoAchados)].sort();
+    return plano;
+  }
+
+  function guardaHistorico(afd) {
+    const sec = sector(),
+      emps = sec.weeks[0].employees,
+      h = sec.ponto && typeof sec.ponto === 'object' ? sec.ponto : {};
+    Object.entries(afd.punches).forEach(([d, o]) => {
+      Object.entries(o).forEach(([pis, v]) => {
+        const e = acha(afd.names[pis] || '', emps);
+        if (!e) return;
+        (h[d] = h[d] || {})[e.name] = v;
+      });
+    });
+    const dias = Object.keys(h).sort();
+    dias.slice(0, Math.max(0, dias.length - HIST_MAX_DIAS)).forEach((d) => delete h[d]);
+    sec.ponto = h;
+    return Object.keys(h).length;
+  }
+
+  async function importarAfd(file) {
+    try {
+      const afd = parseAfd(await file.text());
+      if (!afd.dias.length) return toast('Não encontrei batidas nesse arquivo. Use o AFD do relógio (arquivo .txt).');
+      const plano = planejar(afd),
+        nMud = plano.semanas.reduce((t, s) => t + s.mudancas.filter((m) => m.shift !== null || m.dom !== null || m.offs).length, 0);
+      const linhas = plano.semanas
+        .map((s) => s.mudancas.filter((m) => m.shift !== null || m.dom !== null || m.offs).map((m) => 'S' + (s.wi + 1) + ' ' + m.nome))
+        .flat();
+      const avisos = plano.semanas.flatMap((s) => s.mudancas.filter((m) => m.nota.length).map((m) => 'S' + (s.wi + 1) + ' ' + m.nome + ': ' + m.nota.join('; ')));
+      let msg = 'Arquivo do ponto: ' + afd.dias.length + ' dia(s) (' + afd.dias[0].split('-').reverse().join('/') + ' a ' + afd.dias[afd.dias.length - 1].split('-').reverse().join('/') + '). ';
+      msg += nMud ? 'Vou atualizar turno, domingo e folgas de ' + nMud + ' registro(s) nas semanas (' + linhas.slice(0, 6).join(', ') + (linhas.length > 6 ? '…' : '') + ') ' : 'Nenhuma semana precisa mudar ';
+      msg += 'e guardar o histórico do ponto desta equipe. ';
+      if (plano.naoAchados.length) msg += 'Fora da equipe deste setor (não importados; abra o setor certo para eles): ' + plano.naoAchados.slice(0, 8).join(', ') + (plano.naoAchados.length > 8 ? '…' : '') + '. ';
+      if (avisos.length) msg += 'Atenção: ' + avisos.slice(0, 3).join(' | ') + '. ';
+      msg += 'Dá para desfazer depois.';
+      if (!(await askConfirm(msg))) return;
+      snapDesfazer();
+      plano.semanas.forEach((s) =>
+        s.mudancas.forEach((m) => {
+          if (m.shift !== null) m.e.shift = m.shift;
+          if (m.dom !== null) m.e.sundayWork = m.dom;
+          if (m.offs) m.e.offDays = m.offs;
+        }),
+      );
+      const n = guardaHistorico(afd);
+      render();
+      toast('Ponto importado: ' + nMud + ' ajuste(s) na escala · histórico com ' + n + ' dia(s).', true);
+    } catch (e) {
+      toast('Não consegui ler o arquivo: ' + e.message);
+    }
+  }
+
+  function historico() {
+    fecha();
+    const h = sector().ponto || {},
+      dias = Object.keys(h).sort().slice(-31),
+      nomes = [...new Set(dias.flatMap((d) => Object.keys(h[d])))].sort();
+    const o = document.createElement('div');
+    o.id = 'afdOv';
+    o.className = 'afd-ov';
+    const cab = dias.map((d) => `<th>${d.slice(8)}/${d.slice(5, 7)}</th>`).join('');
+    const lin = nomes
+      .map((n) => `<tr><td>${esc(n)}</td>${dias.map((d) => { const v = h[d][n]; return `<td>${v && v.length ? hh(v[0]) + '<br><small>' + hh(v[v.length - 1]) + '</small>' : '—'}</td>`; }).join('')}</tr>`)
+      .join('');
+    o.innerHTML = `<div class="afd-box" role="dialog" aria-label="Histórico do ponto"><div class="afd-top"><h3>Histórico do ponto</h3><button type="button" class="button outline" id="afdFecha">Fechar</button></div>${
+      dias.length ? `<p class="helper">Primeira e última batida de cada dia (últimos ${dias.length} dias guardados).</p><div class="afd-scroll"><table class="afd-tbl"><thead><tr><th>Colaboradora</th>${cab}</tr></thead><tbody>${lin}</tbody></table></div>` : '<p class="adm-vazio">Ainda não há histórico. Importe o AFD em “Importar planilha…”.</p>'
+    }</div>`;
+    document.body.appendChild(o);
+    o.querySelector('#afdFecha').onclick = fecha;
+    o.addEventListener('click', (ev) => ev.target === o && fecha());
+  }
+
+  window.afdImportar = importarAfd;
+  window.afdHistorico = historico;
+  window.afdPlanejar = planejar;
+  document.addEventListener('click', (ev) => ev.target.closest && ev.target.closest('#histPontoBtn') && historico());
 })();
