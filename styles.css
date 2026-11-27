@@ -488,3 +488,19 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .vg-box{max-width:1100px}.vg-bloco{border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}.vg-cab{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.vg-cab h3{margin:0}.vg-cab .button{margin-left:auto}.vg-meta{color:var(--muted);font-size:13px}
 .vg-tag{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.vg-tag.erro{background:#fde2e2;color:#a1161a}.vg-tag.aten{background:#fff3cd;color:#7a5b00}.vg-tag.ok{background:#e0f4ea;color:#12633f}
 .vg-tabs{display:flex;gap:6px;flex-wrap:wrap}.vg-bloco details{margin-top:8px}.vg-bloco summary{cursor:pointer;font-weight:700;color:var(--navy)}
+@media(max-width:760px){
+.resumo-table,.resumo-table tbody{display:block;width:100%}.resumo-table thead{display:none}
+.resumo-table tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 10px;background:#fff}
+.resumo-table th.oa-row{grid-column:1/-1;display:block;background:transparent;border:0;padding:0 0 6px;font-size:15px;color:var(--navy);border-bottom:1px solid var(--line);text-align:left}
+.resumo-table td{display:flex;flex-direction:column;border:0;padding:4px 0;text-align:left;font-size:15px;font-weight:700}
+.resumo-table td::before{content:attr(data-label);font-size:11px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
+.resumo-table td.oa-bad{color:var(--red);background:#fde8e8;border-radius:8px;padding:4px 8px}
+.resumo-table+*,.resumo-ciclo .table-wrap{overflow:visible}
+}
+@media(max-width:760px){
+.resumo-table tr{grid-template-columns:1fr;gap:0}
+.resumo-table th.oa-row{width:100%!important;min-width:0!important;white-space:normal!important;position:static!important;margin-bottom:4px}
+.resumo-table td{flex-direction:row;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f0f2f5;font-size:15px}
+.resumo-table td::before{font-size:13px}
+.resumo-ciclo .table-wrap{border:0;box-shadow:none;padding:0;background:transparent}
+}

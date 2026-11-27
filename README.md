@@ -343,3 +343,8 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - **Impressão:** legenda "🔒 = folga fixa ou turno fixo" quando houver.
 - Feriados municipais: pesquisados, aguardando confirmação do usuário antes de aplicar.
 - Testes: `tolerancia-fechamento.js`, `visao-geral.js`.
+
+## Build 119
+- **Resumo por colaboradora no celular:** em vez da tabela larga, um cartão por colaboradora (rótulo à esquerda, valor à direita; vermelho nos problemas).
+- **Corrigir nos alertas de Conformidade:** agora também nos alertas de almoço (fora da jornada / mais de 6h seguidas), de estudante/mãe escalada após 18h (move para o turno mais cedo) e de horário do domingo (ajusta ao limite ou refaz o padrão). Todos com Desfazer.
+- Teste: `corrigir-restritas-domingo.js`.

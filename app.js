@@ -1426,7 +1426,7 @@ function fixBtn(f, text) {
   if (!f) return '';
   const id = 'f' + ++fixSeq;
   FIXES[id] = { ...f, text };
-  const dica = { folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo' }[f.k] || '';
+  const dica = { restritas: 'Move quem tem restrição para o turno mais cedo', domingoHora: 'Ajusta o horário do domingo para o limite', folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo' }[f.k] || '';
   return ` <button type="button" class="fix-btn" data-fix="${id}" title="${escape(dica)}">Corrigir</button>`;
 }
 function aplicaCorrecao(id) {
@@ -1459,7 +1459,17 @@ function aplicaCorrecao(id) {
     balanceOffs(w, true);
     state.selectedWeek = keep;
   }
-  else if (f.k === 'fechamento') {
+  else if (f.k === 'restritas') {
+    /* estudante/mãe com restrição vai para o turno mais cedo (a CCT protege contra escala após 18h) */
+    w.employees.forEach((e) => {
+      if (e.restricted && e.fixo === undefined && mins(w.shifts[e.shift].start) + workDuration(w.model, f.wi) + 120 > 1080) e.shift = 0;
+    });
+  } else if (f.k === 'domingoHora') {
+    const pl = sundayPlan(w),
+      fim = mins(state.settings.sundayClose);
+    if (pl.len > 0 && pl.en > fim && (!pl.brk || pl.work <= 600)) w.sunday.end = time(fim);
+    else w.sunday = normSunday(null, w.model, f.wi);
+  } else if (f.k === 'fechamento') {
     fitShifts(w, f.wi);
     if (gapOf(w)) autoLunch(w, f.wi, 0);
   }
@@ -2877,7 +2887,7 @@ function renderResumo() {
     lim = six ? 7 : 6;
   const rows = L.map(
     (r) =>
-      `<tr><th class="oa-row">${escape(r.name)}</th><td>${r.domT}</td><td class="${r.domF + r.ausDom < 2 ? 'oa-bad' : ''}">${r.domF}</td><td>${r.folgas}</td><td>${r.dias}</td><td>${hm(r.min)}</td><td>${hm(Math.round(r.min / 4))}</td><td class="${r.seq > lim ? 'oa-bad' : ''}">${r.seq}</td><td>${r.aus || '—'}</td></tr>`,
+      `<tr><th class="oa-row">${escape(r.name)}</th><td data-label="Domingos trabalhados">${r.domT}</td><td data-label="Domingos de folga" class="${r.domF + r.ausDom < 2 ? 'oa-bad' : ''}">${r.domF}</td><td data-label="Folgas na semana">${r.folgas}</td><td data-label="Dias trabalhados">${r.dias}</td><td data-label="Horas no ciclo">${hm(r.min)}</td><td data-label="Média por semana">${hm(Math.round(r.min / 4))}</td><td data-label="Maior sequência (dias)" class="${r.seq > lim ? 'oa-bad' : ''}">${r.seq}</td><td data-label="Férias / atestado">${r.aus || '—'}</td></tr>`,
   ).join('');
   el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">RESUMO DO CICLO</p><h2>Resumo por colaboradora</h2><p>${short(date('domingo', 0))} a ${short(date('sábado', 3))} · 4 semanas de ${SECTORS[state.selectedSector]}. Em vermelho: menos de 2 domingos de folga no mês ou mais de ${lim} dias seguidos de trabalho.</p></div></div><div class="table-wrap"><table class="oa-table resumo-table"><thead><tr><th>Colaboradora</th><th>Domingos trabalhados</th><th>Domingos de folga</th><th>Folgas na semana</th><th>Dias trabalhados</th><th>Horas no ciclo</th><th>Média por semana</th><th>Maior sequência (dias)</th><th>Dias de férias / atestado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -3162,14 +3172,14 @@ function compliance() {
         endAbs = startM + dur + 120,
         nm = s.name + ' (' + s.start + ')';
       if (before <= 0 || after <= 0)
-        add('erro', L + nm + ': o horário de almoço precisa ficar entre a entrada e a saída.', [wi]);
+        add('erro', L + nm + ': o horário de almoço precisa ficar entre a entrada e a saída.', [wi], 'almoco');
       else {
         if (before > 360)
           add('erro', L + nm + ': mais de 6h seguidas de trabalho antes do almoço (art. 71 da CLT exige intervalo).', [
             wi,
-          ]);
+          ], 'almoco');
         if (after > 360)
-          add('erro', L + nm + ': mais de 6h seguidas de trabalho depois do almoço (art. 71 da CLT).', [wi]);
+          add('erro', L + nm + ': mais de 6h seguidas de trabalho depois do almoço (art. 71 da CLT).', [wi], 'almoco');
       }
       if (endAbs > closeMin() + TOL_FECH)
         add(
@@ -3200,6 +3210,7 @@ function compliance() {
             s.end +
             '; a CCT protege contra escala após 18h.',
           [wi],
+          'restritas',
         );
     });
     DAYS.forEach((d) => {
@@ -3260,12 +3271,13 @@ function compliance() {
     const sunW = w.employees.filter((e) => e.sundayWork && !closedDay('domingo', wi));
     if (sunW.length) {
       const pl = sundayPlan(w);
-      if (pl.len <= 0) add('erro', L + 'domingo: a saída precisa ser depois da entrada.', [wi]);
+      if (pl.len <= 0) add('erro', L + 'domingo: a saída precisa ser depois da entrada.', [wi], 'domingoHora');
       if (pl.brk && pl.work > 600)
         add(
           'erro',
           L + 'domingo: jornada de ' + hm(pl.work) + ' trabalhadas passa do limite de 10h por dia (art. 59 da CLT).',
           [wi],
+          'domingoHora',
         );
       if (pl.brk && pl.work > 0 && pl.work < workDuration(w.model, wi))
         add(
@@ -3279,12 +3291,13 @@ function compliance() {
           [wi],
         );
       if (!pl.brk && pl.len > 360)
-        add('erro', L + 'domingo: mais de 6h seguidas sem intervalo; use o tipo "Dia todo (com almoço)".', [wi]);
+        add('erro', L + 'domingo: mais de 6h seguidas sem intervalo; use o tipo "Dia todo (com almoço)".', [wi], 'domingoHora');
       if (pl.en > mins(S.sundayClose))
         add(
           'atenção',
           L + 'domingo: a jornada termina às ' + time(pl.en) + ', depois do limite de domingo (' + S.sundayClose + ').',
           [wi],
+          'domingoHora',
         );
       sundayPosts().forEach((p) => {
         const c = sunW.filter((e) => e.station === p).length,
