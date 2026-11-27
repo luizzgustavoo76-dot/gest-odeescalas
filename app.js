@@ -3536,6 +3536,7 @@ document.addEventListener('change', async (event) => {
     return;
   }
   if (t.id === 'sectorSelect') {
+    state.selectedSector = t.value;
     render();
     return;
   }

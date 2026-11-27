@@ -375,3 +375,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - **Avançar ciclo:** se alguma semana já passou sem AFD importado (e a conta já usa o ponto), o app avisa antes; cancelar permite importar o AFD.
 - **Rodízio de domingo do ciclo novo:** usa o domingo realmente trabalhado (ponto) quando existe; o plano só quando não há ponto.
 - Teste: `ciclo-navegacao-estados.js`.
+
+## Build 125 – Correção urgente
+- **Corrige:** o seletor de setor não trocava (voltava para Frente de Caixa). Regressão da build 122, que apagou a linha que grava o setor escolhido. Teste novo `trocar-setor-seletor.js` usa o seletor de verdade (os testes antigos trocavam o setor por código e não pegavam isso).
