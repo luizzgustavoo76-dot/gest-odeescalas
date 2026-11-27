@@ -469,3 +469,11 @@ details.aus-box summary small{font-weight:400;color:#8a93a3}
 .off-chip.travada input+span,.off-chip.travada input:disabled+span{background:#173766!important;border-color:#173766!important;color:#fff!important;font-weight:700;opacity:1!important}.off-chip.travada span i{opacity:1}
 html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .auto-flags{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;padding:10px 12px;border:1px solid #d9dee6;border-radius:10px;background:#f7f9fc}.auto-flags .check-row{display:flex;gap:8px;align-items:flex-start;font-weight:700;font-size:13px}.auto-flags small{font-weight:400;color:#5b6573}
+.cad{margin-left:4px;font-size:11px}
+.afd-ov{position:fixed;inset:0;z-index:9000;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;padding:20px 12px;overflow:auto}
+.afd-box{background:#fff;border-radius:12px;max-width:1000px;width:100%;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.afd-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.afd-top h3{margin:0;font-size:17px}
+.afd-filtros{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:10px 0}.afd-filtros label{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:700}
+.afd-scroll{overflow:auto;max-width:100%}.afd-tbl{border-collapse:collapse;width:100%;font-size:13px}.afd-tbl th,.afd-tbl td{border-bottom:1px solid #e5e8ee;padding:6px 8px;text-align:left;vertical-align:top}
+.afd-erro td:first-child{border-left:4px solid #b91c1c}.afd-atenção td:first-child{border-left:4px solid #d97706}
+.afd-a-erro{color:#b91c1c;font-weight:700}.afd-a-atenção{color:#b45309;font-weight:700}.afd-a-info{color:#5b6573}

@@ -686,7 +686,7 @@ async function undoGenerate() {
     u = state.undo && state.undo[sel];
   if (!u) return;
   if (
-    !(await askConfirm('Desfazer a última geração de ' + SECTORS[sel] + '? As 4 semanas voltam ao que estava antes.'))
+    !(await askConfirm('Desfazer a última alteração grande de ' + SECTORS[sel] + '? O setor volta ao que estava antes dela.'))
   )
     return;
   sector().weeks = u.weeks;
@@ -697,7 +697,7 @@ async function undoGenerate() {
   delete state.undo[sel];
   state.notice = '';
   render();
-  toast('Geração desfeita.', true);
+  toast('Alteração desfeita.', true);
 }
 function renderGen() {
   state.gen = { shifts: 'girar', pdv: true, posts: true, ...(state.gen || {}) };
@@ -905,6 +905,11 @@ function travada(e, dia, model = week().model) {
   return !!(e.folgaFixa && e.folgaFixa.filter((d) => !closedDay(d, state.selectedWeek)).slice(0, offLimit(e, model)).includes(dia));
 }
 function offText(e) {
+  const t = offTextBase(e);
+  return e.folgaFixa && e.folgaFixa.length && !/^(Férias|Atestado|Afastamento|Definir)/i.test(t) ? t + ' 🔒' : t;
+}
+const cadTurno = (e) => (e.fixo !== undefined ? '<span class="cad" title="Turno fixo: não trocar">🔒</span>' : '');
+function offTextBase(e) {
   /* férias/atestado na semana: aparece na impressão e no WhatsApp no lugar das folgas desses dias */
   const aus = DAYS.map((d) => ausente(e, d[0])).filter(Boolean);
   if (aus.length === 7) return AUS_TIPOS[aus[0].tipo] + ' (' + brData(aus[0].de) + ' a ' + brData(aus[0].ate) + ')';
@@ -1009,6 +1014,7 @@ function render() {
   const w = week(),
     name = SECTORS[state.selectedSector];
   document.getElementById('sectorSelect').value = state.selectedSector;
+  atualizaDesfazer();
   document.getElementById('weekStart').value = monday(state.baseMonday);
   document.getElementById('sectorLabel').textContent = 'PAINEL GERENCIAL · ' + name.toUpperCase();
   document.getElementById('mainTitle').textContent = 'Escala semanal · ' + name;
@@ -1150,8 +1156,8 @@ function row(e) {
     nomeBtn = `<button class="employee-link${aus1 ? ' aus-nome' : ''}" data-jump="${e.id}" type="button"${aus1 ? ' title="Em férias / atestado nesta semana"' : ''}>${escape(e.name)}</button>`;
   /* férias/atestado a semana inteira: sem turno, posto, PDV nem horários */
   if (fora)
-    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}</td><td data-label="Turno">—</td>${hasPosts() ? '<td data-label="Posto" data-print="—">—</td>' : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
-  return `<tr${aus1 ? ' class="aus-row"' : ''}><td class="c-name">${nomeBtn}</td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small><label class="fixa-tbl" title="Trava os dias de folga marcados em todas as semanas"><input type="checkbox" data-employee="${i}" data-field="folgaFixa" ${e.folgaFixa ? 'checked' : ''} /> Folga fixa</label></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
+    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno">—</td>${hasPosts() ? '<td data-label="Posto" data-print="—">—</td>' : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
+  return `<tr${aus1 ? ' class="aus-row"' : ''}><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small><label class="fixa-tbl" title="Trava os dias de folga marcados em todas as semanas"><input type="checkbox" data-employee="${i}" data-field="folgaFixa" ${e.folgaFixa ? 'checked' : ''} /> Folga fixa</label></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
 }
 function renderSchedule() {
   /* quem está fora a semana inteira (férias/atestado) vai para o fim da tabela */
@@ -1358,6 +1364,18 @@ function renderWarning() {
   el.hidden = !list.length;
   el.innerHTML = list.map((t, i) => '<div class="warn-line">• ' + escape(t) + fixBtn(list.fix && list.fix[i], t) + '</div>').join('');
 }
+/* guarda o estado do setor antes de uma ação grande: o botão Desfazer (topo da página) volta a ele */
+function snapDesfazer() {
+  const sel = state.selectedSector;
+  state.undo = { ...(state.undo || {}), [sel]: { at: new Date().toISOString(), weeks: clone(sector().weeks), roster: clone((state.roster && state.roster[sel]) || []) } };
+}
+function atualizaDesfazer() {
+  const b = document.getElementById('undoTopBtn'),
+    u = state.undo && state.undo[state.selectedSector];
+  if (!b) return;
+  b.disabled = !u;
+  b.title = u ? 'Volta a última alteração grande deste setor (' + pad(new Date(u.at).getHours()) + ':' + pad(new Date(u.at).getMinutes()) + ')' : 'Nada para desfazer';
+}
 /* ===== botão "Corrigir": conserto automático dos erros que o app sabe resolver sozinho ===== */
 const FIXES = {};
 let fixSeq = 0;
@@ -1365,7 +1383,7 @@ function fixBtn(f, text) {
   if (!f) return '';
   const id = 'f' + ++fixSeq;
   FIXES[id] = { ...f, text };
-  const dica = { folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento' }[f.k] || '';
+  const dica = { folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo' }[f.k] || '';
   return ` <button type="button" class="fix-btn" data-fix="${id}" title="${escape(dica)}">Corrigir</button>`;
 }
 function aplicaCorrecao(id) {
@@ -1381,6 +1399,23 @@ function aplicaCorrecao(id) {
   normalizeWeek(w);
   if (f.k === 'folgas') balanceOffs(w, false);
   else if (f.k === 'almoco') autoLunch(w, f.wi, 0);
+  else if (f.k === 'domingo') {
+    /* escala no domingo quem pode (ninguém repete domingo) até cada posto chegar ao mínimo */
+    const keep = state.selectedWeek;
+    state.selectedWeek = f.wi;
+    sundayPosts().forEach((p) => {
+      let c = w.employees.filter((e) => e.station === p && e.sundayWork).length;
+      const mn = sundayPostMin(p);
+      w.employees.forEach((e, i) => {
+        if (c < mn && e.station === p && !e.sundayWork && !sundayEligible(i)) {
+          e.sundayWork = true;
+          c++;
+        }
+      });
+    });
+    balanceOffs(w, true);
+    state.selectedWeek = keep;
+  }
   else if (f.k === 'fechamento') {
     fitShifts(w, f.wi);
     if (gapOf(w)) autoLunch(w, f.wi, 0);
@@ -1404,6 +1439,7 @@ function setPdv(n) {
   render();
 }
 function setModel(m) {
+  snapDesfazer();
   const w = week(),
     wi = state.selectedWeek,
     antes = w.model,
@@ -1437,6 +1473,7 @@ function setModel(m) {
     );
 }
 function setShiftCount(n) {
+  snapDesfazer();
   const w = week(),
     count = +n,
     items = w.shifts.slice(0, count);
@@ -1538,10 +1575,21 @@ function applyRotation() {
   });
   render();
 }
-function replicate(kind) {
+async function replicate(kind) {
+  const origem = state.selectedWeek,
+    soSeguintes = kind === 'all'; /* preenchimento completo: só as semanas depois desta */
+  if (soSeguintes) {
+    const dest = sector().weeks.map((_, i) => i).filter((i) => i > origem);
+    if (!dest.length) return toast('Esta é a última semana do ciclo: não há semanas depois dela para receber a cópia.', true);
+    const nm = dest.map((i) => i + 1).join(', ');
+    if (!(await askConfirm('Copiar o preenchimento completo da Semana ' + (origem + 1) + ' para a(s) semana(s) ' + nm + '?\n\nO que está nelas será substituído. As semanas anteriores não mudam. Dá para voltar com o botão Desfazer.')))
+      return toast('Nada foi alterado.', true);
+  }
+  snapDesfazer();
   const source = clone(week());
   sector().weeks.forEach((target, index) => {
     if (index === state.selectedWeek) return;
+    if (soSeguintes && index < origem) return;
     normalizeWeek(target);
     if (kind === 'all') {
       sector().weeks[index] = clone(source);
@@ -1998,6 +2046,7 @@ async function completarSemanas() {
       marca(livres[0]);
     }
   }
+  snapDesfazer();
   /* copia a semana base (equipe, modelo, PDVs, turnos) para as seguintes e recalcula domingos e folgas */
   const antes = state.selectedWeek;
   state.selectedWeek = b;
@@ -3140,7 +3189,7 @@ function compliance() {
         DAYS.forEach((d) => {
           if (d[0] === 'domingo' || closedDay(d[0], wi)) return;
           const off = grp.filter((e) => e.offDays.includes(d[0]));
-          if (off.length > 1) clash.push(d[0] + ' (' + off.map((e) => e.name + ' · ' + POST_NAMES[e.station]).join(' e ') + ')');
+          if (off.length > 1) clash.push(d[0] + ' (' + off.map((e) => e.name + ' · ' + POST_NAMES[e.station] + (travada(e, d[0], w.model) ? ' 🔒 folga fixa' : '')).join(' e ') + ')');
         });
       if (clash.length)
         add(
@@ -3150,7 +3199,8 @@ function compliance() {
             ': mais de uma colaboradora de folga no mesmo dia: ' +
             clash.join('; ') +
             '.' +
-            (grp.length > 3 ? ' Com mais de 3 colaboradoras nesses postos, isso pode ser inevitável.' : ''),
+            (grp.length > 3 ? ' Com mais de 3 colaboradoras nesses postos, isso pode ser inevitável.' : '')
+            + (clash.some((c) => c.includes('🔒')) ? ' Há folga fixa envolvida: desmarque a "Folga fixa" de uma delas para o app poder trocar o dia.' : ''),
           [wi],
           'folgas',
         );
@@ -3201,8 +3251,9 @@ function compliance() {
               POST_NAMES[p] +
               '.',
             [wi],
+            'domingo',
           );
-        else if (c < mn) add('atenção', L + 'domingo: ' + POST_NAMES[p] + ' com ' + c + ' (mínimo ' + mn + ').', [wi]);
+        else if (c < mn) add('atenção', L + 'domingo: ' + POST_NAMES[p] + ' com ' + c + ' (mínimo ' + mn + ').', [wi], 'domingo');
       });
       const rs = sunW.filter((e) => e.restricted).map((e) => e.name);
       if (rs.length && pl.en > 1080)
@@ -3458,6 +3509,7 @@ document.addEventListener('change', (event) => {
   }
   if (t.dataset.autoflag) {
     const k = t.dataset.autoflag;
+    snapDesfazer();
     sector().weeks.forEach((x, j) => {
       x[k] = t.checked;
       if (t.checked && k === 'autoSaida') x.shifts.forEach((sh) => sync(sh, x.model, j, x));
@@ -3703,7 +3755,7 @@ document.addEventListener('click', (event) => {
     toast('Rodízio dos postos voltou ao automático.');
   }
   if (gen) generateAll();
-  if (und) undoGenerate();
+  if (und || event.target.closest('#undoTopBtn')) undoGenerate();
 });
 document.getElementById('decreaseActive').addEventListener('click', () => setActive(week().activeCount - 1));
 document.getElementById('increaseActive').addEventListener('click', () => setActive(week().activeCount + 1));
@@ -4439,7 +4491,7 @@ function textoWhats() {
     linhas.push('', '*' + s.name + '* · ' + s.start + ' às ' + s.end + ' (almoço ' + s.lunchStart + '–' + s.lunchEnd + ')');
     grupo.forEach((e) => {
       const posto = hasPosts() ? ' (' + stationText(e) + ')' : '';
-      linhas.push('• ' + e.name + posto + ' — folgas: ' + offText(e));
+      linhas.push('• ' + e.name + (e.fixo !== undefined ? ' 🔒' : '') + posto + ' — folgas: ' + offText(e));
     });
   });
   const fora = w.employees.filter((e) => foraSemana(e));
@@ -4447,6 +4499,7 @@ function textoWhats() {
     linhas.push('', '*Férias / atestado*');
     fora.forEach((e) => linhas.push('• ' + e.name + ' — ' + offText(e)));
   }
+  if (w.employees.some((e) => e.fixo !== undefined || (e.folgaFixa && e.folgaFixa.length))) linhas.push('', '🔒 = turno ou folga fixos (não trocar sem falar com a gerência)');
   const dom = sundayWorkers();
   linhas.push('', '*Domingo ' + short(date('domingo')).slice(0, 5) + '*: ' + (dom.length ? dom.map((e) => e.name).join(', ') : 'ninguém escalado'));
   return linhas.join('\n');

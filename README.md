@@ -310,3 +310,11 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Saída manual: o campo de saída fica editável (até o fechamento).
 - Tolerância de 5 minutos na troca de almoços (ex.: 1º volta às 13:00, o 2º pode sair de 12:55 a 13:05).
 - Ao aumentar o número de turnos, as entradas são espalhadas (sem empilhar no mesmo horário) e os nomes seguem a ordem.
+
+## Build 114
+- **Conferir ponto (AFD)**: botão no topo; lê o AFD (Portaria 1510/671) no navegador e compara com a escala do dia: atraso, falta, batida na folga/férias, almoço fora de 1h50–2h, mais de 6h sem pausa, hora extra e saída antecipada. Lista também quem bateu e não está na escala. Arquivo `afd.js`.
+- **Copiar preenchimento completo**: só para as semanas seguintes, com confirmação.
+- **Desfazer** (↶) no topo da página: Completar, copiar, trocar modelo/nº de turnos, caixinhas de automático, Corrigir.
+- **Corrigir** também em "domingo sem posto / abaixo do mínimo".
+- Conflito de folgas (Fiscal/Recepção) com folga fixa: o aviso mostra quem está com 🔒 e diz o que fazer.
+- **Cadeado 🔒** ao lado do nome (turno fixo) e nas folgas (folga fixa), na tela, na impressão (folgas) e no WhatsApp (com legenda).
