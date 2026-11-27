@@ -322,3 +322,8 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 115
 - Aba **Rodízio**: seletor "Modelo do rodízio de turnos" por setor: **semanal** (troca toda semana), **quinzenal** (semanas 1-2 iguais, 3-4 trocam) ou **mensal** (4 semanas iguais; gira ao avançar o ciclo). Vale para o rodízio dos postos e para "Aplicar rodízio"; ao avançar o ciclo no quinzenal/mensal a equipe gira de turno (turno fixo não gira).
 - Aba **Regras** passou a ser a última.
+
+## Build 116
+- Botão "Enviar por WhatsApp" escondido por enquanto (o código continua no app).
+- Impressão: coluna de folgas com os 7 dias da semana (como na tela): folga em vermelho, domingo de folga em vermelho, domingo trabalhado em amarelo, férias/atestado em roxo. A página do domingo também mostra as folgas.
+- Atualização automática: verifica a cada 1 min e atualiza sozinha a aba parada há 30 s sem nada por salvar (antes 2 min).

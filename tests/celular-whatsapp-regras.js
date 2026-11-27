@@ -38,9 +38,9 @@ T('posto novo salvo na nuvem (config + pessoa)',await A.evaluate(k=>{const c=__d
 await A.reload();await A.waitForTimeout(2000);
 T('posto novo continua depois de recarregar',await A.evaluate(k=>POST_NAMES[k]==='Balcão'&&week().employees.some(e=>e.station===k),kNovo));
 // WhatsApp
-await A.click('#whatsButton');await A.waitForTimeout(200);
-const url=await A.evaluate(()=>__abertos[0]||'');const txt=decodeURIComponent(url.split('text=')[1]||'');
-T('WhatsApp abre wa.me com o texto da escala',/^https:\/\/wa\.me\/\?text=/.test(url)&&/Escala · Frente de Caixa/.test(txt)&&/ANA/.test(txt)&&/folgas:/.test(txt)&&/Domingo/.test(txt));
+T('botão do WhatsApp está escondido por enquanto',await A.evaluate(()=>getComputedStyle(document.getElementById('whatsButton')).display==='none'));
+const txt=await A.evaluate(()=>textoWhats());
+T('texto do WhatsApp continua sendo montado',/Escala · Frente de Caixa/.test(txt)&&/ANA/.test(txt)&&/folgas:/.test(txt)&&/Domingo/.test(txt));
 
 // impressão: fonte do domingo com teto
 T('fonte do domingo limitada a 14pt',await A.evaluate(()=>printMetrics(2,150,11,14).font<=14&&printMetrics(2,150,11,14).row<=11));

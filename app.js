@@ -935,6 +935,22 @@ function offTextBase(e) {
         .join(' e ')
     : 'Definir';
 }
+/* dias da semana para a impressão: folga em vermelho, domingo de folga em vermelho, domingo trabalhado em amarelo */
+function chipsPrint(e, compacto) {
+  return (
+    '<div class="pcs">' +
+    DAYS.map((d) => {
+      const dd = short(date(d[0])).slice(0, 5);
+      let cls = '';
+      if (ausente(e, d[0])) cls = 'aus';
+      else if (closedDay(d[0])) cls = 'fer';
+      else if (d[0] === 'domingo') cls = e.sundayWork ? 'dom-work' : 'dom-off';
+      else if (e.offDays.includes(d[0])) cls = 'off';
+      return '<span class="pc ' + cls + '">' + d[1].replace('.', '') + ' ' + (compacto ? dd.slice(0, 2) : dd) + '</span>';
+    }).join('') +
+    '</div>'
+  );
+}
 function stationText(e) {
   return e.station === 'caixa' ? 'Operadora Caixa · PDV ' + e.pdv : POST_NAMES[e.station] || 'PDV ' + e.pdv;
 }
@@ -1166,8 +1182,8 @@ function row(e) {
     nomeBtn = `<button class="employee-link${aus1 ? ' aus-nome' : ''}" data-jump="${e.id}" type="button"${aus1 ? ' title="Em férias / atestado nesta semana"' : ''}>${escape(e.name)}</button>`;
   /* férias/atestado a semana inteira: sem turno, posto, PDV nem horários */
   if (fora)
-    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno">—</td>${hasPosts() ? '<td data-label="Posto" data-print="—">—</td>' : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
-  return `<tr${aus1 ? ' class="aus-row"' : ''}><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small><label class="fixa-tbl" title="Trava os dias de folga marcados em todas as semanas"><input type="checkbox" data-employee="${i}" data-field="folgaFixa" ${e.folgaFixa ? 'checked' : ''} /> Folga fixa</label></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
+    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno">—</td>${hasPosts() ? '<td data-label="Posto" data-print="—">—</td>' : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-ei="${i}" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
+  return `<tr${aus1 ? ' class="aus-row"' : ''}><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-ei="${i}" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small><label class="fixa-tbl" title="Trava os dias de folga marcados em todas as semanas"><input type="checkbox" data-employee="${i}" data-field="folgaFixa" ${e.folgaFixa ? 'checked' : ''} /> Folga fixa</label></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
 }
 function renderSchedule() {
   /* quem está fora a semana inteira (férias/atestado) vai para o fim da tabela */
@@ -1184,7 +1200,7 @@ function renderSunday() {
         const pl = sundayPlan(week()),
           end = time(pl.en),
           lunch = pl.brk ? time(pl.brk[0]) + '–' + time(pl.brk[1]) + ' (' + (pl.brk[1] - pl.brk[0]) + ' min)' : '—';
-        return `<tr><td>${escape(e.name)}</td><td>Domingo</td>${hasPosts() ? `<td>${sundayStationText(e)}</td>` : ''}<td>${time(pl.st)}</td><td>${lunch}</td><td>${end}</td><td class="sun-rem"><button type="button" class="remove-btn" data-sun-rem="${week().employees.indexOf(e)}" title="Tirar ${escape(e.name)} deste domingo">Remover</button></td></tr>`;
+        return `<tr data-ei="${week().employees.indexOf(e)}"><td>${escape(e.name)}</td><td>Domingo</td>${hasPosts() ? `<td>${sundayStationText(e)}</td>` : ''}<td>${time(pl.st)}</td><td>${lunch}</td><td>${end}</td><td class="sun-rem"><button type="button" class="remove-btn" data-sun-rem="${week().employees.indexOf(e)}" title="Tirar ${escape(e.name)} deste domingo">Remover</button></td></tr>`;
       })
       .join('');
   const columns = (hasPdv() ? 6 : 5) + 1;
@@ -3974,35 +3990,41 @@ async function buildPrintHtml(autoPrint) {
   const year = (h) => h.replace(/(\d{1,2}\/\d{1,2})\/\d{2}(?!\d)/g, '$1');
   const cells = (tr, drop) => [...tr.children].filter((c, k) => !drop.includes(k));
   /* semana: colaboradora, posto, entrada, almoço, saída, folgas (sem Turno e sem Limite c/ extras) */
+  const nRows = week().employees.length;
   const wrows = [...document.querySelectorAll('#scheduleTable tbody tr')].map((tr) => {
     const c = [...tr.children];
     c.splice(c.length - 1, 1);
     c.splice(1, 1);
     return c.map((td, k) => {
       const v = td.dataset.print !== undefined ? td.dataset.print : td.innerHTML;
+      if (k === c.length - 1 && td.dataset.ei !== undefined && week().employees[+td.dataset.ei]) return chipsPrint(week().employees[+td.dataset.ei], nRows > 14);
       return k === c.length - 1 ? year(v) : k === 0 ? (tr.classList.contains('aus-row') ? '<span style="color:#b91c1c">' + esc(td.textContent.trim()) + '</span>' : esc(td.textContent.trim())) : v;
     });
   });
   const whead = ['Colaboradora', posts ? 'Posto' : null, 'Entrada', 'Almoço', 'Saída', 'Folgas com data'].filter(
     Boolean,
   );
+  const srowsN = sundayWorkers().length;
   const srows = [...document.querySelectorAll('#sundaySchedule tbody tr')]
     .map((tr) => {
       const c = [...tr.children].filter((td) => !td.classList.contains('sun-rem')); // o botão Remover não vai para o papel
       if (c.length < 3) return null;
       c.splice(1, 1);
-      return c.map((td, k) => (k === 0 ? esc(td.textContent.trim()) : td.innerHTML));
+      const row = c.map((td, k) => (k === 0 ? esc(td.textContent.trim()) : td.innerHTML)),
+        ee = week().employees[+tr.dataset.ei];
+      row.push(ee ? chipsPrint(ee, srowsN > 14) : '');
+      return row;
     })
     .filter(Boolean);
-  const shead = ['Colaboradora', posts ? 'Posto' : null, 'Entrada', 'Intervalo', 'Saída'].filter(Boolean);
+  const shead = ['Colaboradora', posts ? 'Posto' : null, 'Entrada', 'Intervalo', 'Saída', 'Folgas com data'].filter(Boolean);
   const wm = printMetrics(wrows.length, 126, 11, 14),
     sm = printMetrics(srows.length + 1, 150, 11, 14);
-  const wid = posts ? [20, 28, 10, 15, 10, 17] : [26, 12, 17, 12, 33];
+  const wid = posts ? [17, 21, 8, 12, 8, 34] : [24, 10, 15, 10, 41];
   const table = (head, rows, m, widths, cls) =>
     `<table class="${cls}" style="--f:${m.font}pt;--r:${m.row}mm"><thead><tr>${head.map((h, k) => `<th style="width:${widths[k] || 'auto'}%">${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v, k) => `<td${k === 0 ? ' class="n"' : ''}>${v}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table>`;
   const img = logo ? `<img src="${logo}" alt="">` : '';
-  const css = `@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html{background:#e9ecef}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}.page{width:281mm;margin:0 auto 6mm;background:#fff;padding:0;break-after:page}.page:last-child{break-after:auto;margin-bottom:0}.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2px solid #f7c82c;padding:0 0 3mm;margin:0 0 3mm}.top img{height:11mm}.brand{display:flex;align-items:center;gap:8px}.brand b{display:block;color:#ba2025;font-size:15px;line-height:1.1}.brand small{display:block;color:#173766;font-size:8px;letter-spacing:.6px;font-weight:bold;margin-top:3px}.brand .s{color:#173766;font-size:15px}.mid{grid-column:2;text-align:center;font-weight:bold;font-size:15px}.title{text-align:center;color:#173766;font-weight:bold;font-size:15px;line-height:1.5;margin:6mm 0 3mm}table{width:100%;border-collapse:collapse;white-space:nowrap}th{background:#f3f5f8;color:#173766;text-align:left;font-size:calc(var(--f)*.75);text-transform:uppercase;letter-spacing:.3px;height:8mm;padding:0 8px}td{height:var(--r);font-size:var(--f);padding:0 8px;border-bottom:1px solid #d9dde3;vertical-align:middle}td.n{font-weight:bold}.sun td.n{font-weight:normal}.sun td{padding:0 12px}.sun th{padding:0 12px}.swap-note{font-weight:bold;color:#b00020}.shift-pill{display:none}@media print{html{background:#fff}.page{margin:0}}`;
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>${css}</style></head><body><section class="page"><div class="top"><div class="brand">${img}<div><b>Gestão de Escalas</b><small>GRUPO SÃO LUIZ</small></div></div></div><div class="title">Escala semanal · ${esc(name)}<br>${esc(range())}</div>${table(whead, wrows, wm, wid, 'wk')}</section><section class="page"><div class="top"><div class="brand">${img}<span class="s"><b style="color:#173766">${esc(name)}</b></span></div><div class="mid">Escala de domingo · ${short(date('domingo'))}</div></div>${table(shead, srows, sm, posts ? [22, 30, 13, 18, 17] : [30, 20, 25, 25], 'sun')}</section>${autoPrint ? "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script>" : ''}</body></html>`;
+  const css = `@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html{background:#e9ecef}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}.page{width:281mm;margin:0 auto 6mm;background:#fff;padding:0;break-after:page}.page:last-child{break-after:auto;margin-bottom:0}.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2px solid #f7c82c;padding:0 0 3mm;margin:0 0 3mm}.top img{height:11mm}.brand{display:flex;align-items:center;gap:8px}.brand b{display:block;color:#ba2025;font-size:15px;line-height:1.1}.brand small{display:block;color:#173766;font-size:8px;letter-spacing:.6px;font-weight:bold;margin-top:3px}.brand .s{color:#173766;font-size:15px}.mid{grid-column:2;text-align:center;font-weight:bold;font-size:15px}.title{text-align:center;color:#173766;font-weight:bold;font-size:15px;line-height:1.5;margin:6mm 0 3mm}table{width:100%;border-collapse:collapse;white-space:nowrap}th{background:#f3f5f8;color:#173766;text-align:left;font-size:calc(var(--f)*.75);text-transform:uppercase;letter-spacing:.3px;height:8mm;padding:0 8px}td{height:var(--r);font-size:var(--f);padding:0 8px;border-bottom:1px solid #d9dde3;vertical-align:middle}td.n{font-weight:bold}.sun td.n{font-weight:normal}.sun td{padding:0 12px}.sun th{padding:0 12px}.swap-note{font-weight:bold;color:#b00020}.pcs{display:flex;gap:.8mm}.pc{flex:1;text-align:center;border:.25mm solid #c5ccd6;border-radius:1mm;font-size:calc(var(--f)*.6);padding:.4mm 0;line-height:1.15;color:#444}.pc.off,.pc.dom-off{background:#ba2025;border-color:#ba2025;color:#fff;font-weight:bold}.pc.dom-work{background:#f7c82c;border-color:#e0ad00;color:#111;font-weight:bold}.pc.aus{background:#f3e8ff;border-color:#c4a5ea;color:#4c1d95}.pc.fer{background:#e6e9ee;color:#555}.pc{-webkit-print-color-adjust:exact;print-color-adjust:exact}.shift-pill{display:none}@media print{html{background:#fff}.page{margin:0}}`;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>${css}</style></head><body><section class="page"><div class="top"><div class="brand">${img}<div><b>Gestão de Escalas</b><small>GRUPO SÃO LUIZ</small></div></div></div><div class="title">Escala semanal · ${esc(name)}<br>${esc(range())}</div>${table(whead, wrows, wm, wid, 'wk')}</section><section class="page"><div class="top"><div class="brand">${img}<span class="s"><b style="color:#173766">${esc(name)}</b></span></div><div class="mid">Escala de domingo · ${short(date('domingo'))}</div></div>${table(shead, srows, sm, posts ? [17, 20, 8, 14, 8, 33] : [22, 10, 14, 10, 44], 'sun')}</section>${autoPrint ? "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script>" : ''}</body></html>`;
 }
 async function printFile() {
   if (ordemFixa) {
