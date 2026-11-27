@@ -386,10 +386,15 @@
       Object.keys(state.roster || {}).forEach((k) => {
         if (k !== sel) (state.roster[k] || []).forEach((r) => r && r.name && !PLACEHOLDER.test(r.name) && outros.add(norm(r.name)));
       });
-      const dias = {};
+      const dias = {},
+        ultimoBate = {};
+      const corteInativo = new Date(new Date(ultimo + 'T12:00:00').getTime() - 15 * 864e5).toISOString().slice(0, 10);
       Object.entries(afd.punches).forEach(([d, o]) => {
         if (d < corte) return;
-        Object.keys(o).forEach((p) => (dias[p] = (dias[p] || 0) + 1));
+        Object.keys(o).forEach((p) => {
+          dias[p] = (dias[p] || 0) + 1;
+          if (!ultimoBate[p] || d > ultimoBate[p]) ultimoBate[p] = d;
+        });
       });
       const vistos = new Set(),
         sobras = [];
@@ -404,7 +409,7 @@
           deOutros++;
           return;
         }
-        sobras.push({ nome, k, dias: dias[pis] });
+        sobras.push({ nome, k, dias: dias[pis], inativo: ultimoBate[pis] < corteInativo });
       });
       sobras.sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
       const lista = [...new Set(Object.values(afd.names))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
@@ -414,6 +419,10 @@
         const t = norm(nome).split(' ');
         return sobras.filter((s) => { const u = s.k.split(' '); return u[0] === t[0] || (t.length > 1 && u.length > 1 && u[u.length - 1] === t[t.length - 1]); }).slice(0, 5);
       };
+      let ignoraInativos = true;
+      try {
+        ignoraInativos = localStorage.getItem('afdIgnoraInativos') !== '0';
+      } catch (e) {}
       const o = document.createElement('div');
       o.id = 'afdNomesOv';
       o.className = 'afd-ov';
@@ -436,6 +445,7 @@
         }
         <h4 class="nm-h">Bateram ponto e não estão na escala</h4>
         <p class="helper">Marque só quem é <b>deste setor</b> para adicionar na equipe (nas 4 semanas)${deOutros ? ` · ${deOutros} já estão na equipe de outros setores e não aparecem aqui` : ''}. Mostra quem bateu ponto nos últimos 45 dias do arquivo.</p>
+        <label class="nm-inativos"><input type="checkbox" id="nmIgnoraInativos" ${ignoraInativos ? 'checked' : ''} /> Ignorar quem não bate ponto há mais de 15 dias <small id="nmInativosQtd"></small></label>
         <input type="search" id="nmBusca" placeholder="Buscar nome…" autocomplete="off" />
         <div class="nm-sobras" id="nmSobras"></div>
         <datalist id="nmLista">${lista.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist>
@@ -448,7 +458,8 @@
       };
       const desenhaSobras = () => {
         const q = norm(o.querySelector('#nmBusca').value),
-          fil = sobras.filter((s) => !q || s.k.includes(q)),
+          nInat = sobras.filter((s) => s.inativo && !marcados.has(s.k)).length,
+          fil = sobras.filter((s) => (!q || s.k.includes(q)) && !(ignoraInativos && s.inativo && !marcados.has(s.k))),
           mostra = fil.slice(0, 60);
         o.querySelector('#nmSobras').innerHTML =
           (mostra
@@ -459,10 +470,18 @@
               }</div>`;
             })
             .join('') || '<p class="adm-vazio">Ninguém encontrado.</p>') + (fil.length > mostra.length ? `<p class="helper">Mostrando ${mostra.length} de ${fil.length}; use a busca para achar o resto.</p>` : '');
+        o.querySelector('#nmInativosQtd').textContent = nInat ? (ignoraInativos ? `(${nInat} escondido${nInat > 1 ? 's' : ''})` : `(${nInat} inativo${nInat > 1 ? 's' : ''} na lista)`) : '';
         o.querySelector('#nmResumo').textContent = marcados.size ? marcados.size + ' para adicionar' : '';
       };
       desenhaSobras();
       o.querySelector('#nmBusca').oninput = desenhaSobras;
+      o.querySelector('#nmIgnoraInativos').onchange = (ev) => {
+        ignoraInativos = ev.target.checked;
+        try {
+          localStorage.setItem('afdIgnoraInativos', ignoraInativos ? '1' : '0');
+        } catch (e) {}
+        desenhaSobras();
+      };
       box.addEventListener('change', (ev) => {
         const t = ev.target;
         if (t.dataset.nmAdd !== undefined) {

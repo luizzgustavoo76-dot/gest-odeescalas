@@ -641,3 +641,11 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .nm-item select{min-height:32px;font-size:12px;max-width:160px}
 .nm-acoes{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;position:sticky;bottom:0;background:#fff;padding-top:8px}
 @media(max-width:760px){.nm-row{grid-template-columns:1fr}.nm-item{flex-wrap:wrap}}
+
+/* build 134 — caixinha: ignorar inativos há mais de 15 dias */
+.nm-inativos{display:flex;align-items:center;gap:8px;margin:6px 0 8px;font-weight:600;font-size:.92rem}
+.nm-inativos small{font-weight:400;color:var(--muted,#6b7280)}
+
+/* build 134 — caixinha: ignorar inativos há mais de 15 dias */
+.nm-inativos{display:flex;align-items:center;gap:8px;margin:6px 0 8px;font-weight:600;font-size:.92rem}
+.nm-inativos small{font-weight:400;color:var(--muted,#6b7280)}

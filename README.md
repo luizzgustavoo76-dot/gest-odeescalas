@@ -424,3 +424,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 133 — Trocar turno não volta para a prévia antiga
 - Ao trocar o turno de alguém na tabela, as faixas por posto continuam aparecendo (a linha fica no lugar e aparece "Reordenar agora").
 - Ao trocar o posto, a pessoa vai direto para a faixa do novo posto.
+
+## Build 134 — Ignorar inativos há mais de 15 dias na importação do ponto
+- Na etapa "Conferir nomes do ponto", a lista "Bateram ponto e não estão na escala" ganhou a caixinha **Ignorar quem não bate ponto há mais de 15 dias** (vem marcada; a escolha fica lembrada).
+- Conta a partir da última batida do arquivo; quem você já marcou para adicionar nunca some da lista.

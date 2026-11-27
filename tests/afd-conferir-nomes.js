@@ -13,10 +13,11 @@ const info=await A.evaluate(()=>{setActive(12);const w=week();w.employees.forEac
 const pad=(s,n)=>String(s).padEnd(n,' ');let nsr=0;const L=[];const fmt=i=>{const [y,m,d]=i.split('-');return {y,m,d}};
 const emp=(i,pis,nome)=>{const {y,m,d}=fmt(i);nsr++;L.push(String(nsr).padStart(9,'0')+'5'+d+m+y+'0800'+'I'+pis+pad(nome,52))};
 const bat=(i,pis,hhmm)=>{const {y,m,d}=fmt(i);nsr++;L.push(String(nsr).padStart(9,'0')+'3'+d+m+y+hhmm+pis)};
-const P={fer:'000000000001',joa:'000000000002',eli:'000000000003',alv:'000000000004',ala:'000000000005',ext:'000000000006'};
-emp(info.seg,P.fer,'FERNANDA RODRIGUES DE SIOUEIRA');emp(info.seg,P.joa,'JOANA REAL DA SILVA');emp(info.seg,P.eli,'ELIAN DE LIMA');emp(info.seg,P.alv,'ALAN VICTOR DE JESUS OLIVEIRA');emp(info.seg,P.ala,'ALAN DE VICENTE');emp(info.seg,P.ext,'EXTRA PESSOA NOVA');
-Object.values(P).forEach(p=>['0700','1200','1400','1700'].forEach(h=>bat(info.seg,p,h)));
+const P={ina:'000000000007',fer:'000000000001',joa:'000000000002',eli:'000000000003',alv:'000000000004',ala:'000000000005',ext:'000000000006'};
+emp(info.seg,P.ina,'INATIVO ANTIGO');emp(info.seg,P.fer,'FERNANDA RODRIGUES DE SIOUEIRA');emp(info.seg,P.joa,'JOANA REAL DA SILVA');emp(info.seg,P.eli,'ELIAN DE LIMA');emp(info.seg,P.alv,'ALAN VICTOR DE JESUS OLIVEIRA');emp(info.seg,P.ala,'ALAN DE VICENTE');emp(info.seg,P.ext,'EXTRA PESSOA NOVA');
+Object.values(P).filter(p=>p!==P.ina).forEach(p=>['0700','1200','1400','1700'].forEach(h=>bat(info.seg,p,h)));
 ['0730','1200'].forEach(h=>{bat(info.dom,P.eli,h);bat(info.dom,P.alv,h)});
+{const d=new Date(info.dom+'T12:00:00');d.setDate(d.getDate()-20);bat(d.toISOString().slice(0,10),P.ina,'0800')}
 fs.writeFileSync('/tmp/afd-nomes.txt',L.join('\r\n')+'\r\n');
 await A.setInputFiles('#xlsxFile','/tmp/afd-nomes.txt');await A.waitForSelector('#nmOk');
 const txt=await A.evaluate(()=>document.getElementById('afdNomesOv').innerText);
@@ -29,6 +30,11 @@ T('sugere os dois Alans',await A.evaluate(()=>[...document.querySelectorAll('[da
 // Colaboradora 3 -> Elian de Lima (digitando); Alan -> clicando na sugestão
 await A.fill('[data-nm-par="2"]','elian de lima');
 await A.click('[data-nm-sug="3"][data-v="ALAN VICTOR DE JESUS OLIVEIRA"]');
+T('caixinha de ignorar inativos vem marcada',await A.isChecked('#nmIgnoraInativos'));
+T('inativo há +15 dias fica escondido',!/INATIVO ANTIGO/.test(await A.innerText('#nmSobras')));
+await A.uncheck('#nmIgnoraInativos');await A.waitForTimeout(150);
+T('desmarcando, o inativo aparece',/INATIVO ANTIGO/.test(await A.innerText('#nmSobras')));
+await A.check('#nmIgnoraInativos');await A.waitForTimeout(150);
 // adicionar quem bateu e não está na escala
 await A.fill('#nmBusca','extra');await A.waitForTimeout(150);
 await A.check('[data-nm-add]');
