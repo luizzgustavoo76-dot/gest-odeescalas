@@ -1,0 +1,21 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const A=await (await b.newContext({viewport:{width:1400,height:900}})).newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+await A.evaluate(()=>{setActive(12);week().employees.forEach(e=>{e.sundayWork=false});render()});
+T('chip de domingo (folga) é clicável',await A.evaluate(()=>!!document.querySelector('[data-sun-toggle="0"]')&&!document.querySelector('[data-sun-toggle="0"]').disabled));
+await A.click('[data-ei="0"] .off-chip.dom input',{force:true});await A.waitForTimeout(300);
+T('desmarcar a folga do domingo → trabalha',await A.evaluate(()=>week().employees[0].sundayWork===true&&/trabalha/.test(document.querySelector('[data-ei="0"] .off-chip.dom').textContent)));
+await A.click('[data-ei="0"] .off-chip.dom input',{force:true});await A.waitForTimeout(300);
+T('marcar de novo → folga',await A.evaluate(()=>week().employees[0].sundayWork===false));
+// regra: quem trabalhou o domingo anterior não pode
+await A.evaluate(()=>{const ws=sector().weeks;ws[1].employees[0].sundayWork=true;render()});
+await A.click('[data-ei="0"] .off-chip.dom input',{force:true});await A.waitForTimeout(300);
+T('respeita a regra (domingo seguido) e não muda',await A.evaluate(()=>week().employees[0].sundayWork===false&&/Não pode/.test(document.getElementById('toast').textContent)));
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();

@@ -1195,8 +1195,8 @@ function row(e) {
     domChip = ausChip('domingo', 'Dom', 'dom')
       ? ausChip('domingo', 'Dom', 'dom')
       : e.sundayWork
-      ? `<label class="off-chip dom works" title="Trabalha no domingo"><input type="checkbox" disabled /><span>Dom <i>${dd('domingo')}</i><b>trabalha</b></span></label>`
-      : `<label class="off-chip dom${e.folgaFixa ? ' travada' : ''}" title="Domingo é folga${e.folgaFixa ? ' (fixa)' : ''}"><input type="checkbox" checked disabled /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`,
+      ? `<label class="off-chip dom works" title="Trabalha no domingo: desmarque a caixa para ele virar folga"><input type="checkbox" data-sun-toggle="${i}" /><span>Dom <i>${dd('domingo')}</i><b>trabalha</b></span></label>`
+      : `<label class="off-chip dom${e.folgaFixa ? ' travada' : ''}" title="${e.folgaFixa ? 'Domingo é folga (fixa)' : 'Domingo é folga: desmarque a caixa para ele trabalhar'}"><input type="checkbox" checked ${e.folgaFixa ? 'disabled' : `data-sun-toggle="${i}"`} /><span>Dom <i>${dd('domingo')}</i><b>folga</b></span></label>`,
     chips =
       domChip +
       DAYS.filter((d) => d[0] !== 'domingo')
@@ -2097,7 +2097,8 @@ async function completarSemanas() {
     /* domingos da semana base: mantém quem já foi marcado, garante o mínimo de cada posto e completa até metade da equipe no máximo */
     auto = true;
     const n = wb.employees.length,
-      alvo = Math.max(1, Math.min(Math.max(sundayMin() || 0, Math.ceil(n * 0.4)), Math.floor(n / 2) || 1));
+      /* com postos que têm mínimo de domingo, o total é exatamente a soma dos mínimos (ex.: Produção 1 = uma vaga, que roda entre as 4 pessoas); sem isso, 40% da equipe */
+      alvo = hasPosts() && sundayPosts().length ? Math.max(1, sundayMin() || 0) : Math.max(1, Math.min(Math.max(sundayMin() || 0, Math.ceil(n * 0.4)), Math.floor(n / 2) || 1));
     const marca = (e) => {
       if (e && !e.sundayWork) e.sundayWork = true;
     };
@@ -3463,15 +3464,22 @@ document.addEventListener('change', async (event) => {
   const t = event.target,
     w = week();
   /* semana já realizada (conforme o ponto): só altera com confirmação */
-  if (w.realizada && semanaReal() && !w.realizadaLiberada && t.closest && t.closest('#scheduleTable,.operator-card,#shiftsEditor') && (t.dataset.employee !== undefined || t.dataset.shift !== undefined || t.dataset.sunday !== undefined) && t.dataset.field !== 'name') {
+  if (w.realizada && semanaReal() && !w.realizadaLiberada && t.closest && t.closest('#scheduleTable,.operator-card,#shiftsEditor') && (t.dataset.employee !== undefined || t.dataset.shift !== undefined || t.dataset.sunday !== undefined || t.dataset.sunToggle !== undefined) && t.dataset.field !== 'name') {
     if (!(await askConfirm('Esta semana já aconteceu (conforme o ponto do relógio). Alterar mesmo assim? O que foi realizado deixa de valer nesta semana.'))) {
       render();
       return;
     }
     w.realizadaLiberada = true;
   }
+  if (t.dataset.sunToggle !== undefined) {
+    /* chip do domingo: marcada = folga; desmarcar = trabalha (respeita as regras de domingo e recalcula as folgas) */
+    const i = +t.dataset.sunToggle;
+    if (t.checked) removeSundayWorker(i);
+    else addSundayWorker(i);
+    render();
+    return;
+  }
   if (t.id === 'sectorSelect') {
-    state.selectedSector = t.value;
     render();
     return;
   }

@@ -359,3 +359,8 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 121
 - Corrige: semanas futuras copiadas (Copiar/Gerar) apareciam como "realizadas". A marca agora é calculada pelo ponto guardado daquela data, não herdada.
+
+## Build 122
+- **Domingo por posto:** com postos que têm mínimo de domingo (ex.: Padaria, Produção = 1), "Copiar preenchimento" não completa mais até 40% da equipe com gente de qualquer posto. O total de domingo é a soma dos mínimos dos postos, e a vaga roda entre as pessoas do posto ao longo do ciclo (4 pessoas, 1 vaga → uma por semana). Sem mínimo de postos, continua o cálculo antigo.
+- **Chip do domingo na coluna de folgas:** agora é clicável. Marcada = folga; desmarcar = trabalha (respeita as regras de domingo e recalcula as folgas); marcar de novo tira do domingo. Folga fixa continua travada.
+- Testes: `domingo-vaga-por-posto.js`, `chip-domingo-folga.js`.
