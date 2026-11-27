@@ -8,14 +8,14 @@ await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/ja
 const login=async u=>{await A.fill('#loginEmail',u);await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500)};
 await A.goto(BASE+'/index.html');await A.waitForTimeout(500);await login('a@a');
 T('admin vê o seletor de setor',await A.evaluate(()=>!document.querySelector('.sector-picker').hidden&&getComputedStyle(document.querySelector('.sector-picker')).display!=='none'));
-await A.click('#adminBtn');await A.waitForTimeout(500);
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);
 T('novo usuário: campo de setor aparece para nível Usuário',await A.evaluate(()=>!document.getElementById('nvSetorBox').hidden));
 await A.selectOption('#nvPapel','admin');
 T('campo de setor some para Administrador',await A.evaluate(()=>getComputedStyle(document.getElementById('nvSetorBox')).display==='none'));
 await A.selectOption('#nvPapel','usuario');
 await A.fill('#nvNome','Maria');await A.fill('#nvEmail','maria@x.com');await A.fill('#nvSenha','segredo1');await A.selectOption('#nvSetor','padaria');await A.click('#nvCriar');await A.waitForTimeout(700);
 T('usuário criado com o setor Padaria',await A.evaluate(()=>__db.perfis.some(p=>p.email==='maria@x.com'&&p.setor==='padaria')));
-await A.click('#admFechar');await A.click('#logoutBtn');await A.waitForTimeout(1200);
+await A.click('#admFechar');await A.click('#userMenuBtn');await A.click('#logoutBtn');await A.waitForTimeout(1200);
 await A.evaluate(()=>{window.__user=__db.perfis.find(p=>p.email==='maria@x.com').id});
 await login('maria@x.com');
 T('usuária com setor: seletor de setor escondido',await A.evaluate(()=>getComputedStyle(document.querySelector('.sector-picker')).display==='none'));
@@ -23,11 +23,11 @@ T('abre direto na Padaria',await A.evaluate(()=>state.selectedSector==='padaria'
 await A.evaluate(()=>{week().activeCount=5;normalize();save&&save()});await A.waitForTimeout(2000);
 T('só grava o setor dela (e as configurações)',await A.evaluate(()=>{const m=__user;const l=__db.escalas.filter(e=>e.dono===m).map(e=>e.setor);return l.includes('padaria')&&l.every(s=>s==='padaria'||s==='_config')}),await A.evaluate(()=>JSON.stringify(__db.escalas.filter(e=>e.dono===__user).map(e=>e.setor))));
 T('sem erro de salvamento na tela',await A.evaluate(()=>!/erro|negad|permiss/i.test((document.getElementById('toast')||{}).textContent||'')||document.getElementById('toast').hidden));
-await A.click('#logoutBtn');await A.waitForTimeout(1000);
+await A.click('#userMenuBtn');await A.click('#logoutBtn');await A.waitForTimeout(1000);
 await A.evaluate(()=>{window.__user='u1'});await login('a@a');
 T('ao voltar como admin, o seletor reaparece',await A.evaluate(()=>getComputedStyle(document.querySelector('.sector-picker')).display!=='none'));
 // admin troca para "Todos os setores"
-await A.click('#adminBtn');await A.waitForTimeout(500);
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);
 await A.evaluate(()=>{const c=[...document.querySelectorAll('.adm-user')].find(x=>/maria@x.com/.test(x.textContent));c.querySelector('[data-a=abrir]').click();c.querySelector('[data-f=setor]').value='';c.querySelector('[data-a=salvar]').click()});await A.waitForTimeout(700);
 T('admin tirou a restrição (Todos os setores)',await A.evaluate(()=>__db.perfis.find(p=>p.email==='maria@x.com').setor===null));
 T('sem erros de página',errs.length===0,errs.join(';'));

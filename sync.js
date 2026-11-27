@@ -85,8 +85,15 @@
 
   /* ---------- barra do usuário ---------- */
   const bar=document.createElement('div');bar.id='userBar';bar.hidden=true;
-  bar.innerHTML='<span id="userWho"></span><button type="button" class="button outline" id="adminBtn" hidden>Painel ADM</button><button type="button" class="button outline icone" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>↶</button><button type="button" class="button outline icone" id="redoBtn" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>↷</button><button type="button" class="button outline" id="histBtn">Histórico</button><button type="button" class="button outline" id="pwBtn">Trocar senha</button><button type="button" class="button" id="logoutBtn">Sair</button>';
-  const top=document.querySelector('.top-actions');(top||document.body).appendChild(bar);
+  bar.innerHTML='<button type="button" class="user-chip" id="userMenuBtn" aria-haspopup="true" aria-expanded="false" title="Menu da conta"><span class="user-av" id="userAv" aria-hidden="true"></span><span class="user-txt"><span id="userWho"></span></span><span class="user-car" aria-hidden="true">▾</span></button><div id="userMenu" role="menu" hidden><div class="user-head" id="userMenuWho"></div><button type="button" class="user-item" id="adminBtn" role="menuitem" hidden>🛠 Painel ADM</button><button type="button" class="user-item" id="histBtn" role="menuitem">🕘 Histórico de alterações</button><button type="button" class="user-item" id="pwBtn" role="menuitem">🔑 Trocar senha</button><button type="button" class="user-item sair" id="logoutBtn" role="menuitem">Sair</button></div>';
+  const tb=document.querySelector('.top-actions');
+  if(tb){const g=document.createElement('span');g.className='top-undo';g.innerHTML='<button type="button" class="button outline icone" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>↶</button><button type="button" class="button outline icone" id="redoBtn" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>↷</button>';tb.insertBefore(g,tb.firstChild)}
+  {const fecha=()=>{const m=document.getElementById('userMenu'),bt=document.getElementById('userMenuBtn');if(m){m.hidden=true}if(bt)bt.setAttribute('aria-expanded','false')};
+   document.addEventListener('click',ev=>{const bt=ev.target.closest&&ev.target.closest('#userMenuBtn'),m=document.getElementById('userMenu');
+     if(bt){const abre=m.hidden;fecha();if(abre){m.hidden=false;bt.setAttribute('aria-expanded','true')}return}
+     if(ev.target.closest&&ev.target.closest('#userMenu .user-item'))fecha();else if(!(ev.target.closest&&ev.target.closest('#userMenu')))fecha()},true);
+   document.addEventListener('keydown',ev=>{if(ev.key==='Escape')fecha()})}
+  const top=document.getElementById('topUser')||document.querySelector('.top-actions');(top||document.body).appendChild(bar);
   // Sair: encerra a sessão, apaga o login guardado no aparelho e recarrega a página (funciona mesmo com sessão antiga/inválida)
   const sair=async()=>{
     clearTimeout(timer);timer=null;pronto=false;
@@ -406,6 +413,7 @@
     {const u=lsUso();if(u&&Date.now()-u>inatLimite()){try{sessionStorage.setItem('escalas-saiu-inativo','1')}catch(e){}saindoInat=true;sair();return}
       ultimoUso=Date.now();try{localStorage.setItem(CH_USO,String(ultimoUso))}catch(e){}}
     $('userWho').textContent=(perfil.nome||user.email)+(perfil.papel==='admin'?' · administrador':(perfil.setor&&typeof SECTORS!=='undefined'&&SECTORS[perfil.setor]?' · '+SECTORS[perfil.setor]:''));
+    {const av=$('userAv'),n=(perfil.nome||user.email||'?').trim();if(av)av.textContent=n.charAt(0).toUpperCase();const mw=$('userMenuWho');if(mw)mw.textContent=$('userWho').textContent}
     $('adminBtn').hidden=!ehAdmin();bar.hidden=false;
     if(await carregar(true)){travaSetor();tempoReal();if(ehAdmin())lembraBackup()}
   }

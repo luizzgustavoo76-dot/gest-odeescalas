@@ -16,7 +16,7 @@ await A.evaluate(()=>{setActive(4)});await A.waitForTimeout(1800);
 T('ao editar, grava',await A.evaluate(()=>__db.escalas.some(e=>e.setor==='frente-caixa')));
 T('aviso some após salvar',await A.evaluate(()=>document.getElementById('contaNova').hidden));
 // trocar senha
-await A.click('#pwBtn');T('form de trocar senha aparece',await A.evaluate(()=>!document.getElementById('passForm').hidden&&!document.getElementById('passCancel').hidden));
+await A.click('#userMenuBtn');await A.click('#pwBtn');T('form de trocar senha aparece',await A.evaluate(()=>!document.getElementById('passForm').hidden&&!document.getElementById('passCancel').hidden));
 await A.fill('#passNova','abc');await A.fill('#passRep','abc');await A.evaluate(()=>document.getElementById('passForm').requestSubmit());await A.waitForTimeout(200);
 await A.evaluate(()=>{document.getElementById('passNova').removeAttribute('minlength');document.getElementById('passRep').removeAttribute('minlength')});
 await A.evaluate(()=>document.getElementById('passForm').requestSubmit());await A.waitForTimeout(300);
@@ -28,7 +28,7 @@ T('mesma senha recusada com mensagem',/diferente da atual/.test(await A.textCont
 await A.fill('#passNova','novasenha1');await A.fill('#passRep','novasenha1');await A.evaluate(()=>document.getElementById('passForm').requestSubmit());await A.waitForTimeout(400);
 T('senha trocada e tela liberada',await A.evaluate(()=>__calls.includes('updateUser novasenha1')&&document.getElementById('loginOverlay').hidden));
 // backup
-await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=backup]');
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=backup]');
 const [dl]=await Promise.all([A.waitForEvent('download'),A.click('#bkBaixar')]);
 const nome=dl.suggestedFilename();const caminho=require('os').tmpdir()+'/bk.json';await dl.saveAs(caminho);const bk=JSON.parse(fs.readFileSync(caminho,'utf8'));
 T('baixou backup .json',/^backup-bom-dia-.*\.json$/.test(nome)&&bk.sistema==='bom-dia-gestao-escalas'&&bk.escalas.length>0,nome+' · '+bk.escalas.length+' linhas');

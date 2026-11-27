@@ -8,7 +8,7 @@ await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/ja
 await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
 T('viewport sem zoom',await A.evaluate(()=>/user-scalable=no/.test(document.querySelector('meta[name=viewport]').content)&&/maximum-scale=1/.test(document.querySelector('meta[name=viewport]').content)));
 await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
-await A.click('#adminBtn');await A.waitForTimeout(500);
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);
 // abre o histórico e troca de aba antes da resposta chegar
 await A.click('[data-aba=historico]');await A.click('[data-aba=resumo]');await A.waitForTimeout(1500);
 T('trocar de aba durante o histórico não gera erro',errs.length===0,errs.join(';'));

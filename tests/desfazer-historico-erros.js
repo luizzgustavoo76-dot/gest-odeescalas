@@ -27,7 +27,7 @@ await A.evaluate(()=>{const t=document.getElementById('extraHolidays');document.
 await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('Ctrl+Z em campo de texto é do campo',await n()===6);
 await A.evaluate(()=>document.activeElement.blur());
 // histórico
-await A.click('#histBtn');await A.waitForTimeout(500);
+await A.click('#userMenuBtn');await A.click('#histBtn');await A.waitForTimeout(500);
 const linhas=await A.evaluate(()=>document.querySelectorAll('#histLista [data-ver]').length);
 T('histórico lista versões da conta',linhas>=1,linhas+' versões');
 const antes=await n();
@@ -37,7 +37,7 @@ await A.keyboard.press('Control+z');await A.waitForTimeout(200);T('restauração
 // erros
 await A.evaluate(()=>{setTimeout(()=>{throw new Error('erro de teste')},0)});await A.waitForTimeout(300);
 T('erro vai para o painel',await A.evaluate(()=>(__db.erros||[]).some(e=>/erro de teste/.test(e.mensagem))),JSON.stringify(await A.evaluate(()=>__db.erros)));
-await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=atividade]');await A.waitForTimeout(400);
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=atividade]');await A.waitForTimeout(400);
 T('filtro "Só erros" existe',await A.evaluate(()=>!!document.querySelector('#aFiltro option[value=erro]')));
 console.log('erros de página:',errs.filter(e=>!/erro de teste/.test(e)).length);
 await b.close()})();

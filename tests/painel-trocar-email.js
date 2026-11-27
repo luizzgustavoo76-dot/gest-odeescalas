@@ -7,7 +7,7 @@ await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript
 await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
 await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
 await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
-await A.click('#adminBtn');await A.waitForTimeout(500);
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);
 await A.fill('#nvNome','Maria');await A.fill('#nvEmail','maria@x.com');await A.fill('#nvSenha','segredo1');await A.click('#nvCriar');await A.waitForTimeout(700);
 await A.fill('#nvNome','Joana');await A.fill('#nvEmail','joana@x.com');await A.fill('#nvSenha','segredo2');await A.click('#nvCriar');await A.waitForTimeout(700);
 const card=()=>A.locator('.adm-user',{hasText:'maria@x.com'}).first();

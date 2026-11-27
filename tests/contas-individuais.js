@@ -10,11 +10,11 @@ await A.goto(BASE+'/index.html');await A.waitForTimeout(500);await login(A,'a@a'
 await A.evaluate(()=>{state.sectors['frente-caixa'].weeks.forEach(w=>{w.activeCount=7});normalize();save()});await A.waitForTimeout(1800);
 T('linhas do admin têm dono u1',await A.evaluate(()=>__db.escalas.length>0&&__db.escalas.every(e=>e.dono==='u1')),await A.evaluate(()=>__db.escalas.length+' linhas'));
 // cria usuário B
-await A.click('#adminBtn');await A.waitForTimeout(500);
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);
 T('sem campos de setor no painel',await A.evaluate(()=>!document.querySelector('#adminOverlay [data-set]')));
 await A.fill('#nvNome','Joãozinho');await A.fill('#nvEmail','joao@x.com');await A.fill('#nvSenha','segredo1');await A.click('#nvCriar');await A.waitForTimeout(600);
 T('criou Joãozinho como usuário',await A.evaluate(()=>__db.perfis.some(p=>p.email==='joao@x.com'&&p.papel==='usuario')));
-await A.click('#admFechar');await A.click('#logoutBtn');await A.waitForTimeout(1200);
+await A.click('#admFechar');await A.click('#userMenuBtn');await A.click('#logoutBtn');await A.waitForTimeout(1200);
 // login como B
 await A.waitForTimeout(1500);
 const idB=await A.evaluate(()=>__db.perfis.find(p=>p.email==='joao@x.com').id);
@@ -26,11 +26,11 @@ T('B NÃO recebe os dados do admin (7 colaboradoras)',nB!==7,'tem '+nB);
 await A.evaluate(()=>{state.sectors['frente-caixa'].weeks.forEach(w=>{w.activeCount=3});normalize();save()});await A.waitForTimeout(1800);
 T('linhas de B têm dono B',await A.evaluate(id=>__db.escalas.filter(e=>e.dono===id).length>0,idB));
 T('dados do admin intactos',await A.evaluate(()=>__db.escalas.find(e=>e.dono==='u1'&&e.setor==='frente-caixa').dados.weeks[0].activeCount===7));
-await A.click('#logoutBtn');await A.waitForTimeout(1200);
+await A.click('#userMenuBtn');await A.click('#logoutBtn');await A.waitForTimeout(1200);
 // volta como admin e abre dados de B
 await A.goto(BASE+'/index.html');await A.waitForTimeout(500);await A.evaluate(()=>{window.__user='u1'});await login(A,'a@a');
 T('admin vê os seus 7',await A.evaluate(()=>state.sectors['frente-caixa'].weeks[0].activeCount)===7);
-await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=resumo]');
+await A.click('#userMenuBtn');await A.click('#adminBtn');await A.waitForTimeout(500);await A.click('.adm-abas [data-aba=resumo]');
 T('resumo mostra dados por conta',await A.evaluate(()=>document.querySelectorAll('[data-abrir]').length)===2);
 await A.locator('[data-abrir]').nth(1).click();await A.waitForTimeout(1500);
 T('abriu dados de B (3 colaboradoras)',await A.evaluate(()=>state.sectors['frente-caixa'].weeks[0].activeCount)===3);

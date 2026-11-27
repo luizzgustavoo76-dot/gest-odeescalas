@@ -390,3 +390,8 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - **Fechamento juntos**: segunda a sábado e domingo lado a lado em um único cartão "Horário de fechamento".
 - O "Evitar folga no sábado" geral e o total mínimo de domingo ficam numa faixa abaixo dos postos. Postos fora de uso aparecem esmaecidos.
 - Corrigido: o campo numérico do mínimo no domingo agora salva também ao digitar (antes o painel de regras bloqueava o evento).
+
+## Build 128 – Topo no estilo do Metas da Loja
+- Faixa escura com linha vermelha: logo, setor, navegação de ciclo e, no canto direito, o **menu da conta** (clique no seu nome → Painel ADM, Histórico de alterações, Trocar senha, Sair). Fecha com Esc ou clicando fora.
+- **Ações em uma fila só**, lado a lado: Desfazer/Refazer, Importar planilha…, Conferir ponto (AFD)…, Histórico ponto e Baixar para imprimir (destaque vermelho). No celular a fila rola para o lado dentro do próprio topo.
+- Impressão continua com o cabeçalho claro de sempre. Teste: `tests/topo-menu-conta.js` (os testes que abriam o Painel ADM/Histórico/Sair passaram a abrir o menu primeiro).
