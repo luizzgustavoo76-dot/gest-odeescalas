@@ -11,7 +11,7 @@ await A.evaluate(()=>{setActive(9);const r=roster();['ANA','BIA','CARLA','DANI',
 // ordem das linhas
 const nomes=()=>A.evaluate(()=>[...document.querySelectorAll('#scheduleTable tbody .employee-link')].map(x=>x.textContent).join(','));
 const antes=await nomes();
-await A.selectOption('#scheduleTable tbody tr:first-child select[data-field=shift]','2');await A.waitForTimeout(200);
+await A.selectOption('#scheduleTable tbody tr:not(.grp) select[data-field=shift]','2');await A.waitForTimeout(200);
 T('trocar turno na tabela não muda a ordem das linhas',await nomes()===antes,await nomes());
 T('aparece aviso com "Reordenar agora"',!!(await A.$('#reordenarBtn')));
 await A.click('#reordenarBtn');await A.waitForTimeout(200);
@@ -33,7 +33,7 @@ await A.check('#offRulesPanel [data-rule-post=pacote]');
 await A.fill('#rulePostName','Balcão');await A.click('#rulePostAdd');await A.waitForTimeout(200);
 const kNovo=await A.evaluate(()=>postKeys().find(k=>k.startsWith('x_')));
 T('posto novo criado e disponível na tabela',!!kNovo&&await A.evaluate(k=>[...document.querySelectorAll('#scheduleTable select[data-field=station] option')].some(o=>o.value===k&&o.textContent==='Balcão'),kNovo));
-await A.selectOption('#scheduleTable tbody tr:first-child select[data-field=station]',kNovo);await A.waitForTimeout(1800);
+await A.selectOption('#scheduleTable tbody tr:not(.grp) select[data-field=station]',kNovo);await A.waitForTimeout(1800);
 T('posto novo salvo na nuvem (config + pessoa)',await A.evaluate(k=>{const c=__db.escalas.find(e=>e.setor==='_config').dados.settings.rules['frente-caixa'].custom;const p=__db.escalas.find(e=>e.setor==='frente-caixa').dados;return c[0].name==='Balcão'&&p.weeks[0].employees.some(e=>e.station===k)},kNovo));
 await A.reload();await A.waitForTimeout(2000);
 T('posto novo continua depois de recarregar',await A.evaluate(k=>POST_NAMES[k]==='Balcão'&&week().employees.some(e=>e.station===k),kNovo));

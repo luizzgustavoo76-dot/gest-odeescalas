@@ -1054,6 +1054,11 @@ function sortValue(e) {
   if (f === 'name') return e.name.toLocaleLowerCase('pt-BR');
   if (f === 'off') return e.offDays.map((k) => DAYS.find((d) => d[0] === k)[2]).join(',');
   if (f === 'hours') return mins(s.end);
+  /* "Por posto": mesma ordem da impressão (posto, entrada, almoço; empate por nome) */
+  if (f === 'station') {
+    const i = postKeys().indexOf(e.station);
+    return (i < 0 ? 99 : i) * 10000000 + mins(s.start) * 2000 + mins(s.lunchStart || '00:00');
+  }
   return f === 'lunch' ? mins(s.lunchStart) : f === 'end' ? mins(s.end) : mins(s.start);
 }
 /* Ao trocar turno/posto direto na tabela, as linhas ficam onde estão (ordemFixa) até o gestor pedir para reordenar. */
@@ -1073,10 +1078,11 @@ function staff() {
   }
   ordemFixa = null;
   const dir = week().sortDirection === 'asc' ? 1 : -1;
-  return [...emps].sort((a, b) =>
-    typeof sortValue(a) === 'number'
-      ? dir * (sortValue(a) - sortValue(b))
-      : dir * String(sortValue(a)).localeCompare(String(sortValue(b)), 'pt-BR'),
+  return [...emps].sort(
+    (a, b) =>
+      (typeof sortValue(a) === 'number'
+        ? dir * (sortValue(a) - sortValue(b))
+        : dir * String(sortValue(a)).localeCompare(String(sortValue(b)), 'pt-BR')) || String(a.name).localeCompare(String(b.name), 'pt-BR'),
   );
 }
 const mark = (f) => (week().sortField === f ? (week().sortDirection === 'asc' ? '↑' : '↓') : '↕');
@@ -1101,6 +1107,8 @@ function render() {
     const sec = sector();
     if (sec.weeks) sec.weeks.forEach((x, k) => x.realizada && !semanaReal(k) && window.afdRealizado && window.afdRealizado.restauraPlano(x));
   }
+  /* uma vez: a ordem padrão da tela passa a ser "por posto" (igual à impressão); quem já tinha escolhido outra ordenação mantém */
+  if (sector().weeks && hasPosts()) sector().weeks.forEach((x) => { if (!x.sortV2) { x.sortV2 = 1; if (x.sortField === 'start') { x.sortField = 'station'; x.sortDirection = 'asc'; } } });
   const w = week(),
     name = SECTORS[state.selectedSector];
   document.getElementById('sectorSelect').value = state.selectedSector;
@@ -1231,7 +1239,7 @@ function heading() {
     ['off', 'Folgas com data'],
     ['hours', 'Limite c/ extras (máx. 1h30)'],
   ];
-  return `<thead><tr>${fields.map(([f, n]) => (f === 'station' ? `<th>${n}</th>` : `<th><button class="sort-button" data-sort="${f}" type="button">${n} <span>${mark(f)}</span></button></th>`)).join('')}</tr></thead>`;
+  return `<thead><tr>${fields.map(([f, n]) => (`<th><button class="sort-button" data-sort="${f}" type="button">${n} <span>${mark(f)}</span></button></th>`)).join('')}</tr></thead>`;
 }
 function row(e) {
   const w = week(),
@@ -1281,7 +1289,22 @@ function renderSchedule() {
   /* quem está fora a semana inteira (férias/atestado) vai para o fim da tabela */
   const L = staff(),
     ordem = [...L.filter((e) => !foraSemana(e)), ...L.filter((e) => foraSemana(e))];
-  document.getElementById('scheduleTable').innerHTML = `${heading()}<tbody>${ordem.map(row).join('')}</tbody>`;
+  /* ordenado "por posto" (padrão): faixa de título para cada posto, igual à impressão */
+  const faixas = hasPosts() && week().sortField === 'station' && !ordemFixa,
+    cols = 7 + (hasPosts() ? 1 : 0),
+    ativas = ordem.filter((e) => !foraSemana(e));
+  let atual = null;
+  const linhas = ordem.map((e) => {
+    if (!faixas || foraSemana(e)) return row(e);
+    let band = '';
+    if (e.station !== atual) {
+      atual = e.station;
+      const n = ativas.filter((x) => x.station === atual).length;
+      band = `<tr class="grp"><td colspan="${cols}">${escape(POST_NAMES[atual] || 'Sem posto')} · ${n} ${n === 1 ? 'pessoa' : 'pessoas'}</td></tr>`;
+    }
+    return band + row(e);
+  });
+  document.getElementById('scheduleTable').innerHTML = `${heading()}<tbody>${linhas.join('')}</tbody>`;
 }
 function renderSunday() {
   const list = sundayWorkers(),
@@ -4115,7 +4138,7 @@ async function buildPrintHtml(autoPrint) {
   const cells = (tr, drop) => [...tr.children].filter((c, k) => !drop.includes(k));
   /* semana: colaboradora, posto, entrada, almoço, saída, folgas (sem Turno e sem Limite c/ extras) */
   const nRows = week().employees.length;
-  const wrowsRaw = [...document.querySelectorAll('#scheduleTable tbody tr')].map((tr) => {
+  const wrowsRaw = [...document.querySelectorAll('#scheduleTable tbody tr:not(.grp)')].map((tr) => {
     const c = [...tr.children];
     c.splice(c.length - 1, 1);
     c.splice(1, 1);

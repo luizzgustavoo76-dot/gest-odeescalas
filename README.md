@@ -407,3 +407,9 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 130 – Sábado só por posto
 - Removido o quadradinho geral "Evitar folga no sábado" da aba Regras: o sábado agora vem marcado em cada posto ("Evitar folga em" → Sáb) e é ajustado por posto. Quem já tinha desligado o geral continua com os postos sem o Sáb até personalizar.
 - Os dias evitados somam-se ao "Movimento esperado por dia" da aba Gerar.
+
+## Build 131 – Prévia igual à impressão
+- A prévia da escala (tela) agora usa a mesma ordem da impressão: **por posto**, depois horário de entrada, almoço e nome, com a **faixa azul de cada posto** ("Operadora Caixa · 4 pessoas"). Vale também no celular (Resumo).
+- Clicar nos títulos das colunas continua ordenando como antes (lista simples, sem faixas); clicar em **Posto** volta ao agrupamento. Quem já tinha escolhido outra ordenação mantém a dela; a ordem padrão antiga (por Entrada) passa para "por posto" uma única vez.
+- Ao trocar turno/posto direto na tabela, as linhas continuam no lugar (aviso "Reordenar agora"), sem faixas até reordenar.
+- Teste: `tests/previa-igual-impressao.js`.
