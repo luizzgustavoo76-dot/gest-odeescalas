@@ -684,7 +684,7 @@ async function generateAll() {
     ' Conformidade: ' +
     (er ? er + ' erro(s)' : 'sem erros') +
     (at ? ', ' + at + ' atenção(ões)' : '') +
-    '. Use "Desfazer última geração" para voltar.';
+    '. Use "Desfazer última alteração em lote" para voltar.';
   render();
   toast(
     'Escala gerada. ' + (er ? er + ' erro(s) de conformidade — veja o painel.' : 'Sem erros de conformidade.'),
@@ -716,7 +716,7 @@ function renderGen() {
   document.getElementById('genPanel').innerHTML =
     `<div class="gen-col"><div class="setting-block"><label>Geração automática (opcional)</label><p class="helper">Nada é gerado sozinho: a escala só muda quando você clicar em "Gerar". Antes, escolha na Semana 1 quem trabalha no domingo. O app monta as 4 semanas deste setor respeitando CLT, EC 141/2026 e CCT.</p></div>
   <button class="button full" id="genRun" type="button">Gerar escala do setor</button>
-  <button class="button outline full" id="genUndo" type="button" ${u ? '' : 'disabled'}>Desfazer última geração${u ? ' (' + short(new Date(u.at)) + ' ' + pad(new Date(u.at).getHours()) + ':' + pad(new Date(u.at).getMinutes()) + ')' : ''}</button>
+  <button class="button outline full" id="genUndo" type="button" ${u ? '' : 'disabled'}>Desfazer última alteração em lote${u ? ' (' + short(new Date(u.at)) + ' ' + pad(new Date(u.at).getHours()) + ':' + pad(new Date(u.at).getMinutes()) + ')' : ''}</button>
   <p class="helper">Substitui as folgas${g.posts ? ', os turnos dos postos' : ''}${hasPdv() ? ' e os números de PDV' : ''}. Mantém nomes e os domingos de semanas que você já preencheu.</p></div>
   ${hasPosts() ? `<div class="gen-col">` : ''}${hasPosts() ? `<div class="setting-block">${hasPdv() ? `<label class="check-row"><input type="checkbox" id="genPdv" ${g.pdv ? 'checked' : ''} /> Distribuir PDVs sem repetir no mesmo dia e horário</label>` : ''}<label class="check-row"><input type="checkbox" id="genPosts" ${g.posts ? 'checked' : ''} /> Aplicar o rodízio de turnos dos postos (vagas cedo/tarde da aba Rodízio)</label></div>` : ''}${hasPosts() ? '</div>' : ''}
   <div class="gen-col"><div class="setting-block"><label>Movimento esperado por dia</label><p class="helper">Como o gerente: dias de mais movimento ficam com menos folgas e a equipe maior. O app distribui as folgas por turno pelo movimento, mantém ao menos metade de cada turno presente e nunca deixa um posto (Fiscal, Recepção, Pacote…) sem ninguém. Vale também para "Sugerir folgas".</p>
@@ -3509,7 +3509,7 @@ function renderCompliance() {
         .join('')
     : '<p class="empty-alert">Nenhuma pendência encontrada nas quatro semanas deste setor.</p>';
   document.getElementById('compliancePanel').innerHTML =
-    `<div class="section-heading"><div><p class="eyebrow">CONFORMIDADE TRABALHISTA</p><h2>CLT, EC 141/2026 e CCT de Campo Mourão</h2><p>${phase}</p></div><span class="tag ${errors ? 'tag-error' : ''}">${errors ? errors + ' erro' + (errors === 1 ? '' : 's') : 'Sem erros'}</span></div>
+    `<div class="section-heading"><div><p class="eyebrow">CONFORMIDADE TRABALHISTA</p><h2>CLT, EC 141/2026 e CCT de Campo Mourão</h2><p>${phase}</p></div><span class="tag ${errors ? 'tag-error' : 'tag-ok'}">${errors ? errors + ' erro' + (errors === 1 ? '' : 's') : 'Sem erros'}</span></div>
   <div class="legal-cards"><div><strong>${hm(dur * days)}</strong><span>Jornada semanal do modelo ${w.model} (limite ${limit}h)</span></div><div><strong>${hm(dur)}</strong><span>Jornada diária${dur > 480 ? ' — acima de 8h, exige compensação em norma coletiva (art. 59 da CLT)' : ''}</span></div><div><strong>${neededOff()}</strong><span>Dia${neededOff() === 1 ? '' : 's'} de folga por semana neste modelo</span></div><div><strong>${hm(dur + EXTRA_MAX)}</strong><span>Jornada máxima por dia com até 1h30 de hora extra (limite legal: 10h)</span></div></div>
   ${state.notice ? `<p class="notice-line">${escape(state.notice + (sector().weeks.some((x) => x.model === '6x1') ? SIX_NOTE : ''))}</p>` : ''}
   <div class="findings">${items}</div>
@@ -4615,7 +4615,7 @@ function painelRecolhivel(secao, botao, chave) {
   if (!secao || !botao) return;
   const set = (c) => {
     secao.classList.toggle('collapsed', c);
-    botao.textContent = c ? 'Expandir configuração ▾' : 'Recolher configuração ▴';
+    botao.textContent = c ? 'Expandir ▾' : 'Recolher ▴';
     botao.setAttribute('aria-expanded', String(!c));
     try {
       localStorage.setItem(chave, c ? '1' : '0');
@@ -4645,7 +4645,7 @@ painelRecolhivel(
     s.classList.toggle('collapsed', c);
     const b = document.getElementById('toggleOff');
     if (b) {
-      b.textContent = c ? 'Expandir configuração ▾' : 'Recolher configuração ▴';
+      b.textContent = c ? 'Expandir ▾' : 'Recolher ▴';
       b.setAttribute('aria-expanded', String(!c));
     }
   };

@@ -395,3 +395,11 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Faixa escura com linha vermelha: logo, setor, navegação de ciclo e, no canto direito, o **menu da conta** (clique no seu nome → Painel ADM, Histórico de alterações, Trocar senha, Sair). Fecha com Esc ou clicando fora.
 - **Ações em uma fila só**, lado a lado: Desfazer/Refazer, Importar planilha…, Conferir ponto (AFD)…, Histórico ponto e Baixar para imprimir (destaque vermelho). No celular a fila rola para o lado dentro do próprio topo.
 - Impressão continua com o cabeçalho claro de sempre. Teste: `tests/topo-menu-conta.js` (os testes que abriam o Painel ADM/Histórico/Sair passaram a abrir o menu primeiro).
+
+## Build 129 – Acabamento dos botões
+- "Completar as 4 semanas" e "Copiar preenchimento completo": título em uma linha e explicação pequena embaixo (antes ficavam coladas); os dois lado a lado.
+- Aba Gerar: espaçamento entre textos de ajuda e controles (Movimento esperado, Avançar para o próximo ciclo).
+- Os "Desfazer" ficaram claros: ↶ ↷ (ícones) = última edição (Ctrl+Z); **"↶ Desfazer em lote"** (topo e aba Gerar) = volta o último Gerar/Completar/Copiar/Importar do setor.
+- Selo da Conformidade mostra "Sem erros" em verde (só fica vermelho quando há erro).
+- "Recolher configuração ▴" virou "Recolher ▴", menor, nos quatro painéis.
+- Rodízio dos postos: botões Aplicar/Limpar com a mesma largura.

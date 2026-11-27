@@ -605,3 +605,16 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
   .topbar .sector-picker{flex:1 1 100%}
   .topbar .sector-picker select{width:100%}
 }
+
+/* ===== acabamento dos botões (build 129) ===== */
+.cfg-btns{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.cfg-btns .button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.25;min-height:52px;text-align:center}
+.cfg-btns .button small{display:block;font-weight:400;font-size:11px;opacity:.85;margin:0}
+.cfg-group .helper{margin:0 0 10px}
+.tab-panel .helper+.mov-grid,.tab-panel .helper+.button,.tab-panel .helper+button,.tab-panel .helper+.number-row{margin-top:10px}
+.mov-grid{margin-top:10px}
+.tag-ok{background:#e4f5ec!important;color:#14845a!important}
+#toggleSettings,#toggleOperators,#toggleBoard,#toggleOff{min-height:34px;padding:0 14px;font-size:12px;font-weight:700;white-space:nowrap}
+#rotationPanel .button.full{width:100%;max-width:420px;display:block;margin-top:8px}
+#toggleSettings,#toggleOperators,#toggleBoard,#toggleOff{width:auto!important;min-width:0!important;flex:none}
+[data-panel="gen"] .button.secondary.full{margin-top:12px}
