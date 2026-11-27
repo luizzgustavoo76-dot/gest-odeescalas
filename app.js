@@ -771,6 +771,16 @@ function avancaCiclo() {
     sec.ciclos = [{ inicio: velho, guardado: new Date().toISOString(), semanas: velhas }, ...(sec.ciclos || [])].slice(0, 6);
     const novas = JSON.parse(JSON.stringify(sec.weeks));
     const curtas = avancaDomingos(velhas, novas);
+    /* rodízio mensal/quinzenal: ao virar o ciclo, a equipe gira para o(s) turno(s) seguinte(s) (sem mexer em turno fixo) */
+    const per = RODIZIO[sec.rodizio] || 1;
+    if (per > 1)
+      novas.forEach((w) => {
+        const S = w.shifts.length,
+          passo = per === 4 ? 1 : 2;
+        w.employees.forEach((e) => {
+          if (e.fixo === undefined && S > 1) e.shift = (e.shift + passo) % S;
+        });
+      });
     novas.forEach((w, wi) =>
       w.employees.forEach((e, i) => {
         const antes = (velhas[wi].employees[i] || {}).sundayWork;
@@ -1084,7 +1094,7 @@ function renderShifts() {
     sundayCard();
 }
 function renderRotation() {
-  document.getElementById('rotationPanel').innerHTML = postsPanel();
+  document.getElementById('rotationPanel').innerHTML = periodoPanel() + postsPanel();
   const ap = document.getElementById('pdvActivePanel');
   if (ap) ap.innerHTML = pdvActivePanel();
   const pp = document.getElementById('pdvPlanPanel');
@@ -1534,6 +1544,14 @@ function shiftForSlot(counts, slot) {
   }
   return counts.length - 1;
 }
+/* período do rodízio de turnos: a cada semana, a cada 2 semanas (quinzenal) ou a cada ciclo de 4 semanas (mensal) */
+const RODIZIO = { semanal: 1, quinzenal: 2, mensal: 4 };
+const rodizioPeriodo = () => (RODIZIO[sector().rodizio] ? sector().rodizio : 'semanal');
+const passoRod = (wi) => Math.floor(wi / RODIZIO[rodizioPeriodo()]);
+function periodoPanel() {
+  const p = rodizioPeriodo();
+  return `<div class="setting-block rodizio-periodo"><label for="rodizioPeriodo">Modelo do rodízio de turnos</label><select id="rodizioPeriodo">${[['semanal', 'Semanal: troca de turno toda semana'], ['quinzenal', 'Quinzenal: troca a cada 2 semanas'], ['mensal', 'Mensal: troca a cada ciclo de 4 semanas']].map(([v, n]) => `<option value="${v}" ${p === v ? 'selected' : ''}>${n}</option>`).join('')}</select><p class="helper">Vale para este setor. ${p === 'semanal' ? 'Cada semana a equipe passa para outro turno.' : p === 'quinzenal' ? 'As semanas 1-2 têm os mesmos turnos e as semanas 3-4 trocam. Ao avançar o ciclo, os turnos giram de novo.' : 'As 4 semanas têm os mesmos turnos; a troca acontece ao avançar para o próximo ciclo.'} Depois de mudar, clique em "Gerar" (aba Gerar) para refazer as 4 semanas.</p></div>`;
+}
 function applyRotation() {
   const source = week(),
     sum = source.rotation.counts.reduce((a, b) => a + b, 0);
@@ -1547,7 +1565,7 @@ function applyRotation() {
     normalizeWeek(target);
     const counts = fittedCounts(source.rotation.counts, target.activeCount, target.shifts.length),
       offset =
-        ((((targetIndex - state.selectedWeek) * counts[0]) % target.activeCount) + target.activeCount) %
+        ((((passoRod(targetIndex) - passoRod(state.selectedWeek)) * counts[0]) % target.activeCount) + target.activeCount) %
         target.activeCount;
     target.rotation = {
       enabled: true,
@@ -1568,7 +1586,7 @@ function applyRotation() {
           n,
           target.shifts.length,
         ),
-        off = ((((targetIndex - state.selectedWeek) * cP[0]) % n) + n) % n;
+        off = ((((passoRod(targetIndex) - passoRod(state.selectedWeek)) * cP[0]) % n) + n) % n;
       pres.forEach((e, index) => (e.shift = shiftForSlot(cP, (index - off + n) % n)));
     }
     sortShifts(target);
@@ -2240,7 +2258,7 @@ function applyPostPlan(silent) {
           step = M === 1 ? 0 : first > 0 && first < M ? first : 1,
           early = mins(state.settings.earlyBefore || '09:00'),
           isLate = (i) => mins(w.shifts[i].start) >= early,
-          assign = all.map((e, j) => ({ e, sh: slots[(j + wi * step) % M] }));
+          assign = all.map((e, j) => ({ e, sh: slots[(j + passoRod(wi) * step) % M] }));
         assign.forEach((a) => {
           if (a.e.restricted && isLate(a.sh)) {
             const o = assign.find((b) => !b.e.restricted && !isLate(b.sh));
@@ -2272,7 +2290,7 @@ function applyPostPlan(silent) {
       const c =
           M === 1
             ? C > 0 && T > 0
-              ? wi % 2 === 0
+              ? passoRod(wi) % 2 === 0
                 ? 1
                 : 0
               : C > 0
@@ -2285,7 +2303,7 @@ function applyPostPlan(silent) {
                 : Math.min(M - 1, Math.max(1, Math.round((M * C) / (C + T)))),
         step = M === 1 ? 0 : c > 0 && c < M ? c : 0;
       const mine = [...Array(c).fill('cedo'), ...Array(M - c).fill('tarde')];
-      const assign = all.map((e, j) => ({ e, per: mine[(j + wi * step) % M] }));
+      const assign = all.map((e, j) => ({ e, per: mine[(j + passoRod(wi) * step) % M] }));
       assign.forEach((a) => {
         if (a.e.restricted && a.per === 'tarde') {
           const o = assign.find((b) => !b.e.restricted && b.per === 'cedo');
@@ -3423,6 +3441,12 @@ document.addEventListener('change', (event) => {
   if (t.id === 'postEarly') {
     if (t.value) state.settings.earlyBefore = t.value;
     render();
+    return;
+  }
+  if (t.id === 'rodizioPeriodo') {
+    sector().rodizio = t.value;
+    render();
+    toast('Rodízio ' + t.value + '. Use "Gerar" para refazer as 4 semanas com esse modelo.', true);
     return;
   }
   if (t.id === 'genShifts') {

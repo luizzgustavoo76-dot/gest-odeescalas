@@ -318,3 +318,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - **Corrigir** também em "domingo sem posto / abaixo do mínimo".
 - Conflito de folgas (Fiscal/Recepção) com folga fixa: o aviso mostra quem está com 🔒 e diz o que fazer.
 - **Cadeado 🔒** ao lado do nome (turno fixo) e nas folgas (folga fixa), na tela, na impressão (folgas) e no WhatsApp (com legenda).
+
+## Build 115
+- Aba **Rodízio**: seletor "Modelo do rodízio de turnos" por setor: **semanal** (troca toda semana), **quinzenal** (semanas 1-2 iguais, 3-4 trocam) ou **mensal** (4 semanas iguais; gira ao avançar o ciclo). Vale para o rodízio dos postos e para "Aplicar rodízio"; ao avançar o ciclo no quinzenal/mensal a equipe gira de turno (turno fixo não gira).
+- Aba **Regras** passou a ser a última.

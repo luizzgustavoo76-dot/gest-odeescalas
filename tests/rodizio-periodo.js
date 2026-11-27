@@ -1,0 +1,27 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const ctx=await b.newContext({viewport:{width:1400,height:900}});const A=await ctx.newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const tabs=await A.evaluate(()=>[...document.querySelectorAll('.tabs .tab')].map(x=>x.dataset.tab));
+T('aba Regras é a última',tabs[tabs.length-1]==='rules',tabs.join(','));
+await A.evaluate(()=>{for(let i=3;i>=0;i--){state.selectedWeek=i;setActive(12)}document.querySelector('[data-tab=rotation]').click()});
+T('seletor de modelo do rodízio aparece',await A.locator('#rodizioPeriodo').count()===1);
+const roda=async p=>{await A.selectOption('#rodizioPeriodo',p);await A.waitForTimeout(200);
+ await A.evaluate(()=>{state.selectedWeek=0;week().rotation.counts=[4,4,4];week().rotation.enabled=true;applyRotation()});
+ return A.evaluate(()=>sector().weeks.map(w=>w.employees[0].shift))};
+const s=await roda('semanal'),q=await roda('quinzenal'),m=await roda('mensal');
+T('semanal: troca toda semana',new Set(s.slice(0,3)).size===3,JSON.stringify(s));
+T('quinzenal: semanas 1-2 iguais, 3-4 iguais e diferentes das primeiras',q[0]===q[1]&&q[2]===q[3]&&q[0]!==q[2],JSON.stringify(q));
+T('mensal: as 4 semanas iguais',new Set(m).size===1,JSON.stringify(m));
+// avançar ciclo gira no mensal
+const ant=await A.evaluate(()=>sector().weeks[0].employees[0].shift);
+await A.evaluate(()=>avancaCiclo());
+const dep=await A.evaluate(()=>sector().weeks.map(w=>w.employees[0].shift));
+T('mensal: ao avançar o ciclo a equipe gira de turno',dep.every(x=>x!==ant)&&new Set(dep).size===1,ant+' -> '+JSON.stringify(dep));
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();
