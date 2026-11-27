@@ -2115,15 +2115,73 @@ function sundayNote(r) {
     'Quem não trabalha no domingo ficou com o domingo de folga.'
   );
 }
+/* CCT: no mínimo 2 domingos de folga por mês e nunca 2 domingos seguidos. Troca o domingo de quem passou disso com quem tem folga sobrando
+   (mesmo posto primeiro, respeitando o mínimo de cada posto). Semanas até `base` (a base que o gestor marcou) não são mexidas. */
+function corrigirDomingos(base = 0) {
+  const weeks = sector().weeks,
+    keep = state.selectedWeek,
+    n = Math.min(...weeks.map((w) => w.employees.length));
+  const works = (wi, i) => !!(weeks[wi].employees[i] && weeks[wi].employees[i].sundayWork),
+    worked = (i) => weeks.filter((_, wi) => works(wi, i)).length,
+    seguido = (i) => weeks.some((_, wi) => wi < weeks.length - 1 && works(wi, i) && works(wi + 1, i)),
+    viola = (i) => worked(i) > 2 || seguido(i);
+  const mudou = new Set(),
+    sem = new Set();
+  let trocas = 0;
+  for (let guard = 0; guard < 300; guard++) {
+    let p = -1;
+    for (let i = 0; i < n; i++) if (!sem.has(i) && viola(i) && (p < 0 || worked(i) > worked(p))) p = i;
+    if (p < 0) break;
+    const muito = worked(p) > 2;
+    let feito = false;
+    for (let wi = weeks.length - 1; wi > base && !feito; wi--) {
+      const w = weeks[wi];
+      if (!works(wi, p) || w.realizada) continue;
+      if (!muito && !(works(wi - 1, p) || works(wi + 1, p))) continue;
+      state.selectedWeek = wi;
+      const sp = w.employees[p].station;
+      const cand = [];
+      for (let q = 0; q < n; q++) {
+        const eq = w.employees[q];
+        if (q === p || works(wi, q) || (eq.folgaFixa && eq.folgaFixa.includes('domingo')) || sundayEligible(q)) continue;
+        if (hasPosts() && eq.station !== sp && w.employees.filter((e) => e.station === sp && e.sundayWork).length - 1 < sundayPostMin(sp)) continue;
+        cand.push(q);
+      }
+      cand.sort((x, y) => (w.employees[x].station === sp ? 0 : 1) - (w.employees[y].station === sp ? 0 : 1) || worked(x) - worked(y) || x - y);
+      if (cand.length) {
+        w.employees[p].sundayWork = false;
+        w.employees[cand[0]].sundayWork = true;
+        mudou.add(wi);
+        trocas++;
+        feito = true;
+      }
+    }
+    if (!feito) sem.add(p);
+  }
+  mudou.forEach((wi) => {
+    state.selectedWeek = wi;
+    balanceOffs(weeks[wi], true);
+  });
+  state.selectedWeek = keep;
+  const restam = [...sem].map((i) => weeks[0].employees[i].name);
+  return { trocas, restam };
+}
+function corrigirNota(c) {
+  return (
+    (c.trocas ? ' Revezei ' + c.trocas + ' domingo' + (c.trocas === 1 ? '' : 's') + ' para ninguém ficar com menos de 2 domingos de folga (CCT). ' : '') +
+    (c.restam.length ? 'Atenção: não deu para garantir 2 domingos de folga para ' + c.restam.join(', ') + ' (o mínimo de domingo está alto para o tamanho da equipe, ou as trocas possíveis conflitam com folga fixa, férias ou posto). ' : '')
+  );
+}
 function suggestOffDays() {
   if (!baseOk()) {
     needBase();
     return;
   }
-  const r = fillSundays();
+  const r = fillSundays(),
+    cd = corrigirDomingos(0);
   r.filled.forEach((wi) => suggestOffFor(sector().weeks[wi]));
   suggestOffFor(week());
-  state.notice = 'Folgas sugeridas nesta semana. ' + sundayNote(r) + MOVE_NOTE;
+  state.notice = 'Folgas sugeridas nesta semana. ' + sundayNote(r) + corrigirNota(cd) + MOVE_NOTE;
   render();
 }
 const SIX_NOTE =
@@ -2133,9 +2191,10 @@ function suggestOffAll() {
     needBase();
     return;
   }
-  const r = fillSundays();
+  const r = fillSundays(),
+    cd = corrigirDomingos(0);
   sector().weeks.forEach((w) => balanceOffs(w, true));
-  state.notice = 'Folgas sugeridas nas 4 semanas. ' + sundayNote(r) + MOVE_NOTE;
+  state.notice = 'Folgas sugeridas nas 4 semanas. ' + sundayNote(r) + corrigirNota(cd) + MOVE_NOTE;
   render();
 }
 /* "Completar as 4 semanas": a Semana 1 é sempre a base. Copia equipe, modelo, PDVs e turnos para as semanas 2-4, escolhe os domingos
@@ -2222,7 +2281,8 @@ async function completarSemanas() {
       e.sundayWork = false;
     });
   });
-  const r = fillSundays(b);
+  const r = fillSundays(b),
+    cd = corrigirDomingos(b);
   weeks.forEach((w, i) => {
     if (i > b || b === 0) balanceOffs(w, true);
   });
@@ -2234,13 +2294,14 @@ async function completarSemanas() {
     (b > 0 ? 'As semanas anteriores não foram alteradas. ' : '') +
     (auto ? 'Os domingos da Semana ' + (b + 1) + ' foram escolhidos pelo app (você pode trocar e clicar de novo). ' : 'Os domingos que você marcou na Semana ' + (b + 1) + ' foram mantidos. ') +
     sundayNote(r) +
+    corrigirNota(cd) +
     MOVE_NOTE;
   render();
   toast(
-    aviso
+    aviso || cd.restam.length
       ? 'Semanas completadas, mas com atenção: confira os avisos de domingo na tela.'
       : 'Pronto: equipe, modelo, PDVs, domingos e folgas ' + (b === 0 ? 'das 4 semanas' : 'das semanas ' + nomes) + ' calculados a partir da Semana ' + (b + 1) + '.',
-    !aviso,
+    !(aviso || cd.restam.length),
   );
 }
 function suggestSundays() {
@@ -2248,12 +2309,14 @@ function suggestSundays() {
     needBase();
     return;
   }
-  const r = fillSundays();
+  const r = fillSundays(),
+    cd = corrigirDomingos(0);
   r.filled.forEach((wi) => suggestOffFor(sector().weeks[wi]));
   const counts = sector().weeks.map((w) => w.employees.filter((e) => e.sundayWork).length),
     min = sundayMin();
   state.notice =
     sundayNote(r) +
+    corrigirNota(cd) +
     ' Colaboradoras por domingo: ' +
     counts.join(' / ') +
     '.' +

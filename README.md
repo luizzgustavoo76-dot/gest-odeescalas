@@ -428,3 +428,8 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 134 — Ignorar inativos há mais de 15 dias na importação do ponto
 - Na etapa "Conferir nomes do ponto", a lista "Bateram ponto e não estão na escala" ganhou a caixinha **Ignorar quem não bate ponto há mais de 15 dias** (vem marcada; a escolha fica lembrada).
 - Conta a partir da última batida do arquivo; quem você já marcou para adicionar nunca some da lista.
+
+## Build 135 — Completar as 4 semanas garante 2 domingos de folga (CCT)
+- "Completar as 4 semanas" (e as sugestões de domingos/folgas) agora revezam os domingos sozinhos: ninguém fica com menos de 2 domingos de folga no mês nem com 2 domingos seguidos.
+- Troca primeiro com alguém do mesmo posto, sem baixar o mínimo de cada posto no domingo, e sem mexer na semana base que você marcou.
+- Quando a equipe não dá conta (mínimo de domingo alto demais, folga fixa, férias), o aviso na tela diz quem ficou de fora.
