@@ -1040,8 +1040,18 @@ window.travaSetor = (k) => {
     render();
   }
 };
+/* semana "realizada" = existe ponto (AFD) guardado para essa data. O que é copiado de outra semana (Copiar, Gerar) não herda a marca. */
+function semanaReal(wi = state.selectedWeek) {
+  const sec = sector(),
+    r = sec.realizado && sec.realizado[iso(date('domingo', wi))];
+  return !!(r && r.cobertos && r.cobertos.length);
+}
 function render() {
   normalize();
+  {
+    const sec = sector();
+    if (sec.weeks) sec.weeks.forEach((x, k) => x.realizada && !semanaReal(k) && window.afdRealizado && window.afdRealizado.restauraPlano(x));
+  }
   const w = week(),
     name = SECTORS[state.selectedSector];
   document.getElementById('sectorSelect').value = state.selectedSector;
@@ -1050,7 +1060,7 @@ function render() {
   document.getElementById('sectorLabel').textContent = 'PAINEL GERENCIAL · ' + name.toUpperCase();
   document.getElementById('mainTitle').textContent = 'Escala semanal · ' + name;
   document.getElementById('settingsTitle').textContent = 'Semana ' + (state.selectedWeek + 1);
-  document.getElementById('weekTitle').textContent = range() + ' · Semana ' + (state.selectedWeek + 1) + (w.realizada ? ' · 🔒 realizada (conforme o ponto)' : '');
+  document.getElementById('weekTitle').textContent = range() + ' · Semana ' + (state.selectedWeek + 1) + (semanaReal() ? ' · 🔒 realizada (conforme o ponto)' : '');
   document.getElementById('activeEmployees').value = w.activeCount;
   document.getElementById('pdvCount').value = w.pdvCount;
   document.getElementById('shiftCount').value = w.shifts.length;
@@ -1112,7 +1122,7 @@ function renderWeekTabs() {
   document.getElementById('periodTabs').innerHTML = [0, 1, 2, 3]
     .map(
       (i) =>
-        `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}${sector().weeks[i] && sector().weeks[i].realizada ? ' 🔒' : ''}<small>${range(i)}</small></button>`,
+        `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}${semanaReal(i) ? ' 🔒' : ''}<small>${range(i)}</small></button>`,
     )
     .join('');
 }
@@ -3453,7 +3463,7 @@ document.addEventListener('change', async (event) => {
   const t = event.target,
     w = week();
   /* semana já realizada (conforme o ponto): só altera com confirmação */
-  if (w.realizada && !w.realizadaLiberada && t.closest && t.closest('#scheduleTable,.operator-card,#shiftsEditor') && (t.dataset.employee !== undefined || t.dataset.shift !== undefined || t.dataset.sunday !== undefined) && t.dataset.field !== 'name') {
+  if (w.realizada && semanaReal() && !w.realizadaLiberada && t.closest && t.closest('#scheduleTable,.operator-card,#shiftsEditor') && (t.dataset.employee !== undefined || t.dataset.shift !== undefined || t.dataset.sunday !== undefined) && t.dataset.field !== 'name') {
     if (!(await askConfirm('Esta semana já aconteceu (conforme o ponto do relógio). Alterar mesmo assim? O que foi realizado deixa de valer nesta semana.'))) {
       render();
       return;

@@ -54,5 +54,9 @@ T('cancelar mantém o realizado',await A.evaluate(()=>week().employees[0].shift=
 await setBase('2026-11-29');
 const el=await A.evaluate(()=>{state.selectedWeek=0;return sundayEligible(0)});
 T('rodízio de domingo: quem trabalhou o domingo anterior (pelo ponto) não repete',/anterior/.test(el),String(el));
+// copiar a semana 1 (realizada) para as outras não pode marcá-las como realizadas
+await A.evaluate(()=>{state.selectedWeek=0;sector().weeks[2]=JSON.parse(JSON.stringify(sector().weeks[0]));sector().weeks[3]=JSON.parse(JSON.stringify(sector().weeks[0]));render()});
+await A.evaluate(()=>{state.selectedWeek=2;render()});
+T('semana futura copiada NÃO aparece como realizada',await A.evaluate(()=>!/realizada/.test(document.getElementById('weekTitle').textContent)&&![...document.querySelectorAll('.period-tab')].some(b=>/🔒/.test(b.textContent)&&b.dataset.week==='2')));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

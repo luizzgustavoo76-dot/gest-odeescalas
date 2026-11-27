@@ -356,3 +356,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Editar semana realizada pede confirmação (e libera só aquela semana).
 - Rodízio de domingo: quem trabalhou o domingo anterior (pelo ponto) não repete.
 - Testes: `afd-realizado-semanas.js`.
+
+## Build 121
+- Corrige: semanas futuras copiadas (Copiar/Gerar) apareciam como "realizadas". A marca agora é calculada pelo ponto guardado daquela data, não herdada.
