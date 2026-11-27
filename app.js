@@ -1527,7 +1527,7 @@ function fixBtn(f, text) {
   if (!f) return '';
   const id = 'f' + ++fixSeq;
   FIXES[id] = { ...f, text };
-  const dica = { restritas: 'Move quem tem restrição para o turno mais cedo', domingoHora: 'Ajusta o horário do domingo para o limite', folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo' }[f.k] || '';
+  const dica = { restritas: 'Move quem tem restrição para o turno mais cedo', domingoHora: 'Ajusta o horário do domingo para o limite', folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo', domingosCct: 'Troca o domingo com quem tem folga sobrando (mesmo posto primeiro), garantindo 2 domingos de folga para todos' }[f.k] || '';
   return ` <button type="button" class="fix-btn" data-fix="${id}" title="${escape(dica)}">Corrigir</button>`;
 }
 function aplicaCorrecao(id) {
@@ -1541,6 +1541,13 @@ function aplicaCorrecao(id) {
     [sel]: { at: new Date().toISOString(), weeks: clone(sector().weeks), roster: clone((state.roster && state.roster[sel]) || []) },
   };
   normalizeWeek(w);
+  if (f.k === 'domingosCct') {
+    const c = corrigirDomingos(0);
+    render();
+    if (c.restam.length) toast('Corrigi o que deu' + (c.trocas ? ' (' + c.trocas + ' troca' + (c.trocas === 1 ? '' : 's') + ')' : '') + ', mas não consegui garantir 2 domingos de folga para ' + c.restam.join(', ') + ': o mínimo de domingo está alto para a equipe, ou as trocas batem em folga fixa, férias ou posto. Ajuste à mão (ou use Desfazer).');
+    else toast('Corrigido: ' + c.trocas + ' domingo' + (c.trocas === 1 ? '' : 's') + ' revezado' + (c.trocas === 1 ? '' : 's') + ' e folgas recalculadas. Se não gostou, use Desfazer.', true);
+    return;
+  }
   if (f.k === 'folgas') balanceOffs(w, false);
   else if (f.k === 'almoco') autoLunch(w, f.wi, 0);
   else if (f.k === 'domingo') {
@@ -3525,6 +3532,7 @@ function compliance() {
           (offs === 1 ? '' : 's') +
           ' de folga nas 4 semanas; a CCT exige no mínimo 2 por mês.',
         all,
+        'domingosCct',
       );
     for (let k = 0; k < flags.length - 1; k++)
       if (flags[k] && flags[k + 1])
@@ -3542,6 +3550,7 @@ function compliance() {
             short(date('domingo', k + 1)) +
             '). Não é permitido repetir domingo: a CCT e o art. 386 da CLT pedem revezamento.',
           [k, k + 1],
+          'domingosCct',
         );
     let run = 0,
       startDay = 0;

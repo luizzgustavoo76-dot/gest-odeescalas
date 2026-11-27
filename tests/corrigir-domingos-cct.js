@@ -25,5 +25,12 @@ const ask=await A.$('.ask-actions [data-a="1"]');if(ask){await A.click('.ask-act
 T('Completar as 4 semanas não deixa ninguém com menos de 2 domingos de folga',(await chk()).length===0,(await chk()).join(' | '));
 const erros=await A.evaluate(()=>compliance().filter(x=>/só tem|domingos seguidos/.test(x.text)&&x.level==='erro').map(x=>x.text));
 T('painel sem erro de mínimo de 2 domingos de folga nem domingos seguidos',erros.length===0,erros.join(' | '));
+// 3) botão Corrigir no aviso do painel
+await A.evaluate(()=>{const ws=sector().weeks;ws.forEach(w=>w.employees.forEach(e=>e.sundayWork=false));[[0,1,2,3],[0,4,5,6],[0,7,8,9],[1,2,10,11]].forEach((l,wi)=>l.forEach(i=>ws[wi].employees[i].sundayWork=true));render()});
+const btn=await A.$$eval('.finding',els=>els.filter(x=>/só tem 1 domingo|dois domingos seguidos/.test(x.innerText)).map(x=>!!x.querySelector('.fix-btn')));
+T('aviso de domingo da CCT tem botão Corrigir',btn.length>0&&btn.every(Boolean),JSON.stringify(btn));
+await A.evaluate(()=>{const f=[...document.querySelectorAll('.finding')].find(x=>/só tem 1 domingo|dois domingos seguidos/.test(x.innerText));f.querySelector('.fix-btn').click()});await A.waitForTimeout(400);
+T('clicar em Corrigir resolve os avisos',(await chk()).length===0&&!(await A.evaluate(()=>compliance().some(x=>/só tem|domingos seguidos/.test(x.text)))),(await chk()).join(' | '));
+T('Desfazer fica disponível',await A.evaluate(()=>!!(state.undo&&state.undo[state.selectedSector])));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

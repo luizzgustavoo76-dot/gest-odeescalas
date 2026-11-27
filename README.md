@@ -433,3 +433,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - "Completar as 4 semanas" (e as sugestões de domingos/folgas) agora revezam os domingos sozinhos: ninguém fica com menos de 2 domingos de folga no mês nem com 2 domingos seguidos.
 - Troca primeiro com alguém do mesmo posto, sem baixar o mínimo de cada posto no domingo, e sem mexer na semana base que você marcou.
 - Quando a equipe não dá conta (mínimo de domingo alto demais, folga fixa, férias), o aviso na tela diz quem ficou de fora.
+
+## Build 136 — Botão "Corrigir" nos avisos de domingo da CCT
+- Os avisos "só tem 1 domingo de folga nas 4 semanas" e "escalada em dois domingos seguidos" no painel de conformidade ganharam o botão **Corrigir**: reveza os domingos (mesmo posto primeiro, respeitando o mínimo de cada posto, folga fixa e férias) e recalcula as folgas. Dá para voltar com Desfazer.
