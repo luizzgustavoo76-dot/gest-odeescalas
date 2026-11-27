@@ -762,6 +762,7 @@ function avancaDomingos(velhas, novas) {
   return curtas;
 }
 function avancaCiclo() {
+  if (window.afdRealizado) window.afdRealizado.restauraTodos();
   const velho = state.baseMonday,
     sel = state.selectedSector,
     avisos = [];
@@ -806,6 +807,7 @@ function avancaCiclo() {
   );
 }
 function voltaCiclo(ini) {
+  if (window.afdRealizado) window.afdRealizado.restauraTodos();
   const atual = state.baseMonday;
   Object.keys(state.sectors).forEach((sk) => {
     const sec = state.sectors[sk],
@@ -1048,7 +1050,7 @@ function render() {
   document.getElementById('sectorLabel').textContent = 'PAINEL GERENCIAL · ' + name.toUpperCase();
   document.getElementById('mainTitle').textContent = 'Escala semanal · ' + name;
   document.getElementById('settingsTitle').textContent = 'Semana ' + (state.selectedWeek + 1);
-  document.getElementById('weekTitle').textContent = range() + ' · Semana ' + (state.selectedWeek + 1);
+  document.getElementById('weekTitle').textContent = range() + ' · Semana ' + (state.selectedWeek + 1) + (w.realizada ? ' · 🔒 realizada (conforme o ponto)' : '');
   document.getElementById('activeEmployees').value = w.activeCount;
   document.getElementById('pdvCount').value = w.pdvCount;
   document.getElementById('shiftCount').value = w.shifts.length;
@@ -1110,7 +1112,7 @@ function renderWeekTabs() {
   document.getElementById('periodTabs').innerHTML = [0, 1, 2, 3]
     .map(
       (i) =>
-        `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}<small>${range(i)}</small></button>`,
+        `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}${sector().weeks[i] && sector().weeks[i].realizada ? ' 🔒' : ''}<small>${range(i)}</small></button>`,
     )
     .join('');
 }
@@ -3447,9 +3449,17 @@ function renderCompliance() {
   <li>Fontes: <a href="https://crn1.com.br/2026/10/sindiempresarial-fecha-convencoes-coletivas-com-reajuste-de-55-e-define-horarios-do-comercio-ate-2027" target="_blank" rel="noopener">CRN1</a>, <a href="https://www.tribunadointerior.com.br/campo-mourao/convencoes-do-comercio-definem-novos-salarios-e-horarios-de-fim-de-ano/" target="_blank" rel="noopener">Tribuna do Interior</a>, <a href="https://www12.senado.leg.br/noticias/materias/2026/10/16/congresso-promulga-o-fim-da-escala-6x1-e-aposentadoria-de-agentes-de-saude" target="_blank" rel="noopener">Agência Senado</a>.</li></ul></details>`;
 }
 
-document.addEventListener('change', (event) => {
+document.addEventListener('change', async (event) => {
   const t = event.target,
     w = week();
+  /* semana já realizada (conforme o ponto): só altera com confirmação */
+  if (w.realizada && !w.realizadaLiberada && t.closest && t.closest('#scheduleTable,.operator-card,#shiftsEditor') && (t.dataset.employee !== undefined || t.dataset.shift !== undefined || t.dataset.sunday !== undefined) && t.dataset.field !== 'name') {
+    if (!(await askConfirm('Esta semana já aconteceu (conforme o ponto do relógio). Alterar mesmo assim? O que foi realizado deixa de valer nesta semana.'))) {
+      render();
+      return;
+    }
+    w.realizadaLiberada = true;
+  }
   if (t.id === 'sectorSelect') {
     state.selectedSector = t.value;
     render();
@@ -3510,7 +3520,8 @@ document.addEventListener('change', (event) => {
     return;
   }
   if (t.id === 'weekStart') {
-    state.baseMonday = monday(t.value);
+    if (window.afdRealizado) window.afdRealizado.troca(monday(t.value));
+    else state.baseMonday = monday(t.value);
     render();
     return;
   }
@@ -4307,6 +4318,12 @@ function sundayEligible(i) {
   if (au) return 'de ' + (AUS_TIPOS[au.tipo] || 'afastamento').toLowerCase();
   const works = (x) => !!(weeks[x] && weeks[x].employees[i] && weeks[x].employees[i].sundayWork);
   if (works(wi - 1)) return 'trabalhou o domingo anterior';
+  {
+    const sec = sector(),
+      ant = sec.realizado && sec.realizado[iso(date('domingo', wi - 1))],
+      pp = ant && ant.pessoas[e.name];
+    if (pp && pp[iso(date('domingo', wi - 1))] && pp[iso(date('domingo', wi - 1))].length) return 'trabalhou o domingo anterior (ponto)';
+  }
   if (works(wi + 1)) return 'trabalha o próximo domingo';
   if (weeks.filter((_, x) => works(x)).length >= 2) return 'já tem 2 domingos no mês';
   if (e.restricted && sundayPlan(w).en > 1080) return 'restrição: domingo termina após as 18h';

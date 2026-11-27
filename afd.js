@@ -336,14 +336,10 @@
       msg += 'Dá para desfazer depois.';
       if (!(await askConfirm(msg))) return;
       snapDesfazer();
-      plano.semanas.forEach((s) =>
-        s.mudancas.forEach((m) => {
-          if (m.shift !== null) m.e.shift = m.shift;
-          if (m.dom !== null) m.e.sundayWork = m.dom;
-          if (m.offs) m.e.offDays = m.offs;
-        }),
-      );
       const n = guardaHistorico(afd);
+      guardaRealizado(afd);
+      sector().weeks.forEach(normalizeWeek);
+      aplicaRealizado();
       render();
       toast('Ponto importado: ' + nMud + ' ajuste(s) na escala · histórico com ' + n + ' dia(s).', true);
     } catch (e) {
@@ -375,4 +371,119 @@
   window.afdHistorico = historico;
   window.afdPlanejar = planejar;
   document.addEventListener('click', (ev) => ev.target.closest && ev.target.closest('#histPontoBtn') && historico());
+
+  /* ===== semanas realizadas: o que o ponto mostra substitui o plano naquela data; o plano fica guardado ===== */
+  const REAL_MAX_DIAS = 120;
+  const diaKey = (S, d) => {
+    const diff = Math.round((new Date(d + 'T12:00:00') - new Date(S + 'T12:00:00')) / 864e5);
+    const x = DAYS.find((k) => k[2] === diff);
+    return x ? x[0] : null;
+  };
+  function guardaRealizado(afd) {
+    const sec = sector(),
+      emps = sec.weeks[0].employees,
+      R = sec.realizado && typeof sec.realizado === 'object' ? sec.realizado : {},
+      pisPorNome = {};
+    Object.keys(afd.names).forEach((pis) => {
+      const e = acha(afd.names[pis], emps);
+      if (e) (pisPorNome[e.name] = pisPorNome[e.name] || []).push(pis);
+    });
+    const comPonto = new Set();
+    Object.values(afd.punches).forEach((o) => Object.keys(o).forEach((p) => comPonto.add(p)));
+    afd.dias.forEach((d) => {
+      const S = monday(d),
+        r = (R[S] = R[S] || { cobertos: [], pessoas: {} });
+      if (!r.cobertos.includes(d)) r.cobertos.push(d);
+      Object.entries(pisPorNome).forEach(([nome, pl]) => {
+        if (!pl.some((p) => comPonto.has(p))) return;
+        const v = pl.map((p) => (afd.punches[d] || {})[p]).find(Boolean) || [];
+        (r.pessoas[nome] = r.pessoas[nome] || {})[d] = v;
+      });
+    });
+    const ks = Object.keys(R).sort();
+    ks.slice(0, Math.max(0, ks.length - Math.ceil(REAL_MAX_DIAS / 7))).forEach((k) => delete R[k]);
+    sec.realizado = R;
+  }
+  function restauraPlano(w) {
+    if (w.realizada && w.planoAntes) w.employees.forEach((e, i) => w.planoAntes[i] && Object.assign(e, { shift: w.planoAntes[i].shift, sundayWork: w.planoAntes[i].sundayWork, offDays: [...w.planoAntes[i].offDays] }));
+    delete w.planoAntes;
+    delete w.realizada;
+    delete w.realizadaLiberada;
+  }
+  function aplicaRealizado() {
+    const sec = sector();
+    sec.weeks.forEach((w, wi) => {
+      const S = iso(date('domingo', wi)),
+        r = sec.realizado && sec.realizado[S];
+      if (!r) {
+        if (w.realizada) restauraPlano(w);
+        return;
+      }
+      if (!w.realizada) {
+        w.planoAntes = w.employees.map((e) => ({ shift: e.shift, sundayWork: !!e.sundayWork, offDays: [...e.offDays] }));
+        w.realizada = true;
+      }
+      w.employees.forEach((e) => {
+        const p = r.pessoas[e.name];
+        if (!p) return;
+        const dias = Object.keys(p);
+        const firsts = dias.filter((d) => d !== S && p[d].length).map((d) => p[d][0]);
+        if (firsts.length && e.fixo === undefined && !ausente(e, 'segunda', wi)) {
+          const f = mediana(firsts);
+          let best = e.shift,
+            bd = 1e9;
+          w.shifts.forEach((sh, j) => {
+            const dd = Math.abs(mins(sh.start) - f);
+            if (dd < bd) ((bd = dd), (best = j));
+          });
+          if (bd <= 90) e.shift = best;
+        }
+        if (p[S] !== undefined && !ausente(e, 'domingo', wi) && !closedDay('domingo', wi)) e.sundayWork = p[S].length > 0;
+        if (!e.folgaFixa) {
+          const cov = [],
+            offs = [];
+          dias.forEach((d) => {
+            const k = diaKey(S, d);
+            if (!k || k === 'domingo') return;
+            cov.push(k);
+            if (!p[d].length && !ausente(e, k, wi) && !closedDay(k, wi)) offs.push(k);
+          });
+          const lim = offLimit(e, w.model);
+          e.offDays = [...new Set([...offs, ...e.offDays.filter((x) => !cov.includes(x))])].slice(0, Math.max(lim, 0));
+        }
+      });
+    });
+  }
+  function restauraTodos() {
+    Object.values(state.sectors).forEach((sec) => sec && sec.weeks && sec.weeks.forEach(restauraPlano));
+  }
+  function troca(novo) {
+    const velho = state.baseMonday;
+    if (novo === velho) return;
+    const tem = Object.values(state.sectors).some((x) => x && x.realizado && Object.keys(x.realizado).length);
+    if (!tem) {
+      state.baseMonday = novo;
+      return;
+    }
+    const orig = state.selectedSector;
+    Object.keys(state.sectors).forEach((k) => {
+      const sec = state.sectors[k];
+      if (!sec || !sec.weeks) return;
+      sec.weeks.forEach(restauraPlano);
+      sec.planos = sec.planos || {};
+      sec.planos[velho] = clone(sec.weeks);
+      if (sec.planos[novo]) sec.weeks = clone(sec.planos[novo]);
+      const ks = Object.keys(sec.planos).sort();
+      ks.slice(0, Math.max(0, ks.length - 8)).forEach((x) => delete sec.planos[x]);
+    });
+    state.baseMonday = novo;
+    Object.keys(state.sectors).forEach((k) => {
+      if (!state.sectors[k] || !state.sectors[k].weeks) return;
+      state.selectedSector = k;
+      state.sectors[k].weeks.forEach(normalizeWeek);
+      aplicaRealizado();
+    });
+    state.selectedSector = orig;
+  }
+  window.afdRealizado = { guardaRealizado, aplicaRealizado, restauraTodos, troca, restauraPlano };
 })();

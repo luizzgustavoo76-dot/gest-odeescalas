@@ -348,3 +348,11 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - **Resumo por colaboradora no celular:** em vez da tabela larga, um cartão por colaboradora (rótulo à esquerda, valor à direita; vermelho nos problemas).
 - **Corrigir nos alertas de Conformidade:** agora também nos alertas de almoço (fora da jornada / mais de 6h seguidas), de estudante/mãe escalada após 18h (move para o turno mais cedo) e de horário do domingo (ajusta ao limite ou refaz o padrão). Todos com Desfazer.
 - Teste: `corrigir-restritas-domingo.js`.
+
+## Build 120 – Semanas realizadas (AFD)
+- Ao importar o AFD, o app guarda por data (`sector.realizado`) o que o ponto mostrou de cada pessoa da equipe: turno, domingo trabalhado e folgas reais.
+- As semanas cobertas pelo ponto viram **realizadas** (🔒 no título e na aba da semana) e mostram o que aconteceu. O plano anterior fica guardado (`planoAntes`) e volta se a data deixar de ter dado.
+- **Domingo de referência:** ao mudar a data, o plano de cada ciclo é guardado (`sector.planos`, até 8) e a escala daquele ciclo volta ao retornar; semanas com ponto mostram o realizado. Sem nenhum dado de ponto, o comportamento é o de antes (só muda as datas).
+- Editar semana realizada pede confirmação (e libera só aquela semana).
+- Rodízio de domingo: quem trabalhou o domingo anterior (pelo ponto) não repete.
+- Testes: `afd-realizado-semanas.js`.

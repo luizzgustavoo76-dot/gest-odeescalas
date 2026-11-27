@@ -1,0 +1,58 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const ctx=await b.newContext({viewport:{width:1400,height:900}});const A=await ctx.newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const info=await A.evaluate(()=>{setActive(12);const w=week();w.employees.forEach(e=>{e.offDays=['sexta'];e.sundayWork=false;e.shift=0});
+ roster()[0].name='Maria da Silva';roster()[1].name='Joana Souza';roster()[2].name='Ana Pereira';render();
+ const st=w.shifts.map(s=>s.start);return {seg:iso(date('segunda',0)),ter:iso(date('terça',0)),dom:iso(date('domingo',0)),st}});
+const pad=(s,n)=>String(s).padEnd(n,' ');let nsr=0;const L=[];
+const fmt=i=>{const [y,m,d]=i.split('-');return {y,m,d}};
+const emp=(i,pis,nome)=>{const {y,m,d}=fmt(i);nsr++;L.push(String(nsr).padStart(9,'0')+'5'+d+m+y+'0800'+'I'+pis+pad(nome,52))};
+const bat=(i,pis,hhmm)=>{const {y,m,d}=fmt(i);nsr++;L.push(String(nsr).padStart(9,'0')+'3'+d+m+y+hhmm+pis)};
+emp(info.seg,'000000000001','MARIA DA SILVA');emp(info.seg,'000000000002','JOANA SOUZA');emp(info.seg,'000000000009','FULANA DE TAL');
+const ini=info.st[1].replace(':','');
+// Maria: segunda e terça no 3º turno, domingo trabalhado. Joana: só terça (folga segunda). Ana: não bateu nada (mas é só 2 pessoas de 3 -> folga ambas dias)
+[info.seg,info.ter].forEach(d=>['1'].forEach(()=>[ini,'1200','1400','1900'].forEach(h=>bat(d,'000000000001',h))));
+[ini,'1200','1400','1900'].forEach(h=>bat(info.ter,'000000000002',h));
+bat(info.seg,'000000000009','0800');
+['0800','1200'].forEach(h=>bat(info.dom,'000000000001',h));
+fs.writeFileSync('/tmp/afd-imp.txt',L.join('\r\n')+'\r\n');
+await A.evaluate(()=>{window.__conf=[];});
+// aceita a confirmação
+A.on('dialog',d=>d.accept());
+await A.setInputFiles('#xlsxFile','/tmp/afd-imp.txt');await A.waitForTimeout(500);
+const ask=await A.evaluate(()=>document.querySelector('.ask-box p')?document.querySelector('.ask-box p').innerText:'');
+T('pede confirmação com resumo',/Arquivo do ponto/.test(ask)&&/FULANA DE TAL/.test(ask),ask.slice(0,160));
+await A.click('.ask-actions [data-a="1"]');await A.waitForTimeout(500);
+const r=await A.evaluate(()=>{const w=week(),e=w.employees;return {m:e[0].shift,md:e[0].sundayWork,j:e[1].shift,jo:e[1].offDays,a:e[2].shift,hist:Object.keys(sector().ponto||{}).length,nomes:Object.keys((sector().ponto||{})[Object.keys(sector().ponto)[0]]||{})}});
+T('Maria foi para o 2º turno',r.m===1,JSON.stringify(r));
+T('Maria trabalhou domingo',r.md===true);
+T('Joana folgou segunda',r.jo.includes('segunda'),JSON.stringify(r.jo));
+T('Ana (sem batida) não mudou de turno',r.a===0);
+T('histórico guardado',r.hist===3,String(r.hist));
+T('fulana fora da equipe não entra no histórico',!r.nomes.includes('FULANA DE TAL'));
+
+T('semana 1 virou realizada (🔒 no título)',await A.evaluate(()=>week().realizada===true&&/realizada/.test(document.getElementById('weekTitle').textContent)));
+const setBase=async(v)=>{await A.evaluate((v)=>{const i=document.getElementById('weekStart');i.value=v;i.dispatchEvent(new Event('change',{bubbles:true}))},v);await A.waitForTimeout(400)};
+await setBase('2026-11-15');
+const r3=await A.evaluate(()=>({base:state.baseMonday,w0:!!sector().weeks[0].realizada,w1:!!sector().weeks[1].realizada,m1:sector().weeks[1].employees[0].shift,m0:sector().weeks[0].employees[0].shift}));
+T('voltando um domingo: a semana de 22/11 continua realizada, a de 15/11 não',r3.base==='2026-11-15'&&!r3.w0&&r3.w1,JSON.stringify(r3));
+T('a semana realizada traz o turno do ponto',r3.m1===1,JSON.stringify(r3));
+await setBase('2026-11-22');
+const r4=await A.evaluate(()=>({base:state.baseMonday,w0:!!week().realizada,m:sector().weeks[0].employees[0].shift,g:state.sectors[state.selectedSector].planos&&Object.keys(state.sectors[state.selectedSector].planos)}));
+T('ao voltar, a semana 1 está realizada de novo',r4.base==='2026-11-22'&&r4.w0&&r4.m===1,JSON.stringify(r4));
+// editar semana realizada pede confirmação
+await A.evaluate(()=>{const s=document.querySelector('#scheduleTable select[data-field="shift"]');s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}))});await A.waitForTimeout(300);
+T('editar semana realizada pede confirmação',await A.evaluate(()=>!!document.querySelector('.ask-box')));
+await A.click('.ask-actions [data-a="0"]');await A.waitForTimeout(200);
+T('cancelar mantém o realizado',await A.evaluate(()=>week().employees[0].shift===1));
+await setBase('2026-11-29');
+const el=await A.evaluate(()=>{state.selectedWeek=0;return sundayEligible(0)});
+T('rodízio de domingo: quem trabalhou o domingo anterior (pelo ponto) não repete',/anterior/.test(el),String(el));
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();
