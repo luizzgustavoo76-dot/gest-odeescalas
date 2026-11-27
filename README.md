@@ -420,3 +420,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
   - **Bateram ponto e não estão na escala**: busca e marca quem é do setor, escolhe o posto e adiciona na equipe (nas 4 semanas). Quem já está na equipe de outros setores não aparece.
 - Reconhecimento automático melhorado: nome do relógio cortado (30 letras), 1–2 letras trocadas (ex.: Siqueira/Sioueira) e nome curto na escala (ex.: "Joana Real" → JOANA REAL DA SILVA) quando só há um candidato. Nomes de pessoas parecidas (ex.: Jeslon/Jeslyn) não são confundidos, e dois "Alan" no ponto pedem escolha.
 - Tudo desfaz com "Desfazer em lote" (inclui nomes e pessoas adicionadas). Testes: `tests/afd-conferir-nomes.js` (+ ajuste dos testes de importação).
+
+## Build 133 — Trocar turno não volta para a prévia antiga
+- Ao trocar o turno de alguém na tabela, as faixas por posto continuam aparecendo (a linha fica no lugar e aparece "Reordenar agora").
+- Ao trocar o posto, a pessoa vai direto para a faixa do novo posto.

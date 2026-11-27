@@ -21,8 +21,19 @@ await A.click('#scheduleTable [data-sort=name]');await A.waitForTimeout(200);
 T('ordenar por Colaboradora volta à lista simples',!(await ord()).some(x=>x[0]==='#'));
 await A.click('#scheduleTable [data-sort=station]');await A.waitForTimeout(200);
 T('clicar em Posto volta ao agrupamento',(await ord()).filter(x=>x[0]==='#').length===4);
-// trocar posto na tela: linha fica no lugar (ordem congelada, sem faixas novas)
-await A.selectOption('#scheduleTable tbody tr:not(.grp) select[data-field=station]','pacote').catch(()=>{});await A.waitForTimeout(300);
+// trocar o TURNO de alguém na tela: continua com as faixas (não volta à prévia antiga) e a linha fica no lugar
+const antesOrd=await ord();
+await A.selectOption('#scheduleTable tbody tr:not(.grp) select[data-field=shift]','2');await A.waitForTimeout(300);
+const depOrd=await ord();
+T('trocar o turno mantém as faixas de posto',depOrd.filter(x=>x[0]==='#').length===4,depOrd.filter(x=>x[0]==='#').join(' | '));
+T('trocar o turno mantém a linha no lugar',JSON.stringify(depOrd.map(x=>x))===JSON.stringify(antesOrd.map(x=>x)));
+T('aparece o aviso "Reordenar agora"',!!(await A.$('#reordenarBtn')));
+await A.click('#reordenarBtn');await A.waitForTimeout(300);
+T('Reordenar agora recoloca por horário dentro do posto',(await ord()).filter(x=>x[0]==='#').length===4&&!(await A.$('#reordenarBtn')));
+// trocar o POSTO: a pessoa vai para a faixa do novo posto
+await A.selectOption('#scheduleTable tbody tr:not(.grp) select[data-field=station]','pacote');await A.waitForTimeout(300);
+const o3=await ord();
+T('trocar o posto leva a pessoa para a faixa do novo posto',o3.filter(x=>x[0]==='#').length===4&&/Pacote · 4 pessoas/.test(o3.join('|')),o3.filter(x=>x[0]==='#').join(' | '));
 T('sem erros de página',errs.length===0,errs.join(';'));
 // impressão ignora as faixas da tela
 const html=await A.evaluate(()=>typeof buildPrintHtml==='function'?buildPrintHtml('week'):'');

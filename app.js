@@ -1290,7 +1290,7 @@ function renderSchedule() {
   const L = staff(),
     ordem = [...L.filter((e) => !foraSemana(e)), ...L.filter((e) => foraSemana(e))];
   /* ordenado "por posto" (padrão): faixa de título para cada posto, igual à impressão */
-  const faixas = hasPosts() && week().sortField === 'station' && !ordemFixa,
+  const faixas = hasPosts() && week().sortField === 'station',
     cols = 7 + (hasPosts() ? 1 : 0),
     ativas = ordem.filter((e) => !foraSemana(e));
   let atual = null;
@@ -1299,7 +1299,10 @@ function renderSchedule() {
     let band = '';
     if (e.station !== atual) {
       atual = e.station;
-      const n = ativas.filter((x) => x.station === atual).length;
+      /* com a ordem congelada (após trocar turno) cada trecho seguido do mesmo posto tem a sua faixa */
+      const k = ativas.indexOf(e);
+      let n = 0;
+      while (ativas[k + n] && ativas[k + n].station === atual) n++;
       band = `<tr class="grp"><td colspan="${cols}">${escape(POST_NAMES[atual] || 'Sem posto')} · ${n} ${n === 1 ? 'pessoa' : 'pessoas'}</td></tr>`;
     }
     return band + row(e);
@@ -3858,7 +3861,9 @@ document.addEventListener('change', async (event) => {
       );
       return;
     }
-    if ((f === 'shift' || f === 'station') && t.classList.contains('tbl-sel')) congelaOrdem();
+    /* turno: a linha fica no lugar (aviso "Reordenar agora"); posto: a linha já vai para a faixa do novo posto */
+    if (f === 'shift' && t.classList.contains('tbl-sel')) congelaOrdem();
+    else if (f === 'station' && t.classList.contains('tbl-sel')) soltaOrdem();
     if (f === 'shift') e.shift = +t.value;
     else if (f === 'station') {
       if (POST_NAMES[t.value]) {
