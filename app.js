@@ -4051,21 +4051,58 @@ async function buildPrintHtml(autoPrint) {
   const cells = (tr, drop) => [...tr.children].filter((c, k) => !drop.includes(k));
   /* semana: colaboradora, posto, entrada, almoço, saída, folgas (sem Turno e sem Limite c/ extras) */
   const nRows = week().employees.length;
-  const wrows = [...document.querySelectorAll('#scheduleTable tbody tr')].map((tr) => {
+  const wrowsRaw = [...document.querySelectorAll('#scheduleTable tbody tr')].map((tr) => {
     const c = [...tr.children];
     c.splice(c.length - 1, 1);
     c.splice(1, 1);
-    return c.map((td, k) => {
+    const cells2 = c.map((td, k) => {
       const v = td.dataset.print !== undefined ? td.dataset.print : td.innerHTML;
       if (k === c.length - 1 && td.dataset.ei !== undefined && week().employees[+td.dataset.ei]) return chipsPrint(week().employees[+td.dataset.ei], nRows > 14);
       return k === c.length - 1 ? year(v) : k === 0 ? (tr.classList.contains('aus-row') ? '<span style="color:#b91c1c">' + esc(td.textContent.trim()) + '</span>' : esc(td.textContent.trim())) : v;
     });
+    const last = c[c.length - 1];
+    cells2.ei = last && last.dataset.ei !== undefined ? +last.dataset.ei : -1;
+    return cells2;
   });
+  /* ordem da impressão: 1º por posto (todo mundo do posto junto), 2º por horário de entrada, depois nome; cada posto com uma faixa de título */
+  const postOrder = (k) => {
+    const i = postKeys().indexOf(k);
+    return i < 0 ? 99 : i;
+  };
+  const ordena = (rows, wk) => {
+    const emps = week().employees,
+      key = (r) => {
+        const e = emps[r.ei];
+        if (!e) return [99, 9999, ''];
+        const s = week().shifts[e.shift];
+        return [posts ? postOrder(e.station) : 0, s ? mins(s.start) * 2000 + mins(s.lunchStart || '00:00') : 9999 * 2000, e.name];
+      };
+    const out = [...rows].sort((x, y) => {
+      const p = key(x),
+        q = key(y);
+      return p[0] - q[0] || p[1] - q[1] || String(p[2]).localeCompare(String(q[2]), 'pt-BR');
+    });
+    if (!posts) return out;
+    const res = [];
+    let atual = null;
+    out.forEach((r) => {
+      const e = emps[r.ei],
+        k = e ? e.station : null;
+      if (k !== atual) {
+        atual = k;
+        const n = out.filter((x) => (emps[x.ei] ? emps[x.ei].station : null) === k).length;
+        res.push({ grupo: (k && POST_NAMES[k] ? POST_NAMES[k] : 'Sem posto') + ' · ' + n + (n === 1 ? ' pessoa' : ' pessoas') });
+      }
+      res.push(r);
+    });
+    return res;
+  };
+  const wrows = ordena(wrowsRaw);
   const whead = ['Colaboradora', posts ? 'Posto' : null, 'Entrada', 'Almoço', 'Saída', 'Folgas com data'].filter(
     Boolean,
   );
   const srowsN = sundayWorkers().length;
-  const srows = [...document.querySelectorAll('#sundaySchedule tbody tr')]
+  const srowsRaw = [...document.querySelectorAll('#sundaySchedule tbody tr')]
     .map((tr) => {
       const c = [...tr.children].filter((td) => !td.classList.contains('sun-rem')); // o botão Remover não vai para o papel
       if (c.length < 3) return null;
@@ -4073,17 +4110,19 @@ async function buildPrintHtml(autoPrint) {
       const row = c.map((td, k) => (k === 0 ? esc(td.textContent.trim()) : td.innerHTML)),
         ee = week().employees[+tr.dataset.ei];
       row.push(ee ? chipsPrint(ee, srowsN > 14) : '');
+      row.ei = ee ? week().employees.indexOf(ee) : -1;
       return row;
     })
     .filter(Boolean);
+  const srows = ordena(srowsRaw);
   const shead = ['Colaboradora', posts ? 'Posto' : null, 'Entrada', 'Intervalo', 'Saída', 'Folgas com data'].filter(Boolean);
   const wm = printMetrics(wrows.length, 126, 11, 14),
     sm = printMetrics(srows.length + 1, 150, 11, 14);
   const wid = posts ? [17, 21, 8, 12, 8, 34] : [24, 10, 15, 10, 41];
   const table = (head, rows, m, widths, cls) =>
-    `<table class="${cls}" style="--f:${m.font}pt;--r:${m.row}mm"><thead><tr>${head.map((h, k) => `<th style="width:${widths[k] || 'auto'}%">${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((v, k) => `<td${k === 0 ? ' class="n"' : ''}>${v}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table>`;
+    `<table class="${cls}" style="--f:${m.font}pt;--r:${m.row}mm"><thead><tr>${head.map((h, k) => `<th style="width:${widths[k] || 'auto'}%">${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => (r.grupo ? `<tr class="grp"><td colspan="${head.length}">${esc(r.grupo)}</td></tr>` : `<tr>${r.map((v, k) => `<td${k === 0 ? ' class="n"' : ''}>${v}</td>`).join('')}</tr>`)).join('') || `<tr><td colspan="${head.length}">Nenhuma colaboradora programada para este domingo.</td></tr>`}</tbody></table>`;
   const img = logo ? `<img src="${logo}" alt="">` : '';
-  const css = `@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}html{background:#e9ecef}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}.page{width:281mm;margin:0 auto 6mm;background:#fff;padding:0;break-after:page}.page:last-child{break-after:auto;margin-bottom:0}.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2px solid #f7c82c;padding:0 0 3mm;margin:0 0 3mm}.top img{height:11mm}.brand{display:flex;align-items:center;gap:8px}.brand b{display:block;color:#ba2025;font-size:15px;line-height:1.1}.brand small{display:block;color:#173766;font-size:8px;letter-spacing:.6px;font-weight:bold;margin-top:3px}.brand .s{color:#173766;font-size:15px}.mid{grid-column:2;text-align:center;font-weight:bold;font-size:15px}.title{text-align:center;color:#173766;font-weight:bold;font-size:15px;line-height:1.5;margin:6mm 0 3mm}table{width:100%;border-collapse:collapse;white-space:nowrap}th{background:#f3f5f8;color:#173766;text-align:left;font-size:calc(var(--f)*.75);text-transform:uppercase;letter-spacing:.3px;height:8mm;padding:0 8px}td{height:var(--r);font-size:var(--f);padding:0 8px;border-bottom:1px solid #d9dde3;vertical-align:middle}td.n{font-weight:bold}.sun td.n{font-weight:normal}.sun td{padding:0 12px}.sun th{padding:0 12px}.swap-note{font-weight:bold;color:#b00020}.pcs{display:flex;gap:.8mm}.pc{flex:1;text-align:center;border:.25mm solid #c5ccd6;border-radius:1mm;font-size:calc(var(--f)*.6);padding:.4mm 0;line-height:1.15;color:#444}.pc.off,.pc.dom-off{background:#ba2025;border-color:#ba2025;color:#fff;font-weight:bold}.pc.dom-work{background:#f7c82c;border-color:#e0ad00;color:#111;font-weight:bold}.pc.aus{background:#f3e8ff;border-color:#c4a5ea;color:#4c1d95}.pc.fer{background:#e6e9ee;color:#555}.pc{-webkit-print-color-adjust:exact;print-color-adjust:exact}.shift-pill{display:none}@media print{html{background:#fff}.page{margin:0}}`;
+  const css = `@page{size:A4 landscape;margin:8mm}tr.grp td{background:#173766;color:#fff;font-weight:700;font-size:calc(var(--f) * .85);text-transform:uppercase;letter-spacing:.4px;padding:1mm 2mm;height:auto}*{box-sizing:border-box}html{background:#e9ecef}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}.page{width:281mm;margin:0 auto 6mm;background:#fff;padding:0;break-after:page}.page:last-child{break-after:auto;margin-bottom:0}.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2px solid #f7c82c;padding:0 0 3mm;margin:0 0 3mm}.top img{height:11mm}.brand{display:flex;align-items:center;gap:8px}.brand b{display:block;color:#ba2025;font-size:15px;line-height:1.1}.brand small{display:block;color:#173766;font-size:8px;letter-spacing:.6px;font-weight:bold;margin-top:3px}.brand .s{color:#173766;font-size:15px}.mid{grid-column:2;text-align:center;font-weight:bold;font-size:15px}.title{text-align:center;color:#173766;font-weight:bold;font-size:15px;line-height:1.5;margin:6mm 0 3mm}table{width:100%;border-collapse:collapse;white-space:nowrap}th{background:#f3f5f8;color:#173766;text-align:left;font-size:calc(var(--f)*.75);text-transform:uppercase;letter-spacing:.3px;height:8mm;padding:0 8px}td{height:var(--r);font-size:var(--f);padding:0 8px;border-bottom:1px solid #d9dde3;vertical-align:middle}td.n{font-weight:bold}.sun td.n{font-weight:normal}.sun td{padding:0 12px}.sun th{padding:0 12px}.swap-note{font-weight:bold;color:#b00020}.pcs{display:flex;gap:.8mm}.pc{flex:1;text-align:center;border:.25mm solid #c5ccd6;border-radius:1mm;font-size:calc(var(--f)*.6);padding:.4mm 0;line-height:1.15;color:#444}.pc.off,.pc.dom-off{background:#ba2025;border-color:#ba2025;color:#fff;font-weight:bold}.pc.dom-work{background:#f7c82c;border-color:#e0ad00;color:#111;font-weight:bold}.pc.aus{background:#f3e8ff;border-color:#c4a5ea;color:#4c1d95}.pc.fer{background:#e6e9ee;color:#555}.pc{-webkit-print-color-adjust:exact;print-color-adjust:exact}.shift-pill{display:none}@media print{html{background:#fff}.page{margin:0}}`;
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Escala ${esc(name)}</title><style>${css}</style></head><body><section class="page"><div class="top"><div class="brand">${img}<div><b>Gestão de Escalas</b><small>GRUPO SÃO LUIZ</small></div></div></div><div class="title">Escala semanal · ${esc(name)}<br>${esc(range())}</div>${table(whead, wrows, wm, wid, 'wk')}${week().employees.some((e) => e.fixo !== undefined || (e.folgaFixa && e.folgaFixa.length)) ? '<p style="font-size:9px;margin:4px 0 0;color:#444">🔒 = folga fixa ou turno fixo (a gerência não deve trocar).</p>' : ''}</section><section class="page"><div class="top"><div class="brand">${img}<span class="s"><b style="color:#173766">${esc(name)}</b></span></div><div class="mid">Escala de domingo · ${short(date('domingo'))}</div></div>${table(shead, srows, sm, posts ? [17, 20, 8, 14, 8, 33] : [22, 10, 14, 10, 44], 'sun')}</section>${autoPrint ? "<script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script>" : ''}</body></html>`;
 }
 async function printFile() {

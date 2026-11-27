@@ -1,0 +1,34 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const A=await (await b.newContext({viewport:{width:1400,height:900}})).newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const html=await A.evaluate(async()=>{state.selectedSector='padaria';render();state.selectedWeek=0;setActive(8);
+ const rs=roster();
+ // nomes misturados de propósito: atendimento aparece antes na lista; turnos fora de ordem
+ const st=['atendimento','producao','atendimento','producao','producao','atendimento','producao','atendimento'];
+ const nm=['Zilda','Bia','Carla','Ana','Dora','Eva','Cida','Fatima'];
+ st.forEach((s,i)=>{rs[i].station=s;rs[i].name=nm[i]});render();
+ const w=week();const sh=[2,1,0,0,2,1,1,0];w.employees.forEach((e,i)=>{e.shift=sh[i]});
+ w.employees.forEach(e=>{e.sundayWork=false});w.employees[1].sundayWork=true;w.employees[2].sundayWork=true;w.employees[0].sundayWork=true;render();
+ return await buildPrintHtml(false)});
+const sec=html.split('<section class="page">');
+const semana=sec[1];
+const faixas=[...semana.matchAll(/<tr class="grp"><td[^>]*>([^<]*)<\/td>/g)].map(m=>m[1]);
+const nomes=[...semana.matchAll(/<td class="n">([^<]*)<\/td>/g)].map(m=>m[1]);
+console.log(faixas.join(' | '));console.log(nomes.join(', '));
+T('faixas por posto: Produção antes de Atendimento',faixas.length>=2&&/Produção/i.test(faixas[0])&&/Atendimento/i.test(faixas[1]),faixas.join(' | '));
+T('produção: 4 pessoas',/Produção · 4 pessoas/.test(faixas[0]));
+// Produção (Bia, Ana, Dora, Cida) por horário de entrada: turno 0 antes de 1 antes de 2
+const prod=nomes.slice(0,4);
+T('Produção ordenada por horário (Ana turno1, Bia/Cida turno2, Dora turno3)',prod[0]==='Ana'&&['Bia','Cida'].includes(prod[1])&&['Bia','Cida'].includes(prod[2])&&prod[3]==='Dora',prod.join(','));
+T('Atendimento depois, também por horário',nomes.slice(4).join(',')==='Carla,Fatima,Eva,Zilda',nomes.slice(4).join(','));
+const dom=sec[2]||'';
+const faixasD=[...dom.matchAll(/<tr class="grp"><td[^>]*>([^<]*)<\/td>/g)].map(m=>m[1]);
+T('domingo também por posto',faixasD.length>=1&&/Produção/i.test(faixasD[0]),faixasD.join(' | '));
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();
