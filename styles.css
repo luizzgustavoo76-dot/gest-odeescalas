@@ -625,3 +625,19 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 @media(max-width:760px){#scheduleTable tr.grp{display:block!important}#scheduleTable tr.grp td{width:100%!important;box-sizing:border-box;grid-column:1/-1}}
 .table-wrap #scheduleTable tr.grp td,.table-wrap #scheduleTable tr.grp td:first-child,.table-wrap #scheduleTable tr.grp td:last-child{width:100%!important;max-width:none!important;text-align:left!important;padding:7px 12px!important;display:table-cell}
 @media(max-width:760px){.table-wrap #scheduleTable tr.grp td,.table-wrap #scheduleTable tr.grp td:first-child,.table-wrap #scheduleTable tr.grp td:last-child{display:block}}
+
+/* conferir nomes do ponto */
+.nm-h{margin:14px 0 4px;font-size:15px;color:var(--navy)}
+.nm-par{display:grid;gap:8px}
+.nm-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(220px,1.4fr);gap:6px 10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.nm-row input{min-height:38px}.nm-row input.nm-erro{border-color:#b91c1c;background:#fde8e8}
+.nm-sug{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.chip-sug{border:1px solid #cfd5de;background:#f6f7f9;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--navy)}
+.chip-sug:hover{border-color:var(--red);color:var(--red)}
+#nmBusca{width:100%;min-height:40px;margin:4px 0 8px}
+.nm-sobras{display:grid;gap:4px;max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px}
+.nm-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px;border-radius:8px}.nm-item:hover{background:#f6f7f9}
+.nm-item label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;min-width:0}.nm-item input{width:auto}.nm-item small{color:#697386}
+.nm-item select{min-height:32px;font-size:12px;max-width:160px}
+.nm-acoes{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;position:sticky;bottom:0;background:#fff;padding-top:8px}
+@media(max-width:760px){.nm-row{grid-template-columns:1fr}.nm-item{flex-wrap:wrap}}

@@ -413,3 +413,10 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Clicar nos títulos das colunas continua ordenando como antes (lista simples, sem faixas); clicar em **Posto** volta ao agrupamento. Quem já tinha escolhido outra ordenação mantém a dela; a ordem padrão antiga (por Entrada) passa para "por posto" uma única vez.
 - Ao trocar turno/posto direto na tabela, as linhas continuam no lugar (aviso "Reordenar agora"), sem faixas até reordenar.
 - Teste: `tests/previa-igual-impressao.js`.
+
+## Build 132 – Conferir nomes do ponto (ao importar o AFD)
+- Antes de importar o arquivo do ponto, abre o passo **"Conferir nomes do ponto"**:
+  - **Da escala, sem par no ponto**: digite o nome como aparece no relógio (ou clique numa sugestão). Quem ainda é "Colaboradora N" ganha o nome do ponto. A ligação fica guardada na ficha (`afdNome`) e vale nas próximas importações.
+  - **Bateram ponto e não estão na escala**: busca e marca quem é do setor, escolhe o posto e adiciona na equipe (nas 4 semanas). Quem já está na equipe de outros setores não aparece.
+- Reconhecimento automático melhorado: nome do relógio cortado (30 letras), 1–2 letras trocadas (ex.: Siqueira/Sioueira) e nome curto na escala (ex.: "Joana Real" → JOANA REAL DA SILVA) quando só há um candidato. Nomes de pessoas parecidas (ex.: Jeslon/Jeslyn) não são confundidos, e dois "Alan" no ponto pedem escolha.
+- Tudo desfaz com "Desfazer em lote" (inclui nomes e pessoas adicionadas). Testes: `tests/afd-conferir-nomes.js` (+ ajuste dos testes de importação).

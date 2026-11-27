@@ -7,6 +7,26 @@
   const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const TOL = 10; /* tolerância CLT de 10 min por dia */
 
+  let nomesPonto = []; /* nomes (normalizados) do último arquivo lido */
+  const lev = (a, b) => {
+    let p = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const c = [i];
+      for (let j = 1; j <= b.length; j++) c[j] = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      p = c;
+    }
+    return p[b.length];
+  };
+  /* nomes do ponto que já foram ligados a esta pessoa (guardados na ficha dela) */
+  function aliasDe(e) {
+    const r = state.roster && state.roster[state.selectedSector];
+    if (!r) return [];
+    for (const w of sector().weeks || []) {
+      const i = w.employees.indexOf(e);
+      if (i >= 0) return (r[i] && r[i].afdNome) || [];
+    }
+    return [];
+  }
   function parseAfd(text) {
     const names = {},
       punches = {}; /* iso -> pis -> [min] */
@@ -37,13 +57,15 @@
         }
       });
     Object.values(punches).forEach((o) => Object.keys(o).forEach((k) => (o[k] = [...new Set(o[k])].sort((a, b) => a - b))));
+    nomesPonto = [...new Set(Object.values(names).map(norm))];
     return { names, punches, empresa, dias: Object.keys(punches).sort() };
   }
 
-  /* acha o nome do AFD na equipe: igual, ou primeiro + último nome iguais */
+  /* acha o nome do AFD na equipe: igual; já ligado na ficha; primeiro + último nome iguais; nome do relógio cortado (30 letras);
+     erro de digitação (até 2 letras) quando só há um candidato; ou nome curto na escala (ex.: "Elian") quando só um nome do ponto começa assim */
   function acha(nome, emps) {
     const n = norm(nome);
-    let e = emps.find((x) => norm(x.name) === n);
+    let e = emps.find((x) => norm(x.name) === n) || emps.find((x) => aliasDe(x).includes(n));
     if (e) return e;
     const tk = n.split(' '),
       f = tk[0],
@@ -52,7 +74,28 @@
       const t = norm(x.name).split(' ');
       return t[0] === f && t[t.length - 1] === u;
     });
-    return c.length === 1 ? c[0] : null;
+    if (c.length === 1) return c[0];
+    /* quem já tem nome igual no ponto não entra nas aproximações (evita confundir pessoas parecidas) */
+    const livre = (x) => !nomesPonto.includes(norm(x.name)) && !aliasDe(x).length;
+    if (n.length >= 26) {
+      const t = emps.filter((x) => livre(x) && norm(x.name).startsWith(n));
+      if (t.length === 1) return t[0];
+    }
+    if (n.length >= 12) {
+      const t = emps.filter((x) => {
+        const m = norm(x.name);
+        return livre(x) && Math.abs(m.length - n.length) <= 2 && lev(m, n) <= 2;
+      });
+      if (t.length === 1) return t[0];
+    }
+    if (nomesPonto.length) {
+      const t = emps.filter((x) => {
+        const m = norm(x.name).split(' ');
+        return livre(x) && m.length < tk.length && m.every((p, k) => p === tk[k]) && nomesPonto.filter((o) => o.split(' ').slice(0, m.length).join(' ') === m.join(' ')).length === 1;
+      });
+      if (t.length === 1) return t[0];
+    }
+    return null;
   }
 
   /* data (aaaa-mm-dd) -> {wi, key} dentro do ciclo de 4 semanas */
@@ -318,10 +361,173 @@
     return Object.keys(h).length;
   }
 
+  /* ===== conferir nomes: liga quem está sem par no ponto e adiciona quem bateu e não está na escala ===== */
+  const PLACEHOLDER = /^colaboradora \d+$/i;
+  function conferirNomes(afd) {
+    return new Promise((resolve) => {
+      const sec = sector(),
+        emps = sec.weeks[0].employees,
+        sel = state.selectedSector;
+      const idxDe = (e) => emps.indexOf(e);
+      /* quem do ponto já tem par; quem sobra */
+      const usados = new Set(),
+        parDe = {};
+      Object.keys(afd.names).forEach((pis) => {
+        const e = acha(afd.names[pis], emps);
+        if (e) {
+          usados.add(e);
+          parDe[pis] = e;
+        }
+      });
+      const semPar = emps.filter((e) => !usados.has(e));
+      const ultimo = afd.dias[afd.dias.length - 1],
+        corte = new Date(new Date(ultimo + 'T12:00:00').getTime() - 45 * 864e5).toISOString().slice(0, 10);
+      const outros = new Set();
+      Object.keys(state.roster || {}).forEach((k) => {
+        if (k !== sel) (state.roster[k] || []).forEach((r) => r && r.name && !PLACEHOLDER.test(r.name) && outros.add(norm(r.name)));
+      });
+      const dias = {};
+      Object.entries(afd.punches).forEach(([d, o]) => {
+        if (d < corte) return;
+        Object.keys(o).forEach((p) => (dias[p] = (dias[p] || 0) + 1));
+      });
+      const vistos = new Set(),
+        sobras = [];
+      let deOutros = 0;
+      Object.keys(dias).forEach((pis) => {
+        if (parDe[pis]) return;
+        const nome = afd.names[pis] || 'PIS ' + pis,
+          k = norm(nome);
+        if (vistos.has(k)) return;
+        vistos.add(k);
+        if (outros.has(k)) {
+          deOutros++;
+          return;
+        }
+        sobras.push({ nome, k, dias: dias[pis] });
+      });
+      sobras.sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+      const lista = [...new Set(Object.values(afd.names))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
+      const postos = hasPosts() ? postKeys() : [];
+      const marcados = new Map(); /* norm -> {nome, posto} */
+      const similares = (nome) => {
+        const t = norm(nome).split(' ');
+        return sobras.filter((s) => { const u = s.k.split(' '); return u[0] === t[0] || (t.length > 1 && u.length > 1 && u[u.length - 1] === t[t.length - 1]); }).slice(0, 5);
+      };
+      const o = document.createElement('div');
+      o.id = 'afdNomesOv';
+      o.className = 'afd-ov';
+      const linhasPar = semPar
+        .map((e) => {
+          const i = idxDe(e),
+            ph = PLACEHOLDER.test(e.name);
+          const sug = ph ? [] : similares(e.name);
+          return `<div class="nm-row" data-i="${i}"><b>${esc(e.name)}</b><input type="text" list="nmLista" data-nm-par="${i}" placeholder="nome no ponto (digite para buscar)" autocomplete="off" />${
+            sug.length ? `<span class="nm-sug">${sug.map((s) => `<button type="button" class="chip-sug" data-nm-sug="${i}" data-v="${esc(s.nome)}">${esc(s.nome)}</button>`).join('')}</span>` : ''
+          }</div>`;
+        })
+        .join('');
+      o.innerHTML = `<div class="afd-box" role="dialog" aria-label="Conferir nomes do ponto"><div class="afd-top"><h3>Conferir nomes do ponto · ${esc(SECTORS[sel])}</h3><button type="button" class="button outline" id="nmCancela">Cancelar</button></div>
+        <p class="helper">O arquivo tem ${lista.length} pessoas; <b>${usados.size}</b> da equipe deste setor foram reconhecidas. O app liga pelo nome (aceita nome cortado, 1–2 letras trocadas e nome curto).</p>
+        ${
+          semPar.length
+            ? `<h4 class="nm-h">Da escala, sem par no ponto (${semPar.length})</h4><p class="helper">Digite o nome dela como aparece no relógio. Quem ainda se chama "Colaboradora N" passa a ter o nome do ponto. Se a pessoa não bateu ponto nesse período, deixe em branco.</p><div class="nm-par">${linhasPar}</div>`
+            : '<p class="helper">Todas as pessoas da escala foram encontradas no ponto. ✔</p>'
+        }
+        <h4 class="nm-h">Bateram ponto e não estão na escala</h4>
+        <p class="helper">Marque só quem é <b>deste setor</b> para adicionar na equipe (nas 4 semanas)${deOutros ? ` · ${deOutros} já estão na equipe de outros setores e não aparecem aqui` : ''}. Mostra quem bateu ponto nos últimos 45 dias do arquivo.</p>
+        <input type="search" id="nmBusca" placeholder="Buscar nome…" autocomplete="off" />
+        <div class="nm-sobras" id="nmSobras"></div>
+        <datalist id="nmLista">${lista.map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+        <div class="nm-acoes"><span id="nmResumo" class="helper"></span><button type="button" class="button" id="nmOk">Continuar a importação</button></div></div>`;
+      document.body.appendChild(o);
+      const box = o.querySelector('.afd-box');
+      const fim = (r) => {
+        o.remove();
+        resolve(r);
+      };
+      const desenhaSobras = () => {
+        const q = norm(o.querySelector('#nmBusca').value),
+          fil = sobras.filter((s) => !q || s.k.includes(q)),
+          mostra = fil.slice(0, 60);
+        o.querySelector('#nmSobras').innerHTML =
+          (mostra
+            .map((s) => {
+              const m = marcados.get(s.k);
+              return `<div class="nm-item"><label><input type="checkbox" data-nm-add="${esc(s.k)}" ${m ? 'checked' : ''} /> ${esc(s.nome)} <small>${s.dias} dia(s)</small></label>${
+                postos.length ? `<select data-nm-post="${esc(s.k)}" aria-label="Posto de ${esc(s.nome)}">${postos.map((k) => `<option value="${k}" ${(m ? m.posto : postos[0]) === k ? 'selected' : ''}>${esc(POST_NAMES[k] || k)}</option>`).join('')}</select>` : ''
+              }</div>`;
+            })
+            .join('') || '<p class="adm-vazio">Ninguém encontrado.</p>') + (fil.length > mostra.length ? `<p class="helper">Mostrando ${mostra.length} de ${fil.length}; use a busca para achar o resto.</p>` : '');
+        o.querySelector('#nmResumo').textContent = marcados.size ? marcados.size + ' para adicionar' : '';
+      };
+      desenhaSobras();
+      o.querySelector('#nmBusca').oninput = desenhaSobras;
+      box.addEventListener('change', (ev) => {
+        const t = ev.target;
+        if (t.dataset.nmAdd !== undefined) {
+          const s = sobras.find((x) => x.k === t.dataset.nmAdd),
+            sp = box.querySelector(`[data-nm-post="${CSS.escape(t.dataset.nmAdd)}"]`);
+          t.checked ? marcados.set(s.k, { nome: s.nome, posto: sp ? sp.value : postos[0] }) : marcados.delete(s.k);
+          o.querySelector('#nmResumo').textContent = marcados.size ? marcados.size + ' para adicionar' : '';
+        } else if (t.dataset.nmPost !== undefined && marcados.has(t.dataset.nmPost)) marcados.get(t.dataset.nmPost).posto = t.value;
+      });
+      box.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-nm-sug]');
+        if (b) {
+          const inp = box.querySelector(`[data-nm-par="${b.dataset.nmSug}"]`);
+          inp.value = b.dataset.v;
+          inp.classList.remove('nm-erro');
+        }
+      });
+      o.querySelector('#nmCancela').onclick = () => fim('cancela');
+      o.querySelector('#nmOk').onclick = () => {
+        /* valida os nomes digitados */
+        const pares = [];
+        let erro = false;
+        box.querySelectorAll('[data-nm-par]').forEach((inp) => {
+          inp.classList.remove('nm-erro');
+          const v = inp.value.trim();
+          if (!v) return;
+          const nome = lista.find((x) => norm(x) === norm(v));
+          if (!nome) {
+            inp.classList.add('nm-erro');
+            erro = true;
+          } else pares.push({ i: +inp.dataset.nmPar, nome });
+        });
+        if (erro) return toast('Algum nome não está no arquivo do ponto: escolha um da lista.');
+        const mudou = pares.length || marcados.size;
+        if (!mudou) return fim('ok');
+        const snap = { at: new Date().toISOString(), weeks: clone(sec.weeks), roster: clone((state.roster && state.roster[sel]) || []) };
+        const r = roster();
+        pares.forEach(({ i, nome }) => {
+          const ph = PLACEHOLDER.test(r[i].name);
+          if (ph) r[i].name = nomeBonito(nome);
+          r[i].afdNome = [...new Set([...(r[i].afdNome || []), norm(nome)])];
+        });
+        normalize();
+        marcados.forEach((m) => {
+          const antes = sector().weeks[0].employees.length;
+          addEmployee(m.posto, m.nome);
+          const n = sector().weeks[0].employees.length - 1;
+          if (n >= antes) {
+            roster()[n].name = nomeBonito(m.nome);
+            roster()[n].afdNome = [norm(m.nome)];
+          }
+        });
+        normalize();
+        state.undo = { ...(state.undo || {}), [sel]: snap };
+        fim('mudou');
+      };
+    });
+  }
+
   async function importarAfd(file) {
     try {
       const afd = parseAfd(await file.text());
       if (!afd.dias.length) return toast('Não encontrei batidas nesse arquivo. Use o AFD do relógio (arquivo .txt).');
+      const nomes = await conferirNomes(afd);
+      if (nomes === 'cancela') return;
       const plano = planejar(afd),
         nMud = plano.semanas.reduce((t, s) => t + s.mudancas.filter((m) => m.shift !== null || m.dom !== null || m.offs).length, 0);
       const linhas = plano.semanas
@@ -334,8 +540,14 @@
       if (plano.naoAchados.length) msg += 'Fora da equipe deste setor (não importados; abra o setor certo para eles): ' + plano.naoAchados.slice(0, 8).join(', ') + (plano.naoAchados.length > 8 ? '…' : '') + '. ';
       if (avisos.length) msg += 'Atenção: ' + avisos.slice(0, 3).join(' | ') + '. ';
       msg += 'Dá para desfazer depois.';
-      if (!(await askConfirm(msg))) return;
-      snapDesfazer();
+      if (!(await askConfirm(msg))) {
+        if (nomes === 'mudou') {
+          render();
+          toast('Nomes ajustados, mas a importação foi cancelada. Dá para desfazer em "Desfazer em lote".');
+        }
+        return;
+      }
+      if (nomes !== 'mudou') snapDesfazer();
       const n = guardaHistorico(afd);
       guardaRealizado(afd);
       sector().weeks.forEach(normalizeWeek);

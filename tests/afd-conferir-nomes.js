@@ -1,0 +1,47 @@
+const BASE=process.env.BASE||'http://localhost:8765';
+const {chromium}=require('playwright');const fs=require('fs');
+(async()=>{const b=await chromium.launch();
+const T=(n,ok,x='')=>{console.log((ok?'OK   ':'FALHA')+' '+n+(x?' → '+x:''));if(!ok)process.exitCode=1};
+const A=await (await b.newContext({viewport:{width:1400,height:900}})).newPage();const errs=[];A.on('pageerror',e=>errs.push(e.message));
+await A.route('**/supabase.js',r=>r.fulfill({contentType:'application/javascript',body:fs.readFileSync(__dirname+'/supabase-simulado.js','utf8')}));
+await A.route('**/supabase-config.js*',r=>r.fulfill({contentType:'application/javascript',body:"window.SUPABASE_CONFIG={url:'http://x',anonKey:'y'}"}));
+await A.goto(BASE+'/index.html');await A.waitForTimeout(500);
+await A.fill('#loginEmail','a@a');await A.fill('#loginPass','ok');await A.click('#loginBtn');await A.waitForTimeout(1500);
+const info=await A.evaluate(()=>{setActive(12);const w=week();w.employees.forEach(e=>{e.offDays=['sexta'];e.sundayWork=false;e.shift=0});
+ const n=['Fernanda Rodrigues de Siqueira','Joana Real','Colaboradora 3','Alan'];n.forEach((x,i)=>roster()[i].name=x);
+ roster()[0].name=n[0];render();return {seg:iso(date('segunda',0)),dom:iso(date('domingo',0))}});
+const pad=(s,n)=>String(s).padEnd(n,' ');let nsr=0;const L=[];const fmt=i=>{const [y,m,d]=i.split('-');return {y,m,d}};
+const emp=(i,pis,nome)=>{const {y,m,d}=fmt(i);nsr++;L.push(String(nsr).padStart(9,'0')+'5'+d+m+y+'0800'+'I'+pis+pad(nome,52))};
+const bat=(i,pis,hhmm)=>{const {y,m,d}=fmt(i);nsr++;L.push(String(nsr).padStart(9,'0')+'3'+d+m+y+hhmm+pis)};
+const P={fer:'000000000001',joa:'000000000002',eli:'000000000003',alv:'000000000004',ala:'000000000005',ext:'000000000006'};
+emp(info.seg,P.fer,'FERNANDA RODRIGUES DE SIOUEIRA');emp(info.seg,P.joa,'JOANA REAL DA SILVA');emp(info.seg,P.eli,'ELIAN DE LIMA');emp(info.seg,P.alv,'ALAN VICTOR DE JESUS OLIVEIRA');emp(info.seg,P.ala,'ALAN DE VICENTE');emp(info.seg,P.ext,'EXTRA PESSOA NOVA');
+Object.values(P).forEach(p=>['0700','1200','1400','1700'].forEach(h=>bat(info.seg,p,h)));
+['0730','1200'].forEach(h=>{bat(info.dom,P.eli,h);bat(info.dom,P.alv,h)});
+fs.writeFileSync('/tmp/afd-nomes.txt',L.join('\r\n')+'\r\n');
+await A.setInputFiles('#xlsxFile','/tmp/afd-nomes.txt');await A.waitForSelector('#nmOk');
+const txt=await A.evaluate(()=>document.getElementById('afdNomesOv').innerText);
+T('abre o passo "Conferir nomes do ponto"',/Conferir nomes do ponto/.test(txt));
+const auto=await A.evaluate(()=>[...document.querySelectorAll('.nm-row b')].map(x=>x.textContent));
+T('nome com letra trocada (Siqueira/Sioueira) foi reconhecido sozinho',!auto.includes('Fernanda Rodrigues de Siqueira'),auto.join(','));
+T('nome curto único (Joana Real) foi reconhecido sozinho',!auto.includes('Joana Real'));
+T('"Colaboradora 3" e "Alan" (2 Alans no ponto) pedem escolha',auto.includes('Colaboradora 3')&&auto.includes('Alan'),auto.join(','));
+T('sugere os dois Alans',await A.evaluate(()=>[...document.querySelectorAll('[data-nm-sug]')].filter(b=>/ALAN/.test(b.dataset.v)).length>=2));
+// Colaboradora 3 -> Elian de Lima (digitando); Alan -> clicando na sugestão
+await A.fill('[data-nm-par="2"]','elian de lima');
+await A.click('[data-nm-sug="3"][data-v="ALAN VICTOR DE JESUS OLIVEIRA"]');
+// adicionar quem bateu e não está na escala
+await A.fill('#nmBusca','extra');await A.waitForTimeout(150);
+await A.check('[data-nm-add]');
+const antes=await A.evaluate(()=>week().employees.length);
+await A.click('#nmOk');await A.waitForTimeout(600);
+const r=await A.evaluate(()=>({nomes:roster().slice(0,13).map(x=>x.name),n:week().employees.length,alias:roster()[3].afdNome,undo:!!(state.undo&&state.undo[state.selectedSector])}));
+T('"Colaboradora 3" virou Elian de Lima',r.nomes[2]==='Elian de Lima',r.nomes.join('|'));
+T('Alan ficou ligado ao Alan Victor (guardado na ficha)',JSON.stringify(r.alias)===JSON.stringify(['ALAN VICTOR DE JESUS OLIVEIRA']));
+T('quem bateu e não estava na escala foi adicionado',r.n===antes+1&&r.nomes.includes('Extra Pessoa Nova'),r.n+' / '+r.nomes.join('|'));
+// continua na confirmação normal
+await A.waitForSelector('.ask-actions [data-a="1"]');await A.click('.ask-actions [data-a="1"]');await A.waitForTimeout(600);
+const dom=await A.evaluate(()=>{const w=week();return w.employees.map((e,i)=>[roster()[i].name,e.sundayWork]).filter(x=>x[1]).map(x=>x[0])});
+T('o domingo passa a ser de quem trabalhou (Elian e Alan)',JSON.stringify(dom)===JSON.stringify(['Elian de Lima','Alan']),dom.join(','));
+T('desfazer volta a equipe de antes',await (async()=>{await A.click('#undoTopBtn');await A.waitForTimeout(300);if(await A.$('.ask-actions [data-a="1"]')){await A.click('.ask-actions [data-a="1"]');await A.waitForTimeout(300)}return A.evaluate(()=>roster()[2].name==='Colaboradora 3'&&week().employees.length===12)})());
+T('sem erros de página',errs.length===0,errs.join(';'));
+await b.close()})();

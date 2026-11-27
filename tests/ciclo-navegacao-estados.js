@@ -25,7 +25,7 @@ fs.writeFileSync('/tmp/afd-imp.txt',L.join('\r\n')+'\r\n');
 await A.evaluate(()=>{window.__conf=[];});
 // aceita a confirmação
 A.on('dialog',d=>d.accept());
-await A.setInputFiles('#xlsxFile','/tmp/afd-imp.txt');await A.waitForTimeout(500);
+await A.setInputFiles('#xlsxFile','/tmp/afd-imp.txt');await A.waitForSelector('#nmOk');await A.click('#nmOk');await A.waitForTimeout(500);
 const ask=await A.evaluate(()=>document.querySelector('.ask-box p')?document.querySelector('.ask-box p').innerText:'');
 T('pede confirmação com resumo',/Arquivo do ponto/.test(ask)&&/FULANA DE TAL/.test(ask),ask.slice(0,160));
 await A.click('.ask-actions [data-a="1"]');await A.waitForTimeout(500);
