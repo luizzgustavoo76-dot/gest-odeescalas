@@ -1231,7 +1231,7 @@ function renderRotation() {
 function renderCoverage() {
   document.getElementById('coverageCards').innerHTML = week()
     .shifts.map((s, i) => {
-      const n = week().employees.filter((e) => e.shift === i).length;
+      const n = week().employees.filter((e) => e.shift === i && !foraSemana(e)).length;
       return `<div class="coverage-card"><strong><i class="shift-pill" style="background:${s.color}"></i>${escape(s.name)}</strong><span>${s.start}–${s.end} · ${n} colaboradora${n === 1 ? '' : 's'}</span></div>`;
     })
     .join('');
@@ -1556,7 +1556,12 @@ function aplicaCorrecao(id) {
     else toast('Corrigido: ' + c.trocas + ' domingo' + (c.trocas === 1 ? '' : 's') + ' revezado' + (c.trocas === 1 ? '' : 's') + ' e folgas recalculadas. Se não gostou, use Desfazer.', true);
     return;
   }
-  if (f.k === 'folgas') balanceOffs(w, false);
+  if (f.k === 'folgas') {
+    const keep = state.selectedWeek;
+    state.selectedWeek = f.wi;
+    balanceOffs(w, false);
+    state.selectedWeek = keep;
+  }
   else if (f.k === 'almoco') autoLunch(w, f.wi, 0);
   else if (f.k === 'domingo') {
     /* escala no domingo quem pode (ninguém repete domingo) até cada posto chegar ao mínimo */
@@ -2077,8 +2082,10 @@ function fillSundays(base = 0) {
     filled = [],
     short = [],
     noPost = [];
-  const worked = (i) => weeks.reduce((t, w) => t + (w.employees[i] && w.employees[i].sundayWork ? 1 : 0), 0);
-  const works = (w, i) => !!(w && w.employees[i] && w.employees[i].sundayWork);
+  /* domingo de férias/atestado não conta como domingo trabalhado */
+  const domT = (w, i) => !!(w && w.employees[i] && w.employees[i].sundayWork && !ausente(w.employees[i], 'domingo', weeks.indexOf(w)));
+  const worked = (i) => weeks.reduce((t, w) => t + (domT(w, i) ? 1 : 0), 0);
+  const works = (w, i) => domT(w, i);
   weeks.forEach((w, wi) => {
     if (wi <= base || w.employees.some((e) => e.sundayWork)) return;
     /* o posto é da colaboradora: nas semanas vazias, quem estiver no PDV herda o posto Pacote/Fiscal/Recepção da Semana 1 */
@@ -2136,7 +2143,7 @@ function corrigirDomingos(base = 0) {
   const weeks = sector().weeks,
     keep = state.selectedWeek,
     n = Math.min(...weeks.map((w) => w.employees.length));
-  const works = (wi, i) => !!(weeks[wi].employees[i] && weeks[wi].employees[i].sundayWork),
+  const works = (wi, i) => !!(weeks[wi].employees[i] && weeks[wi].employees[i].sundayWork && !ausente(weeks[wi].employees[i], 'domingo', wi)),
     worked = (i) => weeks.filter((_, wi) => works(wi, i)).length,
     seguido = (i) => weeks.some((_, wi) => wi < weeks.length - 1 && works(wi, i) && works(wi + 1, i)),
     viola = (i) => worked(i) > 2 || seguido(i);
@@ -2574,8 +2581,9 @@ function postsPanel() {
     head = keys
       .map((k) => {
         const n = w.employees.filter((e) => e.station === k).length,
+          fora = w.employees.filter((e) => e.station === k && foraSemana(e)).length,
           s = cnt[k].reduce((a, b) => a + b, 0);
-        return `<span class="post-col"><b>${POST_NAMES[k]}</b><small class="${n === s || !s ? '' : 'post-warn'}">${n} colaboradora${n === 1 ? '' : 's'}${n !== s && s ? ' · ' + s + ' vaga' + (s === 1 ? '' : 's') : ''}</small></span>`;
+        return `<span class="post-col"><b>${POST_NAMES[k]}</b><small class="${n === s || !s ? '' : 'post-warn'}">${n} colaboradora${n === 1 ? '' : 's'}${n !== s && s ? ' · ' + s + ' vaga' + (s === 1 ? '' : 's') : ''}${fora ? ' · ' + fora + ' de férias/atestado nesta semana' : ''}</small></span>`;
       })
       .join(''),
     rows = w.shifts
@@ -3532,7 +3540,7 @@ function compliance() {
     w.employees.forEach((e) => {
       const m = weekMin(e, w, wi);
       if (m > limit * 60)
-        add('erro', L + e.name + ': carga semanal de ' + hm(m) + ' acima do limite de ' + limit + 'h.', [wi]);
+        add('erro', L + e.name + ': carga semanal de ' + hm(m) + ' acima do limite de ' + limit + 'h' + (e.offDays.length < offLimit(e, w.model) ? ' (está sem folga suficiente nesta semana — ex.: voltou de férias/atestado)' : '') + '.', [wi], 'folgas');
     });
     const buraco = gapOf(w);
     if (buraco)
@@ -3720,7 +3728,7 @@ function compliance() {
   for (let i = 0; i < n; i++) {
     const emps = weeks.map((w) => w.employees[i]),
       name = emps[0].name,
-      flags = emps.map((e) => e.sundayWork);
+      flags = emps.map((e, wi) => !!e.sundayWork && !ausente(e, 'domingo', wi));
     const offs = flags.filter((f) => !f).length;
     if (offs < 2)
       add(

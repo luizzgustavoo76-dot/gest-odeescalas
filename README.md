@@ -453,3 +453,9 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 140 — "Pessoas por posto e turno" segue a regra do rodízio (e funciona com férias)
 - O + e − mudam a regra do "Rodízio por posto" (ex.: 4 no 1º e 6 no 2º) e refazem as 4 semanas. Antes, nas semanas com alguém de férias, o −1 no 1º turno contava a pessoa de férias e não mudava nada.
 - Cada célula mostra a "regra do rodízio" embaixo do número da semana; nas semanas com gente fora, o app reparte a regra entre quem está trabalhando (ex.: regra 4/6 com 9 pessoas = 4/5).
+
+## Build 141 — Férias/atestado não contam em nada
+- Os cartões de turno (ex.: "1º turno · 7 colaboradoras") não contam mais quem está de férias/atestado a semana inteira.
+- Domingo que cai nas férias/atestado não conta como domingo trabalhado (alertas da CCT, sugestão e correção de domingos).
+- Rodízio de postos mostra quantas estão de férias/atestado na semana.
+- Quem volta de férias sem folga na semana gera o erro de carga semanal com botão **Corrigir** (calcula as folgas dela).
