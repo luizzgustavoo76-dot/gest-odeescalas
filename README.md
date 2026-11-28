@@ -466,3 +466,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 143 — Quem volta de férias/atestado já entra no 2º turno
 - Ao aplicar o rodízio de turnos dos postos (botão "Aplicar rodízio…", Gerar, ou + e − em "Pessoas por posto e turno"), quem volta de férias/atestado naquela semana vai para o 2º turno, trocando de lugar com alguém do 2º turno. A quantidade por turno da regra não muda.
 - Vale só para a semana da volta (a que contém o primeiro dia depois do fim da ausência). Dá para mudar o turno dela depois, na prévia. Quem tem restrição (estudante/mãe) não é movida para o 2º turno.
+
+## Build 144 — Barra das semanas fixa ao rolar
+- Ao rolar a página para baixo, quando a faixa "Semana 1, 2, 3, 4" sai da tela, aparece uma barra fixa no topo com o setor e as 4 semanas (a aberta em amarelo). Dá para trocar de semana por ela. Voltando para cima, ela some e a faixa normal aparece. Funciona no celular e não sai na impressão.

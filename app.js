@@ -1204,6 +1204,32 @@ function renderWeekTabs() {
         `<button class="period-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button">Semana ${i + 1}${semanaReal(i) ? ' 🔒' : ''}<small>${range(i)}</small>${estadoSemana(i)}</button>`,
     )
     .join('');
+  renderWeekSticky();
+}
+/* barra fixa das semanas: aparece no topo quando a faixa "Semana 1, 2, 3, 4" sai da tela ao rolar; some quando ela volta a aparecer */
+function renderWeekSticky() {
+  let bar = document.getElementById('weekSticky');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'weekSticky';
+    bar.setAttribute('aria-label', 'Semana que você está vendo');
+    document.body.appendChild(bar);
+    /* confere a cada rolagem (a faixa original pode ser redesenhada, então busca ela de novo) */
+    const confere = () => {
+      const t = document.getElementById('periodTabs');
+      bar.classList.toggle('on', !!(t && t.offsetParent && t.getBoundingClientRect().bottom < 0));
+    };
+    addEventListener('scroll', confere, { passive: true });
+    addEventListener('resize', confere);
+    bar.confere = confere;
+  }
+  bar.innerHTML =
+    `<span class="ws-setor">${escape(SECTORS[state.selectedSector] || '')}</span><div class="ws-tabs">` +
+    [0, 1, 2, 3]
+      .map((i) => `<button class="ws-tab ${i === state.selectedWeek ? 'active' : ''}" data-week="${i}" type="button"><b>Semana ${i + 1}${semanaReal(i) ? ' 🔒' : ''}</b><small>${range(i)}</small></button>`)
+      .join('') +
+    '</div>';
+  if (bar.confere) bar.confere();
 }
 function renderShifts() {
   document.getElementById('shiftsEditor').innerHTML =

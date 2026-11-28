@@ -663,3 +663,15 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .rasc-msgs{flex:1 1 320px}
 .rasc-avisos{margin:4px 0 0;padding-left:18px;color:#8a5300}
 .rasc-bar.tem-erro .rasc-avisos{color:#8a5300}
+
+/* build 144 — barra fixa das semanas ao rolar a página */
+#weekSticky{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;gap:12px;padding:6px max(14px,calc((100% - 1240px)/2));background:#161514;border-bottom:3px solid var(--red);box-shadow:0 4px 14px rgba(0,0,0,.18);transform:translateY(-110%);transition:transform .18s ease;pointer-events:none}
+#weekSticky.on{transform:none;pointer-events:auto}
+#weekSticky .ws-setor{color:#fff;font-weight:800;font-size:13px;white-space:nowrap}
+#weekSticky .ws-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1}
+#weekSticky .ws-tab{border:1px solid #3a3836;background:#262422;color:#d9d6d2;border-radius:8px;padding:5px 6px;cursor:pointer;font:inherit;line-height:1.15;text-align:center}
+#weekSticky .ws-tab b{display:block;font-size:12px}
+#weekSticky .ws-tab small{display:block;font-size:10px;opacity:.8}
+#weekSticky .ws-tab.active{background:var(--yellow);border-color:var(--yellow);color:#161514}
+@media(max-width:620px){#weekSticky{padding:5px 8px;gap:6px}#weekSticky .ws-setor{display:none}#weekSticky .ws-tab small{font-size:9px}#weekSticky .ws-tab b{font-size:11px}}
+@media print{#weekSticky{display:none!important}}
