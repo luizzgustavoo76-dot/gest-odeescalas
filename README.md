@@ -449,3 +449,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 139 — Posto sem ninguém no dia é alerta, não erro
 - No rascunho de folgas, "ninguém trabalhando" num posto/turno passa a ser alerta amarelo: dá para aplicar (falta gente mesmo). Folga com conta errada continua em vermelho e bloqueia o Aplicar.
+
+## Build 140 — "Pessoas por posto e turno" segue a regra do rodízio (e funciona com férias)
+- O + e − mudam a regra do "Rodízio por posto" (ex.: 4 no 1º e 6 no 2º) e refazem as 4 semanas. Antes, nas semanas com alguém de férias, o −1 no 1º turno contava a pessoa de férias e não mudava nada.
+- Cada célula mostra a "regra do rodízio" embaixo do número da semana; nas semanas com gente fora, o app reparte a regra entre quem está trabalhando (ex.: regra 4/6 com 9 pessoas = 4/5).

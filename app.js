@@ -3393,7 +3393,7 @@ function renderOffAnalysis() {
   ${modoAjuste ? '<p class="oa-dica">Modo ajuste: em "Folgas por dia, posto e turno" o <b>+</b> e o <b>−</b> mudam livremente quantas pessoas folgam em cada dia (ex.: 2 na segunda no 1º turno e 4 no 2º). Nada muda na escala até você clicar em <b>Aplicar</b>; enquanto isso, os erros aparecem em vermelho logo acima da tabela. Em "Pessoas por posto e turno" o + e − continuam aplicando na hora e refazem o rodízio das 4 semanas.</p>' : ''}
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map((o) => '<li>' + o + '</li>').join('')}</ul></div>
   <h3 class="oa-title">Folgas por dia, posto e turno</h3>${modoAjuste ? rascPainel() : ''}<div class="table-wrap"><table class="oa-table oa-unif"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${unified}${totalRow}</tbody></table></div>
-  ${posts.length ? `<h3 class="oa-title">Pessoas por posto e turno</h3><div class="table-wrap"><table class="oa-table oa-turnos"><thead><tr><th></th>${w.shifts.map((s) => `<th>${escape(s.name)}<small>${s.start}</small></th>`).join('')}<th>Total</th></tr></thead><tbody>${posts.map((q) => `<tr><th class="oa-row">${POST_NAMES[q.k]}<small>${q.mem.length} colab.</small></th>${w.shifts.map((s, i) => { const n = q.mem.filter((e) => e.shift === i).length; return `<td class="oa-${n ? 'ok' : 'warn'}"><b>${n}</b>${q.k === 'caixa' && hasPdv() ? `<small>máx. ${activePdvs(w).length} (PDVs)</small>` : ''}${modoAjuste ? ctlBtns(`data-oa="turno" data-post="${q.k}" data-turno="${i}"`) : ''}</td>`; }).join('')}<td><b>${q.mem.length}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${posts.length ? `<h3 class="oa-title">Pessoas por posto e turno</h3><div class="table-wrap"><table class="oa-table oa-turnos"><thead><tr><th></th>${w.shifts.map((s) => `<th>${escape(s.name)}<small>${s.start}</small></th>`).join('')}<th>Total</th></tr></thead><tbody>${posts.map((q) => `<tr><th class="oa-row">${POST_NAMES[q.k]}<small>${q.mem.length} colab.</small></th>${w.shifts.map((s, i) => { const n = q.mem.filter((e) => e.shift === i).length; const rg = postShiftsCustom(q.k); return `<td class="oa-${n ? 'ok' : 'warn'}"><b>${n}</b>${rg ? `<small>regra do rodízio: ${Math.floor(+rg[i]) || 0}</small>` : ''}${q.k === 'caixa' && hasPdv() ? `<small>máx. ${activePdvs(w).length} (PDVs)</small>` : ''}${modoAjuste ? ctlBtns(`data-oa="turno" data-post="${q.k}" data-turno="${i}"`) : ''}</td>`; }).join('')}<td><b>${q.mem.length}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
   <h3 class="oa-title">Quem está de folga em cada dia</h3><div class="table-wrap"><table class="oa-table oa-who"><tbody>${whoRows}</tbody></table></div>`;
 }
 function loadInfo() {
@@ -5276,8 +5276,12 @@ function moveFolga(G, rotulo, dKey, delta) {
   );
 }
 function moveTurno(k, i, delta) {
+  /* o + e − mudam a REGRA do rodízio do posto (Rodízio por posto), não a contagem da semana: quem está de férias/atestado não entra na conta,
+     e nas semanas com gente fora o app reparte a regra entre quem está trabalhando */
   const w = week(),
-    cur = w.shifts.map((_, j) => w.employees.filter((e) => e.station === k && e.shift === j).length),
+    wi0 = state.selectedWeek,
+    regra = postShiftsCustom(k),
+    cur = regra ? w.shifts.map((_, j) => Math.max(0, Math.floor(+regra[j]) || 0)) : w.shifts.map((_, j) => w.employees.filter((e) => e.station === k && e.shift === j && !foraSemana(e, wi0)).length),
     lim = k === 'caixa' && hasPdv() ? activePdvs(w).length : 99,
     nome = (j) => w.shifts[j].name;
   let j;
