@@ -2438,6 +2438,37 @@ function periodIdx(w) {
 }
 /* Para cada posto, as colaboradoras daquele posto (ordem do número) ocupam as vagas cedo/tarde e na semana seguinte avançam uma vaga:
    todas alternam entre cedo e tarde. Cada posto tem a sua própria contagem; o posto de ninguém muda. */
+/* volta de férias/atestado: a semana em que a pessoa volta ao trabalho */
+function retornaNaSemana(w, e, wi) {
+  if (foraSemana(e, wi)) return false;
+  const rs = state.roster && state.roster[state.selectedSector],
+    i = w.employees.indexOf(e),
+    aus = i >= 0 && rs && rs[i] && rs[i].aus;
+  if (!aus || !aus.length) return false;
+  /* a semana da volta é a que contém o 1º dia depois do fim da ausência */
+  const de = ymd(date('domingo', wi)),
+    ate = ymd(date('sábado', wi));
+  return aus.some((x) => {
+    const v = ymd(new Date(new Date(x.ate + 'T12:00:00').getTime() + 864e5));
+    return v >= de && v <= ate;
+  });
+}
+/* pré-ajuste: quem volta de férias/atestado entra no 2º turno nessa semana (troca de lugar com alguém do 2º turno; dá para mudar depois) */
+function voltaNoSegundo(w, wi, lista, ehSegundo, poeSegundo, tiraSegundo) {
+  lista.forEach((a) => {
+    if (a.e.restricted || ehSegundo(a) || !retornaNaSemana(w, a.e, wi)) return;
+    const prev = sector().weeks[wi - 1],
+      foiTarde = (b) => {
+        const pe = prev && prev.employees[w.employees.indexOf(b.e)];
+        return !!(pe && pe.shift === 1);
+      };
+    const cand = lista.filter((b) => b !== a && ehSegundo(b) && !retornaNaSemana(w, b.e, wi));
+    const o = cand.find(foiTarde) || cand[0];
+    if (!o) return;
+    tiraSegundo(o, a);
+    poeSegundo(a);
+  });
+}
 function applyPostPlan(silent) {
   const cfg = postCfg(),
     weeks = sector().weeks;
@@ -2495,6 +2526,8 @@ function applyPostPlan(silent) {
             if (o) [a.sh, o.sh] = [o.sh, a.sh];
           }
         });
+        if (w.shifts.length > 1 && counts[1] > 0)
+          voltaNoSegundo(w, wi, assign, (b) => b.sh === 1, (b) => (b.sh = 1), (o, a) => (o.sh = a.sh));
         assign.forEach((a) => (a.e.shift = a.sh));
         return;
       }
@@ -2547,6 +2580,9 @@ function applyPostPlan(silent) {
         const list = ix[a.per];
         if (list.length) a.e.shift = list[cnt[a.per]++ % list.length];
       });
+      /* sem regra por turno: quem volta de férias/atestado vai para o 2º turno, trocando com alguém que estava nele */
+      if (w.shifts.length > 1)
+        voltaNoSegundo(w, wi, assign, (b) => b.e.shift === 1, (b) => (b.e.shift = 1), (o, a) => (o.e.shift = a.e.shift));
     });
   });
   if (!silent && hasPdv()) weeks.forEach((w, wi) => assignPdvs(w, wi, true));

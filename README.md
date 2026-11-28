@@ -462,3 +462,7 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 142 — Aviso "após HH:MM" do PDV ignora quem está de férias
 - O aviso de troca de PDV (ex.: "PDV 7 (após 18:04)") na prévia e na impressão não considera mais a operadora do outro turno que está de férias/atestado na semana.
+
+## Build 143 — Quem volta de férias/atestado já entra no 2º turno
+- Ao aplicar o rodízio de turnos dos postos (botão "Aplicar rodízio…", Gerar, ou + e − em "Pessoas por posto e turno"), quem volta de férias/atestado naquela semana vai para o 2º turno, trocando de lugar com alguém do 2º turno. A quantidade por turno da regra não muda.
+- Vale só para a semana da volta (a que contém o primeiro dia depois do fim da ausência). Dá para mudar o turno dela depois, na prévia. Quem tem restrição (estudante/mãe) não é movida para o 2º turno.
