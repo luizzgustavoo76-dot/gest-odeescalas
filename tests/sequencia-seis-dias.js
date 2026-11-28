@@ -13,6 +13,14 @@ const r=await A.evaluate(()=>{state.baseMonday='2026-11-23';for(let i=0;i<4;i++)
  state.selectedWeek=0;render();
  const err=compliance().find(x=>/dias seguidos sem descanso/.test(x.text)&&x.text.startsWith(roster()[1].name+':'));
  return {err}});
+// trava a impressão da semana 4 e mostra a mensagem com Corrigir
+await A.evaluate(()=>{state.selectedWeek=3;render()});
+let baixou=false;A.on('download',()=>baixou=true);
+await A.click('#printFileButton');await A.waitForTimeout(500);
+const av=await A.evaluate(()=>{const w=document.getElementById('scheduleWarning');return {vis:!w.hidden,txt:w.innerText,btn:!!w.querySelector('.fix-btn')}});
+T('com mais de 6 dias seguidos a impressão fica travada',!baixou&&av.vis&&/dias seguidos sem descanso/.test(av.txt),av.txt);
+T('a mensagem traz o botão Corrigir',av.btn);
+await A.evaluate(()=>{state.selectedWeek=0;render()});
 T('9 dias seguidos aparece como ERRO (art. 67)',r.err&&r.err.level==='erro'&&/^Colaboradora 2: 9 dias/.test(r.err.text),JSON.stringify(r.err));
 T('o erro tem botão Corrigir',!!(r.err&&/^sequencia:/.test(r.err.fix)));
 const fx=await A.evaluate(()=>{const c=compliance().find(x=>/dias seguidos sem descanso/.test(x.text)&&x.text.startsWith(roster()[1].name+':'));const id='s'+Date.now();FIXES[id]={k:c.fix,wi:c.weeks[0],text:c.text};aplicaCorrecao(id);

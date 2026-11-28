@@ -5157,6 +5157,13 @@ function textoWhats() {
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest || !e.target.closest('#whatsButton')) return;
+  /* mesmo bloqueio da impressão: com erro (ex.: mais de 6 dias seguidos) a escala não sai */
+  if (issues().length) {
+    renderWarning();
+    document.getElementById('scheduleWarning').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast('Erro: corrija os erros da semana antes de enviar a escala.');
+    return;
+  }
   let txt;
   try {
     txt = textoWhats();

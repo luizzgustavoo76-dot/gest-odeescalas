@@ -477,3 +477,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Quem está de férias/atestado a semana inteira aparece no fim do **próprio posto** (com a marca de férias e o nome do posto), na prévia e na impressão. A faixa do posto conta só quem está trabalhando.
 - Mais de 6 dias seguidos de trabalho (inclusive na virada de uma semana para a outra) agora é **erro** (art. 67 da CLT) com botão **Corrigir**: leva uma folga da mesma semana para logo depois do domingo trabalhado (ex.: segunda ou terça).
 - "Completar as 4 semanas" e "Sugerir folgas nas 4 semanas" já fazem essa correção sozinhos.
+
+## Build 147 — Escala travada com mais de 6 dias seguidos
+- Com alguém passando de 6 dias seguidos de trabalho na semana aberta, "Baixar para imprimir" (e o envio por WhatsApp) não sai: aparece a mensagem com o nome da pessoa e o botão **Corrigir** logo acima da prévia. Depois de corrigir, a impressão libera.
