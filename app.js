@@ -3071,6 +3071,175 @@ function renderResumo() {
   ).join('');
   el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">RESUMO DO CICLO</p><h2>Resumo por colaboradora</h2><p>${short(date('domingo', 0))} a ${short(date('sábado', 3))} · 4 semanas de ${SECTORS[state.selectedSector]}. Em vermelho: menos de 2 domingos de folga no mês ou mais de ${lim} dias seguidos de trabalho.</p></div></div><div class="table-wrap"><table class="oa-table resumo-table"><thead><tr><th>Colaboradora</th><th>Domingos trabalhados</th><th>Domingos de folga</th><th>Folgas na semana</th><th>Dias trabalhados</th><th>Horas no ciclo</th><th>Média por semana</th><th>Maior sequência (dias)</th><th>Dias de férias / atestado</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+/* ===== Rascunho de folgas: no modo ajuste, + e − só mudam a QUANTIDADE desejada de folgas por posto/turno/dia (livre).
+   Os erros aparecem na hora; "Aplicar" redistribui as folgas das pessoas para bater com o rascunho. ===== */
+let rascunho = null;
+const chaveRasc = () => state.selectedSector + '/' + state.selectedWeek;
+function gruposFolga(w = week(), wi = state.selectedWeek) {
+  const emps = w.employees.filter((e) => !foraSemana(e, wi)),
+    out = [];
+  if (hasPosts())
+    postKeys().forEach((k) =>
+      w.shifts.forEach((s, i) => {
+        const mem = emps.filter((e) => e.station === k && e.shift === i);
+        if (mem.length) out.push({ g: 'pt:' + k + ':' + i, rot: (POST_NAMES[k] || k) + ' · ' + s.name, mem });
+      }),
+    );
+  else
+    w.shifts.forEach((s, i) => {
+      const mem = emps.filter((e) => e.shift === i);
+      if (mem.length) out.push({ g: 't:' + i, rot: s.name, mem });
+    });
+  return out;
+}
+const diasUteis = (wi = state.selectedWeek) => DAYS.filter((d) => d[0] !== 'domingo' && !closedDay(d[0], wi));
+const folgaReal = (mem, dk, wi = state.selectedWeek) => mem.filter((e) => !worksOn(e, dk, wi)).length;
+function rascAtivo() {
+  if (!rascunho || rascunho.chave !== chaveRasc()) return null;
+  const gs = gruposFolga();
+  /* equipe mudou (gente entrou/saiu do grupo): o rascunho perde o sentido */
+  if (gs.length !== Object.keys(rascunho.g).length || gs.some((x) => !rascunho.g[x.g] || rascunho.g[x.g].ids.join() !== x.mem.map((e) => e.id).join())) {
+    rascunho = null;
+    return null;
+  }
+  return rascunho;
+}
+function rascIniciar() {
+  const g = {};
+  gruposFolga().forEach((x) => {
+    const v = {};
+    diasUteis().forEach((d) => (v[d[0]] = folgaReal(x.mem, d[0])));
+    g[x.g] = { ids: x.mem.map((e) => e.id), v };
+  });
+  rascunho = { chave: chaveRasc(), g };
+  return rascunho;
+}
+/* quantas folgas de seg-sáb o grupo precisa ter; quem está de férias/atestado num dia já conta como folga daquele dia */
+function rascInfo(x, wi = state.selectedWeek) {
+  const dias = diasUteis(wi),
+    ausDia = {},
+    fixoDia = {};
+  dias.forEach((d) => {
+    ausDia[d[0]] = x.mem.filter((e) => ausente(e, d[0], wi)).length;
+    fixoDia[d[0]] = x.mem.filter((e) => !ausente(e, d[0], wi) && e.offDays.includes(d[0]) && travada(e, d[0])).length;
+  });
+  const precisa = x.mem.reduce((t, e) => t + (ausSemana(e, wi) ? dias.filter((d) => !worksOn(e, d[0], wi)).length : Math.min(offLimit(e), dias.length)), 0);
+  return { dias, ausDia, fixoDia, precisa };
+}
+function rascErros() {
+  const r = rascAtivo();
+  if (!r) return [];
+  const out = [];
+  gruposFolga().forEach((x) => {
+    const v = r.g[x.g].v,
+      inf = rascInfo(x),
+      soma = inf.dias.reduce((t, d) => t + (v[d[0]] || 0), 0);
+    if (soma !== inf.precisa)
+      out.push(x.rot + ': ' + soma + ' folga' + (soma === 1 ? '' : 's') + ' de segunda a sábado, mas precisa de ' + inf.precisa + ' (' + (soma < inf.precisa ? 'faltam ' + (inf.precisa - soma) : 'sobram ' + (soma - inf.precisa)) + ').');
+    inf.dias.forEach((d) => {
+      const n = v[d[0]] || 0;
+      if (n < inf.ausDia[d[0]] + inf.fixoDia[d[0]])
+        out.push(x.rot + ' em ' + d[0] + ': no mínimo ' + (inf.ausDia[d[0]] + inf.fixoDia[d[0]]) + ' de folga (férias/atestado ou folga fixa nesse dia).');
+      if (n >= x.mem.length && x.mem.length > 0) out.push(x.rot + ' em ' + d[0] + ': ninguém trabalhando.');
+    });
+    /* cada pessoa folga no máximo 1 vez por dia: com poucas pessoas não dá para concentrar tudo em poucos dias */
+    const porPessoa = x.mem.map((e) => (ausSemana(e) ? 0 : offLimit(e)));
+    inf.dias.forEach((d) => {
+      const n = (v[d[0]] || 0) - inf.ausDia[d[0]];
+      const cabe = porPessoa.filter((q) => q > 0).length;
+      if (n > cabe) out.push(x.rot + ' em ' + d[0] + ': ' + (v[d[0]] || 0) + ' de folga não cabe (só ' + (cabe + inf.ausDia[d[0]]) + ' pessoa(s) podem folgar nesse dia).');
+    });
+  });
+  return out;
+}
+/* distribui as folgas: mantém o que já está certo e completa por caminhos de aumento (fluxo), sem mexer em folga fixa nem em quem tem férias/atestado */
+function rascAplicar() {
+  const r = rascAtivo();
+  if (!r) return toast('Nada para aplicar.', true);
+  const err = rascErros();
+  if (err.length) return toast('Erro: corrija antes de aplicar — ' + err[0]);
+  const w = week(),
+    wi = state.selectedWeek;
+  const planos = [];
+  for (const x of gruposFolga()) {
+    const v = r.g[x.g].v,
+      inf = rascInfo(x),
+      dias = inf.dias.map((d) => d[0]);
+    const livres = x.mem.filter((e) => !ausSemana(e, wi));
+    const need = {};
+    dias.forEach((d) => (need[d] = (v[d] || 0) - inf.ausDia[d] - inf.fixoDia[d]));
+    const P = livres.map((e) => {
+      const fixos = e.offDays.filter((d) => dias.includes(d) && travada(e, d));
+      return { e, fixos, q: Math.max(0, Math.min(offLimit(e), dias.length) - fixos.length), tem: new Set() };
+    });
+    const pode = (p, d) => !p.fixos.includes(d) && !closedDay(d, wi);
+    /* 1º: mantém as folgas atuais que cabem */
+    P.forEach((p) =>
+      p.e.offDays.forEach((d) => {
+        if (dias.includes(d) && pode(p, d) && p.tem.size < p.q && need[d] > 0) {
+          p.tem.add(d);
+          need[d]--;
+        }
+      }),
+    );
+    /* 2º: completa com caminhos de aumento (troca em cadeia quando precisa) */
+    const aumenta = (pi, visto) => {
+      const p = P[pi];
+      for (const d of dias) {
+        if (!pode(p, d) || p.tem.has(d) || visto.has(d)) continue;
+        visto.add(d);
+        if (need[d] > 0) {
+          p.tem.add(d);
+          need[d]--;
+          return true;
+        }
+        for (let j = 0; j < P.length; j++)
+          if (j !== pi && P[j].tem.has(d)) {
+            P[j].tem.delete(d);
+            if (aumenta(j, visto)) {
+              p.tem.add(d);
+              return true;
+            }
+            P[j].tem.add(d);
+          }
+      }
+      return false;
+    };
+    for (let pi = 0; pi < P.length; pi++) while (P[pi].tem.size < P[pi].q) if (!aumenta(pi, new Set())) break;
+    if (P.some((p) => p.tem.size < p.q) || dias.some((d) => need[d] !== 0))
+      return toast('Erro: não consegui montar as folgas de ' + x.rot + ' com essas quantidades (cada pessoa só folga 1 vez por dia). Mude os números e tente de novo.');
+    planos.push(P);
+  }
+  snapDesfazer();
+  const ord = (s) => DAYS.findIndex((d) => d[0] === s);
+  planos.forEach((P) =>
+    P.forEach((p) => {
+      const fora = p.e.offDays.filter((d) => !diasUteis(wi).some((y) => y[0] === d));
+      p.e.offDays = [...new Set([...fora, ...p.fixos, ...p.tem])].sort((a, b) => ord(a) - ord(b));
+    }),
+  );
+  if (hasPdv()) assignPdvs(w, wi, true);
+  rascunho = null;
+  render();
+  atualizaDesfazer();
+  toast('Folgas aplicadas na Semana ' + (wi + 1) + ' conforme as quantidades. Se não gostou, use Desfazer.', true);
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest && ev.target.closest('#rascAplicar,#rascDescartar');
+  if (!t) return;
+  if (t.id === 'rascAplicar') rascAplicar();
+  else {
+    rascunho = null;
+    render();
+    toast('Alterações descartadas.', true);
+  }
+});
+function rascPainel() {
+  const r = rascAtivo();
+  if (!r) return '<p class="rasc-bar">Use <b>+</b> e <b>−</b> nas células para montar as quantidades de folga. Depois clique em <b>Aplicar</b>.</p>';
+  const err = rascErros();
+  return `<div class="rasc-bar ${err.length ? 'tem-erro' : 'ok'}">${err.length ? `<ul class="rasc-erros">${err.map((x) => '<li>' + escape(x) + '</li>').join('')}</ul>` : '<p><b>Quantidades conferidas.</b> Clique em Aplicar para refazer as folgas da semana.</p>'}<div class="rasc-acoes"><button type="button" class="button outline" id="rascDescartar">Descartar</button><button type="button" class="button" id="rascAplicar" ${err.length ? 'disabled title="Corrija os erros em vermelho primeiro"' : ''}>Aplicar alterações</button></div></div>`;
+}
 function renderOffAnalysis() {
   const el = document.getElementById('offAnalysis');
   if (!el) return;
@@ -3082,15 +3251,26 @@ function renderOffAnalysis() {
     closed = (d) => closedDay(d[0], wi);
   const cls = (n) => (n <= 1 ? 'crit' : n === 2 ? 'warn' : 'ok');
   /* a célula mostra a QUANTIDADE DE FOLGAS do grupo naquele dia (e quantas trabalham); a cor segue quem trabalha */
-  const cell = (mem, d, attrs) => {
+  const R = modoAjuste ? rascAtivo() : null;
+  /* folgas do grupo no dia: do rascunho (se houver) ou da escala */
+  const offDe = (mem, d, g) => {
+    if (R && d[0] !== 'domingo') {
+      const ks = g && R.g[g] ? [g] : Object.keys(R.g).filter((k) => R.g[k].ids.some((id) => mem.some((e) => e.id === id)));
+      if (ks.length && ks.every((k) => R.g[k].ids.every((id) => mem.some((e) => e.id === id)))) return ks.reduce((t, k) => t + (R.g[k].v[d[0]] || 0), 0);
+    }
+    return mem.length - mem.filter((e) => works(e, d)).length;
+  };
+  const cell = (mem, d, attrs, g) => {
     if (closed(d)) return '<td class="oa-closed">Fechado</td>';
     if (!mem.length) return '<td class="oa-closed">—</td>';
-    const trab = mem.filter((e) => works(e, d)).length,
-      off = mem.length - trab;
-    return `<td class="oa-${cls(trab)}"><b>${off}</b><small>${trab} trabalhando</small>${modoAjuste && attrs && d[0] !== 'domingo' ? ctlBtns(attrs, true) : ''}</td>`;
+    const real = mem.length - mem.filter((e) => works(e, d)).length,
+      off = offDe(mem, d, g),
+      trab = mem.length - off,
+      mudou = R && off !== real;
+    return `<td class="oa-${trab <= 0 && R ? 'crit' : cls(trab)}${mudou ? ' oa-draft' : ''}"><b>${off}</b><small>${trab} trabalhando${mudou ? ' · era ' + real : ''}</small>${modoAjuste && attrs && d[0] !== 'domingo' ? ctlBtns(attrs, true) : ''}</td>`;
   };
   const dayHead = '<th></th>' + DAYS.map((d) => `<th>${d[1]}<small>${short(date(d[0]))}</small></th>`).join('');
-  const total = DAYS.map((d) => (closed(d) ? null : emps.filter((e) => works(e, d)).length));
+  const total = DAYS.map((d) => (closed(d) ? null : N - offDe(emps, d)));
   const offN = DAYS.map((d, i) => (total[i] === null ? null : N - total[i]));
   const movRow = `<tr><th class="oa-row">Movimento esperado<small>editável em Gerar</small></th>${DAYS.map((d) => `<td class="oa-mov oa-mov-${movement()[d[0]]}">${movLabel(d[0])}</td>`).join('')}</tr>`;
   const totalRow = `<tr class="oa-total"><th class="oa-row">Total<small>${N} colab.</small></th>${DAYS.map((d, i) => (closed(d) ? '<td class="oa-closed">Fechado</td>' : `<td class="oa-${total[i] < Math.ceil(N * 0.5) ? 'warn' : 'ok'}"><b>${total[i]}</b><small>${offN[i]} de folga</small></td>`)).join('')}</tr>`;
@@ -3102,12 +3282,12 @@ function renderOffAnalysis() {
     : [];
   const grpAttrs = (g, d) => `data-oa="dia" data-g="${g}" data-day="${d[0]}"`;
   const linhaTurno = (mem, s, i, rotulo, g) =>
-    `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${rotulo}<small>${s.name} · ${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map((d) => cell(mem, d, grpAttrs(g, d))).join('')}</tr>`;
+    `<tr><th class="oa-row"><i class="shift-pill" style="background:${s.color}"></i>${rotulo}<small>${s.name} · ${s.start}–${s.end} · ${mem.length} colab.</small></th>${DAYS.map((d) => cell(mem, d, grpAttrs(g, d), g)).join('')}</tr>`;
   const unified = posts.length
     ? posts
         .map((q) => {
           const rows = w.shifts.map((s, i) => linhaTurno(q.mem.filter((e) => e.shift === i), s, i, escape(POST_NAMES[q.k]), 'pt:' + q.k + ':' + i)).join('');
-          const tot = `<tr class="oa-subtotal"><th class="oa-row">${escape(POST_NAMES[q.k])} · todos os turnos<small>${q.mem.length} colab.</small></th>${DAYS.map((d) => cell(q.mem, d, grpAttrs('p:' + q.k, d))).join('')}</tr>`;
+          const tot = `<tr class="oa-subtotal"><th class="oa-row">${escape(POST_NAMES[q.k])} · todos os turnos<small>${q.mem.length} colab.</small></th>${DAYS.map((d) => cell(q.mem, d, modoAjuste ? null : grpAttrs('p:' + q.k, d))).join('')}</tr>`;
           return `<tr class="oa-grp"><th colspan="8">${escape(POST_NAMES[q.k])}</th></tr>` + rows + tot;
         })
         .join('')
@@ -3198,9 +3378,9 @@ function renderOffAnalysis() {
     );
   if (!obs.length) obs.push('Sem pontos de atenção nesta semana.');
   el.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ANÁLISE DE FOLGAS · SEMANA ${wi + 1}</p><h2>Quantidade de folgas por turno e posto</h2><p>Cada linha é um posto em um turno e mostra quantas colaboradoras estão de <b>folga</b> em cada dia (embaixo, quantas trabalham). Verde: 3 ou mais trabalhando; amarelo: 2; vermelho: 0 ou 1.</p></div><div class="op-head-actions"><button type="button" class="button ${modoAjuste ? 'secondary' : 'outline'} adj-toggle" data-ajuste>${modoAjuste ? 'Ajuste ligado: use + e − nas células' : 'Ajustar escala por aqui'}</button><button class="button outline" id="toggleOff" type="button" aria-expanded="true">Recolher configuração ▴</button></div></div>
-  ${modoAjuste ? '<p class="oa-dica">Modo ajuste: <b>+</b> coloca mais 1 folga naquele dia (uma pessoa que trabalhava passa a folgar e vai trabalhar no dia mais vazio) e <b>−</b> tira 1 folga (uma pessoa que folgava passa a trabalhar e a folga dela vai para o dia com mais gente). Em "Pessoas por posto e turno" o mesmo vale para os turnos e refaz o rodízio das 4 semanas. Se a mudança quebrar uma regra, ela não é aplicada e aparece um erro em vermelho.</p>' : ''}
+  ${modoAjuste ? '<p class="oa-dica">Modo ajuste: em "Folgas por dia, posto e turno" o <b>+</b> e o <b>−</b> mudam livremente quantas pessoas folgam em cada dia (ex.: 2 na segunda no 1º turno e 4 no 2º). Nada muda na escala até você clicar em <b>Aplicar</b>; enquanto isso, os erros aparecem em vermelho logo acima da tabela. Em "Pessoas por posto e turno" o + e − continuam aplicando na hora e refazem o rodízio das 4 semanas.</p>' : ''}
   <div class="oa-obs"><h3>Pontos de atenção</h3><ul>${obs.map((o) => '<li>' + o + '</li>').join('')}</ul></div>
-  <h3 class="oa-title">Folgas por dia, posto e turno</h3><div class="table-wrap"><table class="oa-table oa-unif"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${unified}${totalRow}</tbody></table></div>
+  <h3 class="oa-title">Folgas por dia, posto e turno</h3>${modoAjuste ? rascPainel() : ''}<div class="table-wrap"><table class="oa-table oa-unif"><thead><tr>${dayHead}</tr></thead><tbody>${movRow}${unified}${totalRow}</tbody></table></div>
   ${posts.length ? `<h3 class="oa-title">Pessoas por posto e turno</h3><div class="table-wrap"><table class="oa-table oa-turnos"><thead><tr><th></th>${w.shifts.map((s) => `<th>${escape(s.name)}<small>${s.start}</small></th>`).join('')}<th>Total</th></tr></thead><tbody>${posts.map((q) => `<tr><th class="oa-row">${POST_NAMES[q.k]}<small>${q.mem.length} colab.</small></th>${w.shifts.map((s, i) => { const n = q.mem.filter((e) => e.shift === i).length; return `<td class="oa-${n ? 'ok' : 'warn'}"><b>${n}</b>${q.k === 'caixa' && hasPdv() ? `<small>máx. ${activePdvs(w).length} (PDVs)</small>` : ''}${modoAjuste ? ctlBtns(`data-oa="turno" data-post="${q.k}" data-turno="${i}"`) : ''}</td>`; }).join('')}<td><b>${q.mem.length}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
   <h3 class="oa-title">Quem está de folga em cada dia</h3><div class="table-wrap"><table class="oa-table oa-who"><tbody>${whoRows}</tbody></table></div>`;
 }
@@ -5142,6 +5322,16 @@ document.addEventListener('click', (e) => {
   const dl = +t.dataset.dl,
     w = week();
   if (t.dataset.oa === 'turno') return moveTurno(t.dataset.post, +t.dataset.turno, dl);
+  if (t.dataset.oa === 'dia' && /^(pt|t):/.test(t.dataset.g)) {
+    /* rascunho: muda só a quantidade desejada (livre); a escala muda no Aplicar */
+    const r = rascAtivo() || rascIniciar(),
+      x = gruposFolga().find((q) => q.g === t.dataset.g);
+    if (!x || !r.g[x.g]) return;
+    const v = r.g[x.g].v;
+    v[t.dataset.day] = Math.max(0, Math.min(x.mem.length, (v[t.dataset.day] || 0) + dl));
+    render();
+    return;
+  }
   if (t.dataset.oa === 'dia') {
     /* nas células de folga, + = mais 1 folga = menos 1 pessoa trabalhando */
     const [tp, id, tn] = t.dataset.g.split(':');

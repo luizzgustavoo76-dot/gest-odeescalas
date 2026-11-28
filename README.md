@@ -440,3 +440,9 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 ## Build 137 — Prévia sempre por posto (qualquer coluna)
 - Com postos (Frente de Caixa, Loja e Depósito…), a prévia fica sempre agrupada por posto com as faixas, igual à impressão. Clicar em Colaboradora, Turno, Entrada etc. só ordena dentro de cada posto.
 - Ordenar por Turno agora ordena pelo turno de verdade (1º, 2º, 3º) e depois pela entrada.
+
+## Build 138 — Folgas por dia, posto e turno: alterar livre, conferir e Aplicar
+- Com "Ajustar escala por aqui" ligado, o + e − em "Folgas por dia, posto e turno" mudam livremente a quantidade de folgas de cada posto/turno em cada dia (rascunho). A escala não muda até clicar em **Aplicar alterações**.
+- Os erros aparecem na hora, em vermelho, acima da tabela: soma de folgas de segunda a sábado diferente do necessário (faltam/sobram), ninguém trabalhando no dia, folga fixa/férias acima do número escolhido, quantidade que não cabe.
+- **Aplicar** redistribui as folgas das pessoas para bater exatamente com os números (mantém o que já estava certo, não mexe em folga fixa nem em férias/atestado). **Descartar** volta ao que era. Dá para voltar com Desfazer.
+- "Pessoas por posto e turno" continua aplicando na hora.

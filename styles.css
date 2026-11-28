@@ -649,3 +649,13 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 /* build 134 — caixinha: ignorar inativos há mais de 15 dias */
 .nm-inativos{display:flex;align-items:center;gap:8px;margin:6px 0 8px;font-weight:600;font-size:.92rem}
 .nm-inativos small{font-weight:400;color:var(--muted,#6b7280)}
+
+/* build 138 — rascunho de folgas (alterar livre, conferir e aplicar) */
+.oa-table td.oa-draft{outline:2px dashed #1d4ed8;outline-offset:-3px}
+.rasc-bar{border-radius:10px;padding:10px 14px;margin:0 0 10px;font-size:13px;line-height:1.5;background:#f4f6fa;border:1px solid #d6dce6;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.rasc-bar p{margin:0}
+.rasc-bar.tem-erro{background:#fdecec;border-color:#f2b8b8;color:#8a1414}
+.rasc-bar.ok{background:#eaf7ee;border-color:#b6e0c2;color:#14532d}
+.rasc-erros{margin:0;padding-left:18px;flex:1 1 320px}
+.rasc-acoes{display:flex;gap:8px;margin-left:auto}
+.rasc-acoes .button[disabled]{opacity:.5;cursor:not-allowed}
