@@ -1316,27 +1316,31 @@ function row(e) {
     nomeBtn = `<button class="employee-link${aus1 ? ' aus-nome' : ''}" data-jump="${e.id}" type="button"${aus1 ? ' title="Em férias / atestado nesta semana"' : ''}>${escape(e.name)}</button>`;
   /* férias/atestado a semana inteira: sem turno, posto, PDV nem horários */
   if (fora)
-    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno">—</td>${hasPosts() ? '<td data-label="Posto" data-print="—">—</td>' : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-ei="${i}" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
+    return `<tr class="aus-row fora"><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno">—</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(POST_NAMES[e.station] || '—')}">${escape(POST_NAMES[e.station] || '—')}</td>` : ''}<td data-label="Entrada">—</td><td data-label="Almoço">—</td><td data-label="Saída">—</td><td data-label="Folgas" class="c-off" data-ei="${i}" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${ausNota(e).replace(/^ · /, '')}</small></td><td data-label="Limite c/ extras">—</td></tr>`;
   return `<tr${aus1 ? ' class="aus-row"' : ''}><td class="c-name">${nomeBtn}${cadTurno(e)}</td><td data-label="Turno"><i class="shift-pill" style="background:${s.color}"></i>${shiftSel}</td>${hasPosts() ? `<td data-label="Posto" data-print="${ae(stationText(e) + swapNote(e))}">${stSel}${pdvSel}${swapNote(e)}</td>` : ''}<td data-label="Entrada">${s.start}</td><td data-label="Almoço">${s.lunchStart}–${s.lunchEnd}</td><td data-label="Saída">${s.end}</td><td data-label="Folgas" class="c-off" data-ei="${i}" data-print="${ae(offText(e))}"><div class="off-chips">${chips}</div><small class="off-count">${e.offDays.length}/${offLimit(e)} folga${offLimit(e) === 1 ? '' : 's'}${ausNota(e)}</small><label class="fixa-tbl" title="Trava os dias de folga marcados em todas as semanas"><input type="checkbox" data-employee="${i}" data-field="folgaFixa" ${e.folgaFixa ? 'checked' : ''} /> Folga fixa</label></td><td data-label="Limite c/ extras">${plus(s.end, EXTRA_MAX)}</td></tr>`;
 }
 function renderSchedule() {
-  /* quem está fora a semana inteira (férias/atestado) vai para o fim da tabela */
+  /* quem está fora a semana inteira (férias/atestado): com postos, fica no fim do PRÓPRIO posto (com a marca de férias); sem postos, no fim da tabela */
   const L = staff(),
-    ordem = [...L.filter((e) => !foraSemana(e)), ...L.filter((e) => foraSemana(e))];
-  /* ordenado "por posto" (padrão): faixa de título para cada posto, igual à impressão */
-  const faixas = hasPosts(),
-    cols = 7 + (hasPosts() ? 1 : 0),
-    ativas = ordem.filter((e) => !foraSemana(e));
+    faixas = hasPosts(),
+    pk = postKeys(),
+    pIdx = (e) => (pk.indexOf(e.station) < 0 ? 99 : pk.indexOf(e.station)),
+    fora = (e) => (foraSemana(e) ? 1 : 0),
+    ordem = faixas
+      ? ordemFixa
+        ? L /* ordem congelada após trocar turno: as linhas ficam onde estão */
+        : [...L].sort((a, b) => pIdx(a) - pIdx(b) || fora(a) - fora(b))
+      : [...L.filter((e) => !fora(e)), ...L.filter((e) => fora(e))];
+  const cols = 7 + (hasPosts() ? 1 : 0);
   let atual = null;
-  const linhas = ordem.map((e) => {
-    if (!faixas || foraSemana(e)) return row(e);
+  const linhas = ordem.map((e, k) => {
+    if (!faixas) return row(e);
     let band = '';
     if (e.station !== atual) {
       atual = e.station;
-      /* com a ordem congelada (após trocar turno) cada trecho seguido do mesmo posto tem a sua faixa */
-      const k = ativas.indexOf(e);
+      /* cada trecho seguido do mesmo posto tem a sua faixa; a contagem é de quem está trabalhando na semana */
       let n = 0;
-      while (ativas[k + n] && ativas[k + n].station === atual) n++;
+      for (let j = k; ordem[j] && ordem[j].station === atual; j++) if (!fora(ordem[j])) n++;
       band = `<tr class="grp"><td colspan="${cols}">${escape(POST_NAMES[atual] || 'Sem posto')} · ${n} ${n === 1 ? 'pessoa' : 'pessoas'}</td></tr>`;
     }
     return band + row(e);
@@ -1561,8 +1565,57 @@ function fixBtn(f, text) {
   if (!f) return '';
   const id = 'f' + ++fixSeq;
   FIXES[id] = { ...f, text };
-  const dica = { restritas: 'Move quem tem restrição para o turno mais cedo', domingoHora: 'Ajusta o horário do domingo para o limite', folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo', domingosCct: 'Troca o domingo com quem tem folga sobrando (mesmo posto primeiro), garantindo 2 domingos de folga para todos' }[f.k] || '';
+  const dica = { restritas: 'Move quem tem restrição para o turno mais cedo', domingoHora: 'Ajusta o horário do domingo para o limite', folgas: 'Recalcula as folgas desta semana', almoco: 'Refaz os horários de almoço em cascata', fechamento: 'Antecipa a entrada para a jornada terminar no fechamento', domingo: 'Escala no domingo quem pode, até cada posto chegar ao mínimo', sequencia: 'Leva uma folga para logo depois do domingo trabalhado (no máximo 6 dias seguidos)', domingosCct: 'Troca o domingo com quem tem folga sobrando (mesmo posto primeiro), garantindo 2 domingos de folga para todos' }[String(f.k).split(':')[0]] || '';
   return ` <button type="button" class="fix-btn" data-fix="${id}" title="${escape(dica)}">Corrigir</button>`;
+}
+/* art. 67: no máximo 6 dias seguidos de trabalho. Para quem passa disso (inclusive na virada de uma semana para a outra),
+   move uma folga da mesma semana para um dia dentro dos 6 primeiros da sequência (ex.: segunda ou terça depois do domingo trabalhado). */
+function corrigirSequencia(i, minWeek = 0) {
+  const weeks = sector().weeks,
+    keep = state.selectedWeek,
+    ord = (k) => DAYS.findIndex((d) => d[0] === k);
+  const seq = () => {
+    const s = [];
+    weeks.forEach((w, wi) => DAYS.forEach((d) => s.push(!!(w.employees[i] && worksOn(w.employees[i], d[0], wi)))));
+    return s;
+  };
+  let mexeu = 0;
+  for (let guard = 0; guard < 12; guard++) {
+    const s = seq();
+    let run = 0,
+      ini = -1;
+    for (let di = 0; di < s.length; di++) {
+      if (s[di]) {
+        if (!run) ini = di;
+        run++;
+        if (run > 6) break;
+      } else run = 0;
+    }
+    if (run <= 6) break;
+    let feito = false;
+    for (let t = ini + 6; t > ini && !feito; t--) {
+      const wi = Math.floor(t / 7),
+        w = weeks[wi],
+        e = w && w.employees[i],
+        dk = DAYS[t % 7][0];
+      if (!e || wi < minWeek || dk === 'domingo' || closedDay(dk, wi) || ausente(e, dk, wi) || w.realizada) continue;
+      state.selectedWeek = wi;
+      const mov = e.offDays.filter((k) => ord(k) > t % 7 && !travada(e, k)).sort((x, y) => ord(y) - ord(x))[0];
+      if (!mov) continue;
+      e.offDays = e.offDays.filter((k) => k !== mov).concat(dk).sort((x, y) => ord(x) - ord(y));
+      feito = true;
+      mexeu++;
+    }
+    if (!feito) break;
+  }
+  state.selectedWeek = keep;
+  return mexeu;
+}
+function corrigirSequencias(minWeek = 0) {
+  const n = Math.min(...sector().weeks.map((w) => w.employees.length));
+  let t = 0;
+  for (let i = 0; i < n; i++) t += corrigirSequencia(i, minWeek);
+  return t;
 }
 function aplicaCorrecao(id) {
   const f = FIXES[id];
@@ -1575,6 +1628,14 @@ function aplicaCorrecao(id) {
     [sel]: { at: new Date().toISOString(), weeks: clone(sector().weeks), roster: clone((state.roster && state.roster[sel]) || []) },
   };
   normalizeWeek(w);
+  if (String(f.k).startsWith('sequencia:')) {
+    const n = corrigirSequencia(+f.k.split(':')[1]);
+    render();
+    const resta = compliance().some((x) => x.text === f.text);
+    if (!n || resta) toast('Não consegui corrigir sozinho: ' + f.text + ' Mude uma folga à mão para um dia logo depois do domingo trabalhado (ou use Desfazer).');
+    else toast('Corrigido: a folga foi para um dia dentro dos 6 primeiros da sequência. Se não gostou, use Desfazer.', true);
+    return;
+  }
   if (f.k === 'domingosCct') {
     const c = corrigirDomingos(0);
     render();
@@ -2242,6 +2303,7 @@ function suggestOffAll() {
   const r = fillSundays(),
     cd = corrigirDomingos(0);
   sector().weeks.forEach((w) => balanceOffs(w, true));
+  corrigirSequencias(0);
   state.notice = 'Folgas sugeridas nas 4 semanas. ' + sundayNote(r) + corrigirNota(cd) + MOVE_NOTE;
   render();
 }
@@ -2334,6 +2396,8 @@ async function completarSemanas() {
   weeks.forEach((w, i) => {
     if (i > b || b === 0) balanceOffs(w, true);
   });
+  /* art. 67: ninguém com mais de 6 dias seguidos (inclusive na virada de semana) */
+  corrigirSequencias(b === 0 ? 0 : b + 1);
   state.selectedWeek = antes;
   sector().sigCompletar = sigOutras(b);
   const aviso = r.short.length || (r.noPost && r.noPost.length);
@@ -3836,15 +3900,16 @@ function compliance() {
           ws = [];
         for (let x = Math.floor(startDay / 7); x <= Math.floor(endDay / 7); x++) ws.push(x);
         add(
-          'atenção',
+          'erro',
           name +
             ': ' +
             run +
             ' dias seguidos sem descanso (semanas ' +
             (ws[0] + 1) +
             (ws.length > 1 ? ' a ' + (ws[ws.length - 1] + 1) : '') +
-            '); o descanso de 24h deve ocorrer ao menos a cada 6 dias (art. 67 da CLT).',
+            '); no máximo 6 dias seguidos: o descanso de 24h deve ocorrer ao menos a cada 6 dias (art. 67 da CLT).',
           ws,
+          'sequencia:' + i,
         );
       }
       if (!v) run = 0;
@@ -4509,7 +4574,8 @@ async function buildPrintHtml(autoPrint) {
         const e = emps[r.ei];
         if (!e) return [99, 9999, ''];
         const s = week().shifts[e.shift];
-        return [posts ? postOrder(e.station) : 0, s ? mins(s.start) * 2000 + mins(s.lunchStart || '00:00') : 9999 * 2000, e.name];
+        /* quem está de férias/atestado a semana inteira fica no fim do próprio posto */
+        return [(posts ? postOrder(e.station) : 0) * 2 + (foraSemana(e) ? 1 : 0), s ? mins(s.start) * 2000 + mins(s.lunchStart || '00:00') : 9999 * 2000, e.name];
       };
     const out = [...rows].sort((x, y) => {
       const p = key(x),
@@ -4524,7 +4590,7 @@ async function buildPrintHtml(autoPrint) {
         k = e ? e.station : null;
       if (k !== atual) {
         atual = k;
-        const n = out.filter((x) => (emps[x.ei] ? emps[x.ei].station : null) === k).length;
+        const n = out.filter((x) => emps[x.ei] && emps[x.ei].station === k && !foraSemana(emps[x.ei])).length;
         res.push({ grupo: (k && POST_NAMES[k] ? POST_NAMES[k] : 'Sem posto') + ' · ' + n + (n === 1 ? ' pessoa' : ' pessoas') });
       }
       res.push(r);

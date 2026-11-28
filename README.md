@@ -472,3 +472,8 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 145 — Colunas da prévia com a mesma largura em todas as semanas
 - No computador, a tabela da prévia tem largura fixa por coluna (Colaboradora, Turno, Posto, Entrada, Almoço, Saída, Folgas, Limite). Trocar de semana não muda mais os espaços quando uma semana tem nome maior, aviso "(após 18:04)" ou férias. No celular continua em cartões.
+
+## Build 146 — Férias no próprio posto · 6 dias seguidos com Corrigir
+- Quem está de férias/atestado a semana inteira aparece no fim do **próprio posto** (com a marca de férias e o nome do posto), na prévia e na impressão. A faixa do posto conta só quem está trabalhando.
+- Mais de 6 dias seguidos de trabalho (inclusive na virada de uma semana para a outra) agora é **erro** (art. 67 da CLT) com botão **Corrigir**: leva uma folga da mesma semana para logo depois do domingo trabalhado (ex.: segunda ou terça).
+- "Completar as 4 semanas" e "Sugerir folgas nas 4 semanas" já fazem essa correção sozinhos.

@@ -52,7 +52,7 @@ const v=await A.evaluate((i)=>{const e=sector().weeks[1].employees[i];const tr=[
   analise:!document.querySelector('#offAnalysis').textContent.includes(e.name),whats:textoWhats().split('*Férias / atestado*')[1]||'',nome:e.name,
   pdvsUnicos:(()=>{const m={};return outras.every(x=>{const k=x.pdv+'-'+x.shift;if(m[k])return false;m[k]=1;return true})})()}},quem);
 T('nome em vermelho na semana das férias',v.vermelho==='rgb(185, 28, 28)',v.vermelho);
-T('sem turno, posto, PDV nem horários na linha dela',v.sel===0&&/^—\|—\|—\|—\|—$/.test(v.txt),v.sel+' '+v.txt);
+T('sem turno, PDV nem horários na linha dela (o posto aparece)',v.sel===0&&/^—\|[^|—]+\|—\|—\|—$/.test(v.txt),v.sel+' '+v.txt);
 T('WhatsApp lista ela só em "Férias / atestado"',v.whats.includes(v.nome)&&!textoSemFora(v),'');
 T('na semana 1 (sem férias) a linha dela volta ao normal',await A.evaluate((i)=>{state.selectedWeek=0;render();const e=week().employees[i];const tr=[...document.querySelectorAll('#scheduleTable tbody tr:not(.grp)')].find(r=>r.querySelector('.employee-link').textContent===e.name);const ok=tr.querySelectorAll('select').length>=1&&!tr.classList.contains('aus-row');state.selectedWeek=1;render();return ok},quem));
 T('na semana das férias ela não trabalha nenhum dia',f.trab===0&&!f.dom&&f.offs===0,JSON.stringify([f.trab,f.dom,f.offs]));
