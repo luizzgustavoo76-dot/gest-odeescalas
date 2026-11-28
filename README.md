@@ -459,3 +459,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Domingo que cai nas férias/atestado não conta como domingo trabalhado (alertas da CCT, sugestão e correção de domingos).
 - Rodízio de postos mostra quantas estão de férias/atestado na semana.
 - Quem volta de férias sem folga na semana gera o erro de carga semanal com botão **Corrigir** (calcula as folgas dela).
+
+## Build 142 — Aviso "após HH:MM" do PDV ignora quem está de férias
+- O aviso de troca de PDV (ex.: "PDV 7 (após 18:04)") na prévia e na impressão não considera mais a operadora do outro turno que está de férias/atestado na semana.

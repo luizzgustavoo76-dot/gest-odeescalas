@@ -4554,10 +4554,10 @@ document.getElementById('printFileButton').addEventListener('click', printFile);
 
 /* troca de operadora no mesmo PDV: "até 17:20" / "após 17:20" (aparece só na impressão) */
 function swapNote(e) {
-  if (e.station !== 'caixa') return '';
+  if (e.station !== 'caixa' || foraSemana(e)) return '';
   const w = week(),
     g = w.employees
-      .filter((o) => o.station === 'caixa' && o.pdv === e.pdv && w.shifts[o.shift])
+      .filter((o) => o.station === 'caixa' && o.pdv === e.pdv && w.shifts[o.shift] && !foraSemana(o))
       .sort((a, b) => mins(w.shifts[a.shift].end) - mins(w.shifts[b.shift].end) || a.id - b.id);
   if (g.length < 2 || new Set(g.map((o) => o.shift)).size < 2) return '';
   const i = g.indexOf(e),
