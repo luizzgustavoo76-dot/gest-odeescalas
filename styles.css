@@ -675,3 +675,20 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 #weekSticky .ws-tab.active{background:var(--yellow);border-color:var(--yellow);color:#161514}
 @media(max-width:620px){#weekSticky{padding:5px 8px;gap:6px}#weekSticky .ws-setor{display:none}#weekSticky .ws-tab small{font-size:9px}#weekSticky .ws-tab b{font-size:11px}}
 @media print{#weekSticky{display:none!important}}
+
+/* build 145 — prévia com colunas de largura fixa (iguais em todas as semanas, não mudam com o conteúdo) */
+@media screen and (min-width:761px){
+  .table-wrap #scheduleTable{table-layout:fixed;width:100%;min-width:1060px}
+  .table-wrap #scheduleTable th:has([data-sort=name]){width:17%!important}
+  .table-wrap #scheduleTable th:has([data-sort=shift]){width:13%!important}
+  .table-wrap #scheduleTable th:has([data-sort=station]){width:17%!important}
+  .table-wrap #scheduleTable th:has([data-sort=start]){width:7%!important}
+  .table-wrap #scheduleTable th:has([data-sort=lunch]){width:8%!important}
+  .table-wrap #scheduleTable th:has([data-sort=end]){width:7%!important}
+  .table-wrap #scheduleTable th:has([data-sort=off]){width:22%!important}
+  .table-wrap #scheduleTable th:has([data-sort=hours]){width:9%!important}
+  .table-wrap #scheduleTable td{overflow-wrap:anywhere}
+  .table-wrap #scheduleTable td:last-child{width:auto!important}
+  .table-wrap #scheduleTable .tbl-sel{max-width:100%}
+  .table-wrap #scheduleTable .c-off{min-width:0}
+}

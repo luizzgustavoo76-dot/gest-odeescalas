@@ -469,3 +469,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 
 ## Build 144 — Barra das semanas fixa ao rolar
 - Ao rolar a página para baixo, quando a faixa "Semana 1, 2, 3, 4" sai da tela, aparece uma barra fixa no topo com o setor e as 4 semanas (a aberta em amarelo). Dá para trocar de semana por ela. Voltando para cima, ela some e a faixa normal aparece. Funciona no celular e não sai na impressão.
+
+## Build 145 — Colunas da prévia com a mesma largura em todas as semanas
+- No computador, a tabela da prévia tem largura fixa por coluna (Colaboradora, Turno, Posto, Entrada, Almoço, Saída, Folgas, Limite). Trocar de semana não muda mais os espaços quando uma semana tem nome maior, aviso "(após 18:04)" ou férias. No celular continua em cartões.
