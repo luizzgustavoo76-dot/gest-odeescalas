@@ -45,8 +45,15 @@ await clk(G1,'segunda',1);await A.waitForTimeout(150);
 const s1=await snap();
 await A.click('#rascDescartar');await A.waitForTimeout(150);
 T('Descartar limpa o rascunho sem mexer na escala',(await snap())===s1&&await A.evaluate(()=>!rascAtivo()));
-// impossível: 2º turno com todas folgando no mesmo dia
-await clk(G1,'terça',1);for(let k=0;k<8;k++)await clk(G1,'terça',1);await A.waitForTimeout(150);
-T('ninguém trabalhando também vira erro',/ninguém trabalhando/.test(await A.evaluate(()=>document.querySelector('.rasc-bar').innerText)));
+// posto com poucas pessoas: todo o 1º turno folga na terça (com a soma certa) → só alerta, Aplicar libera
+await A.evaluate(()=>{const x=gruposFolga().find(q=>q.g==='pt:caixa:0');rascIniciar();const v=rascAtivo().g[x.g].v;const tot=Object.values(v).reduce((a,b)=>a+b,0);const dias=Object.keys(v);dias.forEach(d=>v[d]=0);v['terça']=x.mem.length;let rest=tot-x.mem.length;for(const d of dias){if(d==='terça')continue;const p=Math.min(rest,x.mem.length-1);v[d]=p;rest-=p}render()});
+const st=await A.evaluate(()=>({err:rascErros(),av:rascAvisos(),dis:document.getElementById('rascAplicar').disabled,txt:document.querySelector('.rasc-bar').innerText}));
+T('ninguém trabalhando vira só alerta (não erro)',st.err.length===0&&st.av.some(x=>/ninguém trabalhando/.test(x)),JSON.stringify(st));
+T('com só o alerta, Aplicar libera',!st.dis);
+await A.click('#rascAplicar');await A.waitForTimeout(300);
+T('aplica mesmo com o posto vazio na terça',(await real(0,'terça'))===6&&await A.evaluate(()=>week().employees.every(e=>e.offDays.length===offLimit(e))));
+// folga errada continua bloqueando
+await clk(G1,'segunda',1);await A.waitForTimeout(150);
+T('soma de folgas errada continua bloqueando o Aplicar',await A.evaluate(()=>rascErros().length>0&&document.getElementById('rascAplicar').disabled));
 T('sem erros de página',errs.length===0,errs.join(';'));
 await b.close()})();

@@ -3126,6 +3126,18 @@ function rascInfo(x, wi = state.selectedWeek) {
   const precisa = x.mem.reduce((t, e) => t + (ausSemana(e, wi) ? dias.filter((d) => !worksOn(e, d[0], wi)).length : Math.min(offLimit(e), dias.length)), 0);
   return { dias, ausDia, fixoDia, precisa };
 }
+/* bloqueiam o Aplicar: conta de folgas errada ou impossível. Posto sem ninguém num dia é só alerta (falta gente mesmo) */
+function rascAvisos() {
+  const r = rascAtivo();
+  if (!r) return [];
+  const out = [];
+  gruposFolga().forEach((x) =>
+    diasUteis().forEach((d) => {
+      if ((r.g[x.g].v[d[0]] || 0) >= x.mem.length) out.push(x.rot + ' em ' + d[0] + ': ninguém trabalhando (vai faltar gente nesse dia).');
+    }),
+  );
+  return out;
+}
 function rascErros() {
   const r = rascAtivo();
   if (!r) return [];
@@ -3140,7 +3152,6 @@ function rascErros() {
       const n = v[d[0]] || 0;
       if (n < inf.ausDia[d[0]] + inf.fixoDia[d[0]])
         out.push(x.rot + ' em ' + d[0] + ': no mínimo ' + (inf.ausDia[d[0]] + inf.fixoDia[d[0]]) + ' de folga (férias/atestado ou folga fixa nesse dia).');
-      if (n >= x.mem.length && x.mem.length > 0) out.push(x.rot + ' em ' + d[0] + ': ninguém trabalhando.');
     });
     /* cada pessoa folga no máximo 1 vez por dia: com poucas pessoas não dá para concentrar tudo em poucos dias */
     const porPessoa = x.mem.map((e) => (ausSemana(e) ? 0 : offLimit(e)));
@@ -3237,8 +3248,9 @@ document.addEventListener('click', (ev) => {
 function rascPainel() {
   const r = rascAtivo();
   if (!r) return '<p class="rasc-bar">Use <b>+</b> e <b>−</b> nas células para montar as quantidades de folga. Depois clique em <b>Aplicar</b>.</p>';
-  const err = rascErros();
-  return `<div class="rasc-bar ${err.length ? 'tem-erro' : 'ok'}">${err.length ? `<ul class="rasc-erros">${err.map((x) => '<li>' + escape(x) + '</li>').join('')}</ul>` : '<p><b>Quantidades conferidas.</b> Clique em Aplicar para refazer as folgas da semana.</p>'}<div class="rasc-acoes"><button type="button" class="button outline" id="rascDescartar">Descartar</button><button type="button" class="button" id="rascAplicar" ${err.length ? 'disabled title="Corrija os erros em vermelho primeiro"' : ''}>Aplicar alterações</button></div></div>`;
+  const err = rascErros(),
+    av = rascAvisos();
+  return `<div class="rasc-bar ${err.length ? 'tem-erro' : av.length ? 'tem-aviso' : 'ok'}"><div class="rasc-msgs">${err.length ? `<ul class="rasc-erros">${err.map((x) => '<li>' + escape(x) + '</li>').join('')}</ul>` : `<p><b>Quantidades conferidas.</b> ${av.length ? 'Dá para aplicar, mas atenção:' : 'Clique em Aplicar para refazer as folgas da semana.'}</p>`}${av.length ? `<ul class="rasc-avisos">${av.map((x) => '<li>' + escape(x) + '</li>').join('')}</ul>` : ''}</div><div class="rasc-acoes"><button type="button" class="button outline" id="rascDescartar">Descartar</button><button type="button" class="button" id="rascAplicar" ${err.length ? 'disabled title="Corrija os erros em vermelho primeiro"' : ''}>Aplicar alterações</button></div></div>`;
 }
 function renderOffAnalysis() {
   const el = document.getElementById('offAnalysis');

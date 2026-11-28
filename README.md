@@ -446,3 +446,6 @@ O botão de completar agora usa a **semana que está aberta como base** e só re
 - Os erros aparecem na hora, em vermelho, acima da tabela: soma de folgas de segunda a sábado diferente do necessário (faltam/sobram), ninguém trabalhando no dia, folga fixa/férias acima do número escolhido, quantidade que não cabe.
 - **Aplicar** redistribui as folgas das pessoas para bater exatamente com os números (mantém o que já estava certo, não mexe em folga fixa nem em férias/atestado). **Descartar** volta ao que era. Dá para voltar com Desfazer.
 - "Pessoas por posto e turno" continua aplicando na hora.
+
+## Build 139 — Posto sem ninguém no dia é alerta, não erro
+- No rascunho de folgas, "ninguém trabalhando" num posto/turno passa a ser alerta amarelo: dá para aplicar (falta gente mesmo). Folga com conta errada continua em vermelho e bloqueia o Aplicar.

@@ -659,3 +659,7 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .rasc-erros{margin:0;padding-left:18px;flex:1 1 320px}
 .rasc-acoes{display:flex;gap:8px;margin-left:auto}
 .rasc-acoes .button[disabled]{opacity:.5;cursor:not-allowed}
+.rasc-bar.tem-aviso{background:#fff7e6;border-color:#f3d08a;color:#7a4a00}
+.rasc-msgs{flex:1 1 320px}
+.rasc-avisos{margin:4px 0 0;padding-left:18px;color:#8a5300}
+.rasc-bar.tem-erro .rasc-avisos{color:#8a5300}
